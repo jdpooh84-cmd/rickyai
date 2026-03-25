@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Zap, Shield, TrendingUp } from "lucide-react";
+import rickyMascot from "@/assets/ricky-mascot-nobg.png";
 
 const HeroSection = () => {
   const navigate = useNavigate();
@@ -14,15 +15,20 @@ const HeroSection = () => {
 
       <div className="relative z-10 container mx-auto px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 mb-8">
-            <Zap className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-primary">Community Intelligence Engine</span>
+          {/* Mascot */}
+          <div className="mb-8">
+            <img
+              src={rickyMascot}
+              alt="Ricky - Your AI Growth Guide"
+              className="w-40 h-auto mx-auto drop-shadow-2xl"
+              width={512}
+              height={640}
+            />
           </div>
 
           {/* Headline */}
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-            <span className="text-gradient-hero">PulseCore</span>
+            <span className="text-gradient-hero">RickyAI</span>
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground font-display mb-4">
             The marketing department for the business owner who does it all.
@@ -30,7 +36,7 @@ const HeroSection = () => {
 
           {/* Value Statement */}
           <p className="text-base md:text-lg text-secondary-foreground/70 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Stop guessing and start leading. PulseCore takes the $2,000-a-month work of a marketing agency 
+            Stop guessing and start leading. RickyAI takes the $2,000-a-month work of a marketing agency 
             and puts it into a 10-minute path. Know your community, dominate your competition, and find 
             the funding to grow—all while keeping your voice authentic.
           </p>
