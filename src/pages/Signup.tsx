@@ -24,8 +24,13 @@ const Signup = () => {
   const checkTrialEligibility = async (emailToCheck: string) => {
     if (!emailToCheck || !emailToCheck.includes("@")) return;
     setCheckingTrial(true);
-    const { data } = await supabase.rpc("check_trial_used", { check_email: emailToCheck });
-    setTrialUsed(!!data);
+    try {
+      const { data } = await supabase.rpc("check_trial_used", { check_email: emailToCheck });
+      setTrialUsed(!!data);
+    } catch (err) {
+      console.warn("Trial check failed, defaulting to eligible:", err);
+      setTrialUsed(false);
+    }
     setCheckingTrial(false);
   };
 
