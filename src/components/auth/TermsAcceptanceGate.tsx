@@ -91,14 +91,24 @@ const TermsAcceptanceGate = ({ children }: TermsAcceptanceGateProps) => {
             <div className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border">
               <Shield className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-sm font-medium text-foreground">API Key Protection</p>
+                <p className="text-sm font-medium text-foreground">API Key Protection & Liability</p>
                 <p className="text-xs text-muted-foreground">
                   You are solely responsible for protecting your API keys. The Company is not liable for any loss or misuse.
                 </p>
               </div>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border">
-              <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Results & Location Disclaimer</p>
+                <p className="text-xs text-muted-foreground">
+                  Results are not guaranteed and may vary by location, niche, and audience. Posting times differ by market.
+                  This is not professional advice.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border">
+              <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">Content Policy & Enforcement</p>
                 <p className="text-xs text-muted-foreground">
