@@ -14,6 +14,131 @@ export type Database = {
   }
   public: {
     Tables: {
+      businesses: {
+        Row: {
+          brand_tone: string | null
+          business_category: string | null
+          business_name: string
+          competitors: string | null
+          content_goals: string | null
+          created_at: string
+          facebook_url: string | null
+          funding_goals: string | null
+          google_business_profile: string | null
+          id: string
+          instagram_url: string | null
+          linkedin_url: string | null
+          niche: string | null
+          owner_name: string | null
+          referral_goals: string | null
+          services: string | null
+          target_audience: string | null
+          tiktok_url: string | null
+          updated_at: string
+          user_id: string
+          website_url: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          brand_tone?: string | null
+          business_category?: string | null
+          business_name: string
+          competitors?: string | null
+          content_goals?: string | null
+          created_at?: string
+          facebook_url?: string | null
+          funding_goals?: string | null
+          google_business_profile?: string | null
+          id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
+          niche?: string | null
+          owner_name?: string | null
+          referral_goals?: string | null
+          services?: string | null
+          target_audience?: string | null
+          tiktok_url?: string | null
+          updated_at?: string
+          user_id: string
+          website_url?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          brand_tone?: string | null
+          business_category?: string | null
+          business_name?: string
+          competitors?: string | null
+          content_goals?: string | null
+          created_at?: string
+          facebook_url?: string | null
+          funding_goals?: string | null
+          google_business_profile?: string | null
+          id?: string
+          instagram_url?: string | null
+          linkedin_url?: string | null
+          niche?: string | null
+          owner_name?: string | null
+          referral_goals?: string | null
+          services?: string | null
+          target_audience?: string | null
+          tiktok_url?: string | null
+          updated_at?: string
+          user_id?: string
+          website_url?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
+      locations: {
+        Row: {
+          business_id: string
+          city: string
+          country: string | null
+          created_at: string
+          id: string
+          is_primary: boolean
+          location_name: string
+          service_area: string | null
+          state: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          city: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          location_name: string
+          service_area?: string | null
+          state?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          city?: string
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          location_name?: string
+          service_area?: string | null
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
