@@ -90,9 +90,13 @@ const RickyHelper = ({ currentStep = 1, businessId }: RickyHelperProps) => {
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full bg-gradient-hero flex items-center justify-center shadow-glow animate-pulse-glow hover:scale-110 transition-transform"
+        className="w-14 h-14 rounded-full bg-gradient-hero flex items-center justify-center shadow-glow animate-pulse-glow hover:scale-110 transition-transform overflow-hidden"
       >
-        {isOpen ? <X className="w-6 h-6 text-primary-foreground" /> : <MessageCircle className="w-6 h-6 text-primary-foreground" />}
+        {isOpen ? (
+          <X className="w-6 h-6 text-primary-foreground" />
+        ) : (
+          <img src={rickyMascot} alt="Ricky AI" className="w-12 h-12 object-cover object-top" />
+        )}
       </button>
     </div>
   );
