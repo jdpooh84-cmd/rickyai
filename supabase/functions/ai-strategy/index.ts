@@ -171,8 +171,8 @@ ${businessContext}`
 ${businessContext}`
       },
       8: {
-        system: "You are a video production consultant for small businesses. You provide BOTH professional AI video tool workflows (HeyGen, InVideo) AND completely free alternatives (CapCut, Canva, phone camera). Every video idea MUST include a detailed free production prompt that the user can paste directly into a free tool. Return valid JSON.",
-        user: `Create a comprehensive video production plan for this business with BOTH paid AI tool instructions AND free alternatives. Return JSON:
+        system: "You are a video production consultant for small businesses. You provide workflows and ready-to-use prompts for 7 video creation platforms: Free tools (CapCut, phone camera), Canva (template-based video editor with Zapier integration), InVideo (YouTube automation with AI scripts/visuals/voiceovers), HeyGen (AI avatar videos), PixelBin (API-first pipeline with Zapier connector for automated media processing), EaseMate (AI video generator with consistent prompt→generate→download workflow), and Virbo (talking-head videos with integrated script generation). Every video idea MUST include prompts for ALL platforms. Return valid JSON.",
+        user: `Create a comprehensive video production plan for this business with prompts for all 7 platforms. Return JSON:
 {
   "video_strategy": "...overall video strategy tailored to this specific business...",
   "video_ideas": [
@@ -185,8 +185,12 @@ ${businessContext}`
       "script_outline": "...detailed script with specific dialogue for this business...",
       "heygen_prompt": "...exact prompt to paste into HeyGen to generate this video, including avatar description, script, tone, background setting...",
       "invideo_prompt": "...exact prompt to paste into InVideo AI to generate this video, including style, narration text, b-roll suggestions...",
+      "canva_prompt": "...exact instructions for Canva video editor: template style, text overlays, clip arrangement, music mood, export settings...",
+      "pixelbin_prompt": "...exact workflow for PixelBin: image/video transformations to apply, API parameters, Zapier automation chain description...",
+      "easemate_prompt": "...exact prompt to input into EaseMate AI video generator, including visual style, model selection, scene descriptions...",
+      "virbo_prompt": "...exact prompt for Virbo: script text for talking head, avatar style, background, tone of voice, optimization settings...",
       "free_production_guide": {
-        "tool": "CapCut|Canva|Phone Camera + CapCut",
+        "tool": "CapCut|Phone Camera + CapCut",
         "step_by_step": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
         "prompt_for_tool": "...exact text/prompt to use in the free tool...",
         "tips": "...specific tips for making it look professional without paid tools..."
@@ -199,11 +203,15 @@ ${businessContext}`
   "filming_tips": ["..."],
   "editing_workflow": "...",
   "ai_tool_comparison": {
-    "heygen": {"best_for": "...", "cost": "...", "signup_url": "https://www.heygen.com"},
-    "invideo": {"best_for": "...", "cost": "...", "signup_url": "https://invideo.io"},
+    "heygen": {"best_for": "AI avatar/spokesperson videos", "cost": "$24/mo+", "signup_url": "https://www.heygen.com", "workflow_tip": "Best for creating professional talking-head videos without being on camera"},
+    "invideo": {"best_for": "YouTube automation & batch content", "cost": "$25/mo+", "signup_url": "https://invideo.io", "workflow_tip": "Auto-generate scripts, visuals, and voiceovers; hook into schedulers for semi-hands-off content"},
+    "canva": {"best_for": "Template-based branded videos", "cost": "Free / $12.99/mo Pro", "signup_url": "https://www.canva.com/video-editor", "workflow_tip": "Connects with Zapier to trigger video creation from templates and push to social schedulers"},
+    "pixelbin": {"best_for": "API-driven media pipelines", "cost": "Free tier / Pay-as-you-go", "signup_url": "https://www.pixelbin.io", "workflow_tip": "Extensible APIs + Zapier connector to chain prompts, generation, and publishing automatically"},
+    "easemate": {"best_for": "Quick AI-generated videos", "cost": "Free with watermark / Paid", "signup_url": "https://www.easemate.com", "workflow_tip": "Consistent input→choose model→generate→download workflow, ideal for browser automation"},
+    "virbo": {"best_for": "Talking-head marketing videos", "cost": "$19.99/mo+", "signup_url": "https://virbo.wondershare.com", "workflow_tip": "Integrated script generation + optimization; standardize idea→script→video as repeatable process"},
     "free_alternatives": [
-      {"name": "CapCut", "best_for": "...", "url": "https://www.capcut.com"},
-      {"name": "Canva", "best_for": "...", "url": "https://www.canva.com/video-editor"}
+      {"name": "CapCut", "best_for": "Mobile/desktop editing", "url": "https://www.capcut.com"},
+      {"name": "DaVinci Resolve", "best_for": "Professional editing (free)", "url": "https://www.blackmagicdesign.com/products/davinciresolve"}
     ]
   }
 }
