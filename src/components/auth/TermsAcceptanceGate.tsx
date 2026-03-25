@@ -135,7 +135,8 @@ const TermsAcceptanceGate = ({ children }: TermsAcceptanceGateProps) => {
             />
             <span className="text-xs text-muted-foreground leading-snug">
               I have read and agree to the <strong className="text-foreground">Terms of Service</strong>,
-              including the API Key Responsibility clause, Content Policy, Dispute Resolution
+              including the API Key Responsibility clause, Results Disclaimer (results may vary by location,
+              niche, and audience), Content Policy, No Professional Advice disclaimer, Dispute Resolution
               (Binding Arbitration & Class Action Waiver), and Limitation of Liability provisions.
             </span>
           </label>
