@@ -1,17 +1,11 @@
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
-  FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check
+  FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
+  Trophy, MessageSquare, ShoppingBag
 } from "lucide-react";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
+  SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
 
 const steps = [
@@ -29,13 +23,21 @@ const steps = [
   { num: 12, icon: DollarSign, title: "Grant Search" },
 ];
 
+const extras = [
+  { id: "score", icon: Trophy, title: "Growth Score" },
+  { id: "community", icon: MessageSquare, title: "Community" },
+  { id: "marketplace", icon: ShoppingBag, title: "Marketplace" },
+];
+
 interface AppSidebarProps {
   activeStep: number;
   completedSteps: number[];
   onStepClick?: (step: number) => void;
+  activeSection?: string;
+  onSectionClick?: (section: string) => void;
 }
 
-const AppSidebar = ({ activeStep, completedSteps, onStepClick }: AppSidebarProps) => {
+const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, onSectionClick }: AppSidebarProps) => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -56,17 +58,14 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick }: AppSidebarProps
           <SidebarGroupContent>
             <SidebarMenu>
               {steps.map((step) => {
-                const isActive = step.num === activeStep;
+                const isActive = !activeSection && step.num === activeStep;
                 const isCompleted = completedSteps.includes(step.num);
-
                 return (
                   <SidebarMenuItem key={step.num}>
                     <SidebarMenuButton
-                      onClick={() => onStepClick?.(step.num)}
+                      onClick={() => { onSectionClick?.(""); onStepClick?.(step.num); }}
                       className={`relative transition-all cursor-pointer ${
-                        isActive
-                          ? "bg-primary/10 text-primary border-l-2 border-primary"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        isActive ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
                       }`}
                     >
                       <div className="flex items-center gap-3 w-full">
@@ -78,9 +77,7 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick }: AppSidebarProps
                           ) : (
                             <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
                               isActive ? "border-primary text-primary" : "border-muted-foreground/30 text-muted-foreground/50"
-                            }`}>
-                              {step.num}
-                            </div>
+                            }`}>{step.num}</div>
                           )}
                         </div>
                         {!collapsed && (
@@ -89,6 +86,32 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick }: AppSidebarProps
                             <span className="text-sm font-medium">{step.title}</span>
                           </div>
                         )}
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
+            {!collapsed && "Community"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {extras.map(item => {
+                const isActive = activeSection === item.id;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      onClick={() => onSectionClick?.(item.id)}
+                      className={`cursor-pointer transition-all ${isActive ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
+                        {!collapsed && <span className="text-sm font-medium">{item.title}</span>}
                       </div>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
