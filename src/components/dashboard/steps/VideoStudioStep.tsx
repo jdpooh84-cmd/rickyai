@@ -105,7 +105,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
   const handleDownloadGuide = () => {
-    window.open(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-guide-pdf`, '_blank');
+    const link = document.createElement('a');
+    link.href = '/RickyAI-Video-Studio-Guide.pdf';
+    link.download = 'RickyAI-Video-Studio-Guide.pdf';
+    link.click();
   };
 
   return (
