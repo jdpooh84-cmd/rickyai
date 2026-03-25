@@ -84,9 +84,12 @@ const AdminDashboard = () => {
         <AdminStatsCards stats={stats} />
 
         <Tabs defaultValue="team" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="team" className="flex items-center gap-2">
               <Users className="w-4 h-4" /> Team
+            </TabsTrigger>
+            <TabsTrigger value="moderation" className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" /> Moderation
             </TabsTrigger>
             <TabsTrigger value="affiliates" className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" /> Affiliates
@@ -98,6 +101,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="team" className="mt-6">
             <TeamManagement currentUserId={user?.id || ""} />
+          </TabsContent>
+
+          <TabsContent value="moderation" className="mt-6">
+            <BanManagement />
           </TabsContent>
 
           <TabsContent value="affiliates" className="mt-6">
