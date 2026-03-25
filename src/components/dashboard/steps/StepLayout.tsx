@@ -32,7 +32,7 @@ const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, on
         </div>
       )}
 
-      {!hasData && !loading && (
+      {!hasData && !loading && !hideGenerateButton && (
         <div className="text-center py-16">
           <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">{icon}</span>
@@ -40,10 +40,12 @@ const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, on
           <h3 className="text-lg font-display font-semibold text-foreground mb-2">{title}</h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">{description}</p>
           <Button variant="hero" size="lg" onClick={onGenerate} disabled={loading}>
-            Generate {title}
+            {generateLabel || `Generate ${title}`}
           </Button>
         </div>
       )}
+
+      {!hasData && !loading && hideGenerateButton && children}
 
       {loading && (
         <div className="text-center py-16">
