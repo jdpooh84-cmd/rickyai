@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { X, MessageCircle, Send, Loader2 } from "lucide-react";
+import { X, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import rickyMascot from "@/assets/ricky-mascot-nobg.png";
 
 interface RickyHelperProps {
   currentStep?: number;
