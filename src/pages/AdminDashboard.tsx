@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, LayoutDashboard } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, ShieldAlert } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import TeamManagement from "@/components/admin/TeamManagement";
