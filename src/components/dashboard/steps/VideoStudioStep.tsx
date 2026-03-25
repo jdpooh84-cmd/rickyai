@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
+import VideoStudioGuide from "./VideoStudioGuide";
 import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker } from "lucide-react";
 import { toast } from "sonner";
 
@@ -103,9 +104,20 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     );
   };
 
+  const handleDownloadGuide = () => {
+    const link = document.createElement('a');
+    link.href = '/RickyAI-Video-Studio-Guide.pdf';
+    link.download = 'RickyAI-Video-Studio-Guide.pdf';
+    link.click();
+  };
+
   return (
     <StepLayout title="Video Studio" description="Your video production plan with ready-to-use prompts for 11 tools — from free options to professional AI platforms."
       icon="🎬" loading={loading} hasData={!!data} onGenerate={handleGenerate} onRegenerate={handleGenerate} needsProfile={!businessId}>
+
+      {/* In-app guide - always visible */}
+      <VideoStudioGuide onDownloadGuide={handleDownloadGuide} />
+
       {data && (
         <div className="space-y-6">
           {data.video_strategy && (
