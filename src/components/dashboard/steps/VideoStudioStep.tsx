@@ -96,8 +96,24 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       setLoadingInsights(false);
     }
   };
+  const handleGenerateVideo = async (videoType: string = "promotional") => {
+    if (!businessId) return;
+    setGeneratingVideo(true);
+    try {
+      const response = await supabase.functions.invoke("generate-video", {
+        body: { businessId, videoType, productionMode },
+      });
+      if (response.error) throw new Error(response.error.message);
+      setGeneratedVideoScript(response.data);
+      toast.success("Video production plan generated!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate video");
+    } finally {
+      setGeneratingVideo(false);
+    }
+  };
 
-  const copyToClipboard = (text: string, id: string) => {
+
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     toast.success("Copied to clipboard!");
