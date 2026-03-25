@@ -89,6 +89,119 @@ export type Database = {
         }
         Relationships: []
       }
+      forum_posts: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: string
+          is_pinned: boolean
+          reply_count: number
+          title: string
+          updated_at: string
+          upvotes: number
+          user_id: string
+        }
+        Insert: {
+          body: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          reply_count?: number
+          title: string
+          updated_at?: string
+          upvotes?: number
+          user_id: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          reply_count?: number
+          title?: string
+          updated_at?: string
+          upvotes?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      forum_replies: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          post_id: string
+          upvotes: number
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          post_id: string
+          upvotes?: number
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          upvotes?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_replies_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_upvotes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string | null
+          reply_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          reply_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          reply_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_upvotes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_upvotes_reply_id_fkey"
+            columns: ["reply_id"]
+            isOneToOne: false
+            referencedRelation: "forum_replies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           business_id: string
@@ -138,6 +251,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      point_history: {
+        Row: {
+          action: string
+          created_at: string
+          description: string | null
+          id: string
+          points: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          points: number
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          points?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -226,6 +366,35 @@ export type Database = {
           },
         ]
       }
+      strategy_purchases: {
+        Row: {
+          buyer_user_id: string
+          id: string
+          purchased_at: string
+          strategy_id: string
+        }
+        Insert: {
+          buyer_user_id: string
+          id?: string
+          purchased_at?: string
+          strategy_id: string
+        }
+        Update: {
+          buyer_user_id?: string
+          id?: string
+          purchased_at?: string
+          strategy_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategy_purchases_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "winning_strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_api_keys: {
         Row: {
           api_key_encrypted: string
@@ -253,6 +422,123 @@ export type Database = {
           provider?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          badge_id: string
+          earned_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          badge_id: string
+          earned_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          badge_id?: string
+          earned_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_points: {
+        Row: {
+          created_at: string
+          id: string
+          last_activity_date: string | null
+          level: number
+          points: number
+          streak_days: number
+          total_points_earned: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_activity_date?: string | null
+          level?: number
+          points?: number
+          streak_days?: number
+          total_points_earned?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_activity_date?: string | null
+          level?: number
+          points?: number
+          streak_days?: number
+          total_points_earned?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      winning_strategies: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          id: string
+          industry: string
+          is_free: boolean
+          location: string | null
+          metrics: Json | null
+          platform: string | null
+          price_cents: number
+          purchase_count: number
+          results_summary: string
+          seller_user_id: string
+          strategy_data: Json
+          title: string
+          updated_at: string
+          upvotes: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          id?: string
+          industry: string
+          is_free?: boolean
+          location?: string | null
+          metrics?: Json | null
+          platform?: string | null
+          price_cents?: number
+          purchase_count?: number
+          results_summary: string
+          seller_user_id: string
+          strategy_data?: Json
+          title: string
+          updated_at?: string
+          upvotes?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          industry?: string
+          is_free?: boolean
+          location?: string | null
+          metrics?: Json | null
+          platform?: string | null
+          price_cents?: number
+          purchase_count?: number
+          results_summary?: string
+          seller_user_id?: string
+          strategy_data?: Json
+          title?: string
+          updated_at?: string
+          upvotes?: number
         }
         Relationships: []
       }
