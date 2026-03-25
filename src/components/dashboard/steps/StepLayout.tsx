@@ -2,19 +2,21 @@ import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
 import { ReactNode } from "react";
 
-interface StepLayoutProps {
+export interface StepLayoutProps {
   title: string;
   description: string;
   icon: string;
   loading: boolean;
   hasData: boolean;
   onGenerate: () => void;
-  onRegenerate: () => void;
+  onRegenerate?: () => void;
   children: ReactNode;
   needsProfile?: boolean;
+  hideGenerateButton?: boolean;
+  generateLabel?: string;
 }
 
-const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, onRegenerate, children, needsProfile }: StepLayoutProps) => {
+const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, onRegenerate, children, needsProfile, hideGenerateButton, generateLabel }: StepLayoutProps) => {
   return (
     <div className="max-w-3xl mx-auto pb-12">
       <div className="mb-8">
@@ -30,7 +32,7 @@ const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, on
         </div>
       )}
 
-      {!hasData && !loading && (
+      {!hasData && !loading && !hideGenerateButton && (
         <div className="text-center py-16">
           <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
             <span className="text-3xl">{icon}</span>
@@ -38,10 +40,12 @@ const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, on
           <h3 className="text-lg font-display font-semibold text-foreground mb-2">{title}</h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">{description}</p>
           <Button variant="hero" size="lg" onClick={onGenerate} disabled={loading}>
-            Generate {title}
+            {generateLabel || `Generate ${title}`}
           </Button>
         </div>
       )}
+
+      {!hasData && !loading && hideGenerateButton && children}
 
       {loading && (
         <div className="text-center py-16">
