@@ -171,10 +171,48 @@ ${businessContext}`
 ${businessContext}`
       },
       8: {
-        system: "You are a video production consultant for small businesses. You provide workflows and ready-to-use prompts for 11 video/media creation platforms: Free tools (phone camera + free editors), CapCut (powerful free video editor), Canva (template-based video editor with Zapier integration), InVideo (YouTube automation with AI scripts/visuals/voiceovers), HeyGen (AI avatar videos), PixelBin (API-first pipeline with Zapier connector), EaseMate (AI video generator), Virbo (talking-head videos), Detail (screen recording & async video), ElevenLabs (AI voice generation & dubbing), and Nvidia Broadcast (AI-powered streaming/recording). Every video idea MUST include prompts for ALL platforms. Return valid JSON.",
-        user: `Create a comprehensive video production plan for this business with prompts for all 11 platforms. Return JSON:
+        system: `You are a video production consultant for small businesses. You provide workflows and ready-to-use prompts for 11 video/media creation platforms. ${productionMode === "quick" ? "Focus on 15-30 second social-first clips for TikTok, Reels, Shorts." : productionMode === "longform" ? "Focus on 5-15 minute deep-dive content for YouTube, webinars, courses." : "Focus on 1-3 minute balanced videos for YouTube, Facebook, LinkedIn."} ${workflowMode === "auto" ? `This is FULL AUTO mode — generate a complete production plan with posting schedule (${postFrequency?.replace("x", "")} posts per day, ${postSchedule} plan) and ready-to-execute video production packages. Include a posting_schedule object and produced_videos array with complete prompts for every platform.` : "Generate DIY prompts the user can copy-paste into their tools."} ${insightReport ? "Generate insight reports with daily_insights (metrics array with label/value pairs, summary) and weekly_insights (summary, recommendations array)." : ""} Return valid JSON.`,
+        user: `Create a comprehensive video production plan for this business. Return JSON:
 {
   "video_strategy": "...overall video strategy tailored to this specific business...",
+  ${workflowMode === "auto" ? `"posting_schedule": {
+    "daily_posts": ${postFrequency?.replace("x", "") || "1"},
+    "weekly_total": ${(parseInt(postFrequency?.replace("x", "") || "1")) * 7},
+    "best_times": ["9:00 AM", "12:00 PM", "6:00 PM"],
+    "platforms_count": "3+",
+    "schedule_details": [
+      {"day": "Monday", "time": "9:00 AM", "content_type": "Educational", "platform": "YouTube"},
+      {"day": "Monday", "time": "12:00 PM", "content_type": "Behind-the-scenes", "platform": "Instagram"},
+      {"day": "Tuesday", "time": "9:00 AM", "content_type": "Tips & Tricks", "platform": "TikTok"}
+    ]
+  },
+  "produced_videos": [
+    {
+      "title": "...ready-to-produce video title...",
+      "duration": "${productionMode === "quick" ? "30s" : productionMode === "longform" ? "8 min" : "2 min"}",
+      "description": "...what this video covers...",
+      "platform": "...primary platform...",
+      "format": "${productionMode === "quick" ? "9:16 vertical" : "16:9 horizontal"}",
+      "production_prompts": {
+        "heygen_prompt": "...exact paste-ready prompt...",
+        "invideo_prompt": "...exact paste-ready prompt...",
+        "capcut_prompt": "...exact editing workflow...",
+        "canva_prompt": "...exact template instructions..."
+      }
+    }
+  ],` : ""}
+  ${insightReport ? `"daily_insights": {
+    "metrics": [
+      {"label": "Est. Reach", "value": "2.5K"},
+      {"label": "Engagement Rate", "value": "4.2%"},
+      {"label": "Best Content", "value": "Tutorial"}
+    ],
+    "summary": "...daily performance analysis based on content strategy..."
+  },
+  "weekly_insights": {
+    "summary": "...weekly growth analysis and trends...",
+    "recommendations": ["...actionable recommendation 1...", "...actionable recommendation 2...", "...actionable recommendation 3..."]
+  },` : ""}
   "video_ideas": [
     {
       "title": "...specific to this business...",
@@ -183,21 +221,21 @@ ${businessContext}`
       "equipment": ["..."],
       "estimated_views": "...",
       "script_outline": "...detailed script with specific dialogue for this business...",
-      "heygen_prompt": "...exact prompt to paste into HeyGen to generate this video...",
-      "invideo_prompt": "...exact prompt to paste into InVideo AI to generate this video...",
+      "heygen_prompt": "...exact prompt to paste into HeyGen...",
+      "invideo_prompt": "...exact prompt to paste into InVideo AI...",
       "canva_prompt": "...exact instructions for Canva video editor...",
       "pixelbin_prompt": "...exact workflow for PixelBin...",
-      "easemate_prompt": "...exact prompt to input into EaseMate AI video generator...",
+      "easemate_prompt": "...exact prompt for EaseMate AI...",
       "virbo_prompt": "...exact prompt for Virbo...",
-      "capcut_prompt": "...exact editing workflow for CapCut: effects, transitions, text styles, audio sync, export settings...",
-      "detail_prompt": "...exact workflow for Detail app: recording setup, scene layout, editing steps, async sharing...",
-      "elevenlabs_prompt": "...exact prompt for ElevenLabs: voice clone/selection, script text, tone, speed, language, dubbing instructions...",
-      "nvidia_prompt": "...exact workflow for Nvidia Broadcast: background replacement, noise removal, auto-frame settings for recording...",
+      "capcut_prompt": "...exact editing workflow for CapCut...",
+      "detail_prompt": "...exact workflow for Detail app...",
+      "elevenlabs_prompt": "...exact prompt for ElevenLabs...",
+      "nvidia_prompt": "...exact workflow for Nvidia Broadcast...",
       "free_production_guide": {
         "tool": "Phone Camera + Free Editor",
         "step_by_step": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-        "prompt_for_tool": "...exact text/prompt to use in the free tool...",
-        "tips": "...specific tips for making it look professional without paid tools..."
+        "prompt_for_tool": "...exact text/prompt to use...",
+        "tips": "...tips for professional results..."
       }
     }
   ],
@@ -207,16 +245,16 @@ ${businessContext}`
   "filming_tips": ["..."],
   "editing_workflow": "...",
   "ai_tool_comparison": {
-    "heygen": {"best_for": "AI avatar/spokesperson videos", "cost": "$24/mo+", "signup_url": "https://www.heygen.com", "workflow_tip": "Best for creating professional talking-head videos without being on camera"},
-    "invideo": {"best_for": "YouTube automation & batch content", "cost": "$25/mo+", "signup_url": "https://invideo.io", "workflow_tip": "Auto-generate scripts, visuals, and voiceovers; hook into schedulers for semi-hands-off content"},
-    "canva": {"best_for": "Template-based branded videos", "cost": "Free / $12.99/mo Pro", "signup_url": "https://www.canva.com/video-editor", "workflow_tip": "Connects with Zapier to trigger video creation from templates"},
-    "pixelbin": {"best_for": "API-driven media pipelines", "cost": "Free tier / Pay-as-you-go", "signup_url": "https://www.pixelbin.io", "workflow_tip": "Extensible APIs + Zapier connector for automated media processing"},
-    "easemate": {"best_for": "Quick AI-generated videos", "cost": "Free with watermark / Paid", "signup_url": "https://www.easemate.com", "workflow_tip": "Consistent prompt→generate→download workflow"},
-    "virbo": {"best_for": "Talking-head marketing videos", "cost": "$19.99/mo+", "signup_url": "https://virbo.wondershare.com", "workflow_tip": "Integrated script generation + optimization"},
-    "capcut": {"best_for": "Free professional video editing", "cost": "Free / Pro $7.99/mo", "signup_url": "https://www.capcut.com", "workflow_tip": "Auto-captions, AI effects, templates — best free editor for social content"},
-    "detail": {"best_for": "Screen recording & async video", "cost": "Free / $12/mo", "signup_url": "https://detail.co", "workflow_tip": "Great for tutorials, product demos, and team async communication"},
-    "elevenlabs": {"best_for": "AI voiceovers & dubbing", "cost": "Free tier / $5/mo+", "signup_url": "https://elevenlabs.io", "workflow_tip": "Clone your voice or pick from library; dub videos into 29+ languages automatically"},
-    "nvidia": {"best_for": "AI-enhanced streaming & recording", "cost": "Free (requires Nvidia GPU)", "signup_url": "https://www.nvidia.com/en-us/geforce/broadcasting/broadcast-app", "workflow_tip": "Background removal, noise cancellation, auto-frame — use with any recording software"},
+    "heygen": {"best_for": "AI avatar/spokesperson videos", "cost": "$24/mo+", "signup_url": "https://www.heygen.com", "workflow_tip": "..."},
+    "invideo": {"best_for": "YouTube automation", "cost": "$25/mo+", "signup_url": "https://invideo.io", "workflow_tip": "..."},
+    "canva": {"best_for": "Template-based branded videos", "cost": "Free / $12.99/mo", "signup_url": "https://www.canva.com/video-editor", "workflow_tip": "..."},
+    "pixelbin": {"best_for": "API-driven media pipelines", "cost": "Free tier", "signup_url": "https://www.pixelbin.io", "workflow_tip": "..."},
+    "easemate": {"best_for": "Quick AI-generated videos", "cost": "Free with watermark", "signup_url": "https://www.easemate.com", "workflow_tip": "..."},
+    "virbo": {"best_for": "Talking-head marketing videos", "cost": "$19.99/mo+", "signup_url": "https://virbo.wondershare.com", "workflow_tip": "..."},
+    "capcut": {"best_for": "Free professional editing", "cost": "Free / Pro $7.99/mo", "signup_url": "https://www.capcut.com", "workflow_tip": "..."},
+    "detail": {"best_for": "Screen recording", "cost": "Free / $12/mo", "signup_url": "https://detail.co", "workflow_tip": "..."},
+    "elevenlabs": {"best_for": "AI voiceovers", "cost": "Free tier / $5/mo+", "signup_url": "https://elevenlabs.io", "workflow_tip": "..."},
+    "nvidia": {"best_for": "AI-enhanced streaming", "cost": "Free (Nvidia GPU)", "signup_url": "https://www.nvidia.com/en-us/geforce/broadcasting/broadcast-app", "workflow_tip": "..."},
     "free_alternatives": [
       {"name": "CapCut", "best_for": "Mobile/desktop editing", "url": "https://www.capcut.com"},
       {"name": "DaVinci Resolve", "best_for": "Professional editing (free)", "url": "https://www.blackmagicdesign.com/products/davinciresolve"},
