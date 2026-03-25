@@ -2,19 +2,19 @@
 export const PLANS = {
   monthly: {
     name: "Monthly",
-    price_id: "price_1TEv26DtqsarQIarsty0zeee",
-    product_id: "prod_UDLjx27JyqGUjK",
-    price: "$79",
+    price_id: "price_1TEySEDtqsarQIarO7vop512",
+    product_id: "prod_UDPGYEdFpDRvVC",
+    price: "$99",
     period: "/mo",
-    desc: "Full access, cancel anytime",
+    desc: "Full access with AI video production, cancel anytime",
   },
   annual: {
     name: "Annual",
-    price_id: "price_1TEv3cDtqsarQIar4LwOEBnF",
-    product_id: "prod_UDLlJvulD7Uwtl",
-    price: "$59",
+    price_id: "price_1TEySoDtqsarQIarthDWCVOK",
+    product_id: "prod_UDPHH5QTYvPRzQ",
+    price: "$79",
     period: "/mo",
-    desc: "Billed $708/year — save $240",
+    desc: "Billed $948/year — save $240",
   },
 } as const;
 
