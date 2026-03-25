@@ -1,9 +1,12 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import HeroSection from "@/components/landing/HeroSection";
 import StepsOverview from "@/components/landing/StepsOverview";
 import PricingSection from "@/components/landing/PricingSection";
 
 const Landing = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
@@ -20,8 +23,8 @@ const Landing = () => {
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm">Log In</Button>
-            <Button variant="hero" size="sm">Get Started</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>Log In</Button>
+            <Button variant="hero" size="sm" onClick={() => navigate("/signup")}>Get Started</Button>
           </div>
         </div>
       </nav>
