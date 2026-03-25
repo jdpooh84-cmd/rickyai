@@ -256,6 +256,21 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </div>
             </button>
           </div>
+
+          {/* Sample Generated Video */}
+          <div className="glass rounded-2xl p-6 mt-6">
+            <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+              <Play className="w-4 h-4 text-primary" /> Sample AI-Generated Video
+            </h4>
+            <p className="text-xs text-muted-foreground mb-3">This is what RickyAI can produce for your business — a professional promo video generated from your business profile.</p>
+            <video controls className="w-full rounded-xl max-h-[300px] bg-black" poster="">
+              <source src={sampleVideoAsset.url} type="video/mp4" />
+              Your browser does not support video playback.
+            </video>
+          </div>
+
+          {/* External App Connections */}
+          <ExternalAppConnections />
         </div>
       </StepLayout>
     );
