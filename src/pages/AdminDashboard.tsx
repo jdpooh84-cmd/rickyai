@@ -84,6 +84,47 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, [isAdmin]);
 
+  const handleSearchUsers = async () => {
+    setSearchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "search", email: searchEmail },
+      });
+      if (error) throw error;
+      setManagedUsers(data.users || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to search users");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleGrantRole = async (userId: string, role: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "grant_role", user_id: userId, role },
+      });
+      if (error) throw error;
+      toast.success("Role granted!");
+      handleSearchUsers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to grant role");
+    }
+  };
+
+  const handleRevokeRole = async (userId: string, role: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "revoke_role", user_id: userId, role },
+      });
+      if (error) throw error;
+      toast.success("Role revoked!");
+      handleSearchUsers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to revoke role");
+    }
+  };
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background text-foreground">Loading...</div>;
   if (!isAdmin) return null;
 
