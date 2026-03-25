@@ -271,7 +271,7 @@ const ProfileStep = ({ onComplete }: ProfileStepProps) => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold font-display text-foreground mb-2">Business Profile</h1>
         <p className="text-muted-foreground">
-          Everything PulseCore generates is based on this profile. The more you fill in, the more
+          Everything RickyAI generates is based on this profile. The more you fill in, the more
           personalized and powerful your strategy becomes.
         </p>
       </div>

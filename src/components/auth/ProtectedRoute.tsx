@@ -10,7 +10,7 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-hero animate-pulse" />
-          <span className="text-muted-foreground text-sm">Loading PulseCore...</span>
+          <span className="text-muted-foreground text-sm"><span className="text-muted-foreground text-sm">Loading RickyAI...</span></span>
         </div>
       </div>
     );
