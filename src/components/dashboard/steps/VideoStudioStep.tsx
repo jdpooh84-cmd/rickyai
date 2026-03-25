@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
-import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, Gpu } from "lucide-react";
+import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
