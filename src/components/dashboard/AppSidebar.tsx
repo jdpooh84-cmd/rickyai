@@ -1,12 +1,16 @@
+import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const steps = [
   { num: 1, icon: Link, title: "Connect" },
@@ -41,6 +45,20 @@ interface AppSidebarProps {
 const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, onSectionClick }: AppSidebarProps) => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [user]);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -121,6 +139,29 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
+              {!collapsed && "Admin"}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => navigate("/admin")}
+                    className="cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent"
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <ShieldCheck className="w-5 h-5 flex-shrink-0 text-primary" />
+                      {!collapsed && <span className="text-sm font-medium">Admin Dashboard</span>}
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
