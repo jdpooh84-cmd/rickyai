@@ -19,11 +19,21 @@ interface AdminStats {
   topReferrers: Array<{ user_id: string; conversions: number; code: string }>;
 }
 
+interface ManagedUser {
+  id: string;
+  email: string;
+  created_at: string;
+  roles: string[];
+}
+
 const AdminDashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchEmail, setSearchEmail] = useState("");
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0, totalBusinesses: 0, totalReferrals: 0,
     pendingPayouts: 0, activeAds: 0, totalAdRevenue: 0,
