@@ -65,9 +65,9 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
       <SidebarContent className="pt-4">
         <div className="px-4 mb-6 flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center flex-shrink-0">
-            <span className="text-sm font-bold text-primary-foreground">P</span>
+            <span className="text-sm font-bold text-primary-foreground">R</span>
           </div>
-          {!collapsed && <span className="font-display font-bold text-foreground">PulseCore</span>}
+          {!collapsed && <span className="font-display font-bold text-foreground">RickyAI</span>}
         </div>
 
         <SidebarGroup>

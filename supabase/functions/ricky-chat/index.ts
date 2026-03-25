@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
     const stepNames = ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search"];
 
-    const systemPrompt = `You are Ricky, a proactive and encouraging AI growth guide for PulseCore — a local business growth platform. You help small business owners build their online presence step by step.
+    const systemPrompt = `You are Ricky, a proactive and encouraging AI growth guide for RickyAI — a local business growth platform. You help small business owners build their online presence step by step.
 
 Current step: ${stepNames[currentStep] || "Dashboard"} (Step ${currentStep} of 12)
 ${businessContext}

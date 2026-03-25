@@ -96,7 +96,7 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold font-display text-foreground mb-2">Connect Your AI Provider</h1>
         <p className="text-muted-foreground">
-          PulseCore uses your own AI credentials for premium features. Your data stays private.
+          RickyAI uses your own AI credentials for premium features. Your data stays private.
           Choose at least one provider below.
         </p>
         {connectedCount > 0 && (
@@ -110,7 +110,7 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
       <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
         <p className="text-sm text-foreground font-medium mb-1">✨ Good news — AI is already built in!</p>
         <p className="text-xs text-muted-foreground">
-          PulseCore includes built-in AI for all core features. Adding your own keys is optional and unlocks higher-quality or specialized outputs.
+          RickyAI includes built-in AI for all core features. Adding your own keys is optional and unlocks higher-quality or specialized outputs.
           You can skip this step and come back later.
         </p>
       </div>

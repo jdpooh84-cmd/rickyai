@@ -34,7 +34,7 @@ const LEVELS = [
   { level: 7, name: "Industry Expert", minPoints: 5000 },
   { level: 8, name: "Visionary", minPoints: 7500 },
   { level: 9, name: "Legend", minPoints: 10000 },
-  { level: 10, name: "PulseCore Elite", minPoints: 15000 },
+  { level: 10, name: "RickyAI Elite", minPoints: 15000 },
 ];
 
 export const getLevel = (totalPoints: number) => {

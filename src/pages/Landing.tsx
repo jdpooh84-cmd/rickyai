@@ -14,9 +14,9 @@ const Landing = () => {
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center">
-              <span className="text-sm font-bold text-primary-foreground">P</span>
+            <span className="text-sm font-bold text-primary-foreground">R</span>
             </div>
-            <span className="font-display font-bold text-lg text-foreground">PulseCore</span>
+            <span className="font-display font-bold text-lg text-foreground">RickyAI</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
@@ -41,7 +41,7 @@ const Landing = () => {
       <footer className="py-12 border-t border-border">
         <div className="container mx-auto px-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © 2026 PulseCore. Informed Authentic Connection.
+            © 2026 RickyAI. Informed Authentic Connection.
           </p>
         </div>
       </footer>

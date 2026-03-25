@@ -35,9 +35,9 @@ const Login = () => {
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-hero flex items-center justify-center">
-            <span className="text-lg font-bold text-primary-foreground">P</span>
+            <span className="text-lg font-bold text-primary-foreground">R</span>
           </div>
-          <span className="font-display font-bold text-2xl text-foreground">PulseCore</span>
+          <span className="font-display font-bold text-2xl text-foreground">RickyAI</span>
         </div>
 
         <div className="glass rounded-2xl p-8">
