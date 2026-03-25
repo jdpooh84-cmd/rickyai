@@ -1,75 +1,84 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-const tiers = [
+const plans = [
   {
-    name: "Starter",
-    price: "$29",
-    period: "/mo",
-    desc: "For solo business owners getting started",
-    features: ["1 Business", "1 Location", "3 Strategy Runs/mo", "Ricky AI Guide", "Script & Storyboard", "Self-Record Export"],
-    cta: "Start Free Trial",
-    highlight: false,
-  },
-  {
-    name: "Growth",
+    name: "Monthly",
     price: "$79",
     period: "/mo",
-    desc: "For growing businesses and multi-location owners",
-    features: ["3 Businesses", "5 Locations", "Unlimited Runs", "Full Ricky AI", "Lead Scout", "Grant Search", "HeyGen Export"],
-    cta: "Start Free Trial",
-    highlight: true,
+    desc: "Full access, cancel anytime",
+    savings: null,
+    features: [
+      "Unlimited Businesses & Locations",
+      "Full 13-Step Growth System",
+      "Ricky AI Guide",
+      "Lead Scout & Grant Search",
+      "Search Visibility Engine",
+      "Community & Marketplace",
+      "HeyGen Video Export",
+    ],
   },
   {
-    name: "Agency",
-    price: "$199",
+    name: "Annual",
+    price: "$59",
     period: "/mo",
-    desc: "For agencies and franchise operators",
-    features: ["Unlimited Businesses", "Unlimited Locations", "Unlimited Runs", "Priority Ricky AI", "Full Lead Scout", "Full Grant Search", "HeyGen Export", "Team Seats"],
-    cta: "Contact Sales",
-    highlight: false,
+    desc: "Billed $708/year — save $240",
+    savings: "Save 25%",
+    features: [
+      "Everything in Monthly",
+      "Priority Ricky AI",
+      "Early Access Features",
+      "Dedicated Support",
+    ],
   },
 ];
 
 const PricingSection = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="py-24 relative">
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold font-display mb-4">
-            Pricing That <span className="text-gradient-accent">Replaces Your Agency</span>
+            Simple, Transparent <span className="text-gradient-accent">Pricing</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            7-day free trial on all plans. Cancel anytime. Your AI keys, your costs.
+            Start with a 7-day free trial. No credit card required.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {tiers.map((tier) => (
+        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {plans.map((plan) => (
             <div
-              key={tier.name}
+              key={plan.name}
               className={`relative p-8 rounded-2xl border transition-all duration-300 ${
-                tier.highlight
+                plan.savings
                   ? "bg-card border-primary/40 shadow-glow scale-[1.02]"
                   : "bg-card border-border hover:border-primary/20"
               }`}
             >
-              {tier.highlight && (
+              {plan.savings && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-hero text-xs font-bold text-primary-foreground">
-                  Most Popular
+                  {plan.savings}
                 </div>
               )}
-              <h3 className="font-display font-bold text-xl text-foreground mb-1">{tier.name}</h3>
-              <p className="text-sm text-muted-foreground mb-4">{tier.desc}</p>
+              <h3 className="font-display font-bold text-xl text-foreground mb-1">{plan.name}</h3>
+              <p className="text-sm text-muted-foreground mb-4">{plan.desc}</p>
               <div className="mb-6">
-                <span className="text-4xl font-bold text-foreground">{tier.price}</span>
-                <span className="text-muted-foreground">{tier.period}</span>
+                <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                <span className="text-muted-foreground">{plan.period}</span>
               </div>
-              <Button variant={tier.highlight ? "hero" : "outline"} className="w-full mb-6">
-                {tier.cta}
+              <Button
+                variant={plan.savings ? "hero" : "outline"}
+                className="w-full mb-6"
+                onClick={() => navigate("/signup")}
+              >
+                Start Free Trial
               </Button>
               <ul className="space-y-3">
-                {tier.features.map((f) => (
+                {plan.features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm text-secondary-foreground">
                     <Check className="w-4 h-4 text-primary flex-shrink-0" />
                     {f}

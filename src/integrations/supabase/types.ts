@@ -488,6 +488,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string | null
+          email_marketing_opt_in: boolean
           id: string
           onboarding_completed: boolean
           trial_ends_at: string | null
@@ -499,6 +500,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          email_marketing_opt_in?: boolean
           id?: string
           onboarding_completed?: boolean
           trial_ends_at?: string | null
@@ -510,6 +512,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          email_marketing_opt_in?: boolean
           id?: string
           onboarding_completed?: boolean
           trial_ends_at?: string | null
@@ -598,6 +601,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      trial_used_emails: {
+        Row: {
+          email: string
+          id: string
+          used_at: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          used_at?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          used_at?: string
+        }
+        Relationships: []
       }
       user_api_keys: {
         Row: {
@@ -751,7 +772,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_trial_used: { Args: { check_email: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
