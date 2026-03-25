@@ -1,13 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { PLANS } from "@/lib/stripe";
 
-const plans = [
+const planList = [
   {
-    name: "Monthly",
-    price: "$79",
-    period: "/mo",
-    desc: "Full access, cancel anytime",
+    key: "monthly" as const,
+    ...PLANS.monthly,
     savings: null,
     features: [
       "Unlimited Businesses & Locations",
@@ -20,10 +19,8 @@ const plans = [
     ],
   },
   {
-    name: "Annual",
-    price: "$59",
-    period: "/mo",
-    desc: "Billed $708/year — save $240",
+    key: "annual" as const,
+    ...PLANS.annual,
     savings: "Save 25%",
     features: [
       "Everything in Monthly",
@@ -50,9 +47,9 @@ const PricingSection = () => {
         </div>
 
         <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {plans.map((plan) => (
+          {planList.map((plan) => (
             <div
-              key={plan.name}
+              key={plan.key}
               className={`relative p-8 rounded-2xl border transition-all duration-300 ${
                 plan.savings
                   ? "bg-card border-primary/40 shadow-glow scale-[1.02]"

@@ -3,7 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowRight, Eye, EyeOff, Check, Mail } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Check, Mail, Loader2 } from "lucide-react";
+import { PLANS, PlanKey } from "@/lib/stripe";
 
 const Signup = () => {
   const [displayName, setDisplayName] = useState("");
@@ -15,7 +16,7 @@ const Signup = () => {
   const [success, setSuccess] = useState(false);
   const [trialUsed, setTrialUsed] = useState(false);
   const [checkingTrial, setCheckingTrial] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "annual" | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
   const [emailMarketingOptIn, setEmailMarketingOptIn] = useState(true);
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -48,7 +49,6 @@ const Signup = () => {
       setError(error.message);
       setLoading(false);
     } else {
-      // Update email marketing preference after signup
       setSuccess(true);
       setLoading(false);
     }
@@ -153,7 +153,6 @@ const Signup = () => {
               </div>
             </div>
 
-            {/* Plan selection - shown when trial already used */}
             {trialUsed && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground block">Select Plan</label>
@@ -167,7 +166,7 @@ const Signup = () => {
                         : "border-border hover:border-primary/30"
                     }`}
                   >
-                    <p className="text-sm font-bold text-foreground">$79/mo</p>
+                    <p className="text-sm font-bold text-foreground">{PLANS.monthly.price}{PLANS.monthly.period}</p>
                     <p className="text-xs text-muted-foreground">Monthly</p>
                   </button>
                   <button
@@ -182,14 +181,13 @@ const Signup = () => {
                     <span className="absolute -top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground font-bold">
                       Save 25%
                     </span>
-                    <p className="text-sm font-bold text-foreground">$59/mo</p>
+                    <p className="text-sm font-bold text-foreground">{PLANS.annual.price}{PLANS.annual.period}</p>
                     <p className="text-xs text-muted-foreground">Billed annually</p>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Email marketing opt-in */}
             <label className="flex items-start gap-2 cursor-pointer group">
               <input
                 type="checkbox"
@@ -207,12 +205,13 @@ const Signup = () => {
             )}
 
             <Button variant="hero" className="w-full" size="lg" disabled={loading}>
-              {loading
-                ? "Creating account..."
-                : trialUsed
-                ? `Continue with ${selectedPlan === "annual" ? "Annual" : "Monthly"} Plan`
-                : "Start 7-Day Free Trial"}
-              <ArrowRight className="w-4 h-4" />
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>
+              ) : trialUsed ? (
+                <>Continue with {selectedPlan === "annual" ? "Annual" : "Monthly"} Plan <ArrowRight className="w-4 h-4" /></>
+              ) : (
+                <>Start 7-Day Free Trial <ArrowRight className="w-4 h-4" /></>
+              )}
             </Button>
           </form>
 
