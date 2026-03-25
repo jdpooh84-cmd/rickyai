@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/dashboard/AppSidebar";
 import StrategySummary from "@/components/dashboard/StrategySummary";
@@ -15,43 +15,49 @@ import StoryboardStep from "@/components/dashboard/steps/StoryboardStep";
 import ExportStep from "@/components/dashboard/steps/ExportStep";
 import LeadScoutStep from "@/components/dashboard/steps/LeadScoutStep";
 import GrantSearchStep from "@/components/dashboard/steps/GrantSearchStep";
+import GamificationPanel from "@/components/dashboard/GamificationPanel";
+import CommunityForum from "@/components/dashboard/CommunityForum";
+import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { ChevronDown, LogOut, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
-const stepTitles: Record<number, string> = {
-  1: "Connect", 2: "Profile", 3: "Compete", 4: "Scout", 5: "Audit",
-  6: "Platform", 7: "Script", 8: "Video Studio", 9: "Storyboard",
-  10: "Export", 11: "Lead Scout", 12: "Grant Search",
-};
-
 const Dashboard = () => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(1);
+  const [activeSection, setActiveSection] = useState("");
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [showBizDropdown, setShowBizDropdown] = useState(false);
   const [showLocDropdown, setShowLocDropdown] = useState(false);
-  const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation, loading: bizLoading } = useBusinessData();
+  const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation } = useBusinessData();
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/");
-  };
+  const handleSignOut = async () => { await signOut(); navigate("/"); };
 
   const markComplete = (step: number) => {
-    if (!completedSteps.includes(step)) {
-      setCompletedSteps((prev) => [...prev, step]);
-    }
+    if (!completedSteps.includes(step)) setCompletedSteps(prev => [...prev, step]);
     if (step < 12) setActiveStep(step + 1);
   };
 
   const activeBiz = businesses.find(b => b.id === selectedBusiness);
   const activeLoc = locations.find(l => l.id === selectedLocation);
 
-  const renderStep = () => {
+  const handleSectionClick = (section: string) => {
+    setActiveSection(section);
+  };
+
+  const handleStepClick = (step: number) => {
+    setActiveSection("");
+    setActiveStep(step);
+  };
+
+  const renderContent = () => {
+    if (activeSection === "score") return <GamificationPanel />;
+    if (activeSection === "community") return <CommunityForum />;
+    if (activeSection === "marketplace") return <StrategyMarketplace />;
+
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
       case 2: return <ProfileStep onComplete={() => markComplete(2)} />;
@@ -72,30 +78,23 @@ const Dashboard = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar activeStep={activeStep} completedSteps={completedSteps} onStepClick={setActiveStep} />
+        <AppSidebar activeStep={activeStep} completedSteps={completedSteps} onStepClick={handleStepClick} activeSection={activeSection} onSectionClick={handleSectionClick} />
 
         <div className="flex-1 flex flex-col">
           <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card/50">
             <div className="flex items-center gap-3">
               <SidebarTrigger />
               <div className="h-6 w-px bg-border" />
-
-              {/* Business Selector */}
               <div className="relative">
-                <button
-                  onClick={() => { setShowBizDropdown(!showBizDropdown); setShowLocDropdown(false); }}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button onClick={() => { setShowBizDropdown(!showBizDropdown); setShowLocDropdown(false); }}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
                   {activeBiz?.business_name || "Select Business"} <ChevronDown className="w-3 h-3" />
                 </button>
                 {showBizDropdown && businesses.length > 0 && (
                   <div className="absolute top-full left-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-card z-50 py-1">
                     {businesses.map(b => (
-                      <button
-                        key={b.id}
-                        onClick={() => { selectBusiness(b.id); setShowBizDropdown(false); }}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-secondary/50 flex items-center justify-between"
-                      >
+                      <button key={b.id} onClick={() => { selectBusiness(b.id); setShowBizDropdown(false); }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-secondary/50 flex items-center justify-between">
                         <span className="text-foreground">{b.business_name}</span>
                         {b.id === selectedBusiness && <Check className="w-3 h-3 text-primary" />}
                       </button>
@@ -103,25 +102,17 @@ const Dashboard = () => {
                   </div>
                 )}
               </div>
-
               <span className="text-muted-foreground/30">•</span>
-
-              {/* Location Selector */}
               <div className="relative">
-                <button
-                  onClick={() => { setShowLocDropdown(!showLocDropdown); setShowBizDropdown(false); }}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button onClick={() => { setShowLocDropdown(!showLocDropdown); setShowBizDropdown(false); }}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
                   {activeLoc ? `${activeLoc.city}${activeLoc.state ? `, ${activeLoc.state}` : ""}` : "Select Location"} <ChevronDown className="w-3 h-3" />
                 </button>
                 {showLocDropdown && locations.length > 0 && (
                   <div className="absolute top-full left-0 mt-1 w-56 bg-card border border-border rounded-lg shadow-card z-50 py-1">
                     {locations.map(l => (
-                      <button
-                        key={l.id}
-                        onClick={() => { setSelectedLocation(l.id); setShowLocDropdown(false); }}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-secondary/50 flex items-center justify-between"
-                      >
+                      <button key={l.id} onClick={() => { setSelectedLocation(l.id); setShowLocDropdown(false); }}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-secondary/50 flex items-center justify-between">
                         <span className="text-foreground">{l.city}{l.state ? `, ${l.state}` : ""}</span>
                         {l.id === selectedLocation && <Check className="w-3 h-3 text-primary" />}
                       </button>
@@ -130,20 +121,20 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
-
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
-              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out">
-                <LogOut className="w-4 h-4" />
-              </Button>
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out"><LogOut className="w-4 h-4" /></Button>
             </div>
           </header>
 
           <div className="flex flex-1 overflow-hidden">
             <main className="flex-1 overflow-y-auto p-8" onClick={() => { setShowBizDropdown(false); setShowLocDropdown(false); }}>
-              {renderStep()}
+              {renderContent()}
             </main>
-            <StrategySummary completedSteps={completedSteps} businessName={activeBiz?.business_name} locationName={activeLoc ? `${activeLoc.city}${activeLoc.state ? `, ${activeLoc.state}` : ""}` : undefined} />
+            {!activeSection && (
+              <StrategySummary completedSteps={completedSteps} businessName={activeBiz?.business_name}
+                locationName={activeLoc ? `${activeLoc.city}${activeLoc.state ? `, ${activeLoc.state}` : ""}` : undefined} />
+            )}
           </div>
         </div>
 
