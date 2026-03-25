@@ -15,33 +15,33 @@ import {
 } from "@/components/ui/sidebar";
 
 const steps = [
-  { num: 1, icon: Link, title: "Connect", path: "/app/connect" },
-  { num: 2, icon: UserCircle, title: "Profile", path: "/app/profile" },
-  { num: 3, icon: BarChart3, title: "Compete", path: "/app/compete" },
-  { num: 4, icon: Search, title: "Scout", path: "/app/scout" },
-  { num: 5, icon: ClipboardCheck, title: "Audit", path: "/app/audit" },
-  { num: 6, icon: Monitor, title: "Platform", path: "/app/platform" },
-  { num: 7, icon: FileText, title: "Script", path: "/app/script" },
-  { num: 8, icon: Video, title: "Video Studio", path: "/app/video-studio" },
-  { num: 9, icon: LayoutGrid, title: "Storyboard", path: "/app/storyboard" },
-  { num: 10, icon: Upload, title: "Export", path: "/app/export" },
-  { num: 11, icon: Users, title: "Lead Scout", path: "/app/lead-scout" },
-  { num: 12, icon: DollarSign, title: "Grant Search", path: "/app/grant-search" },
+  { num: 1, icon: Link, title: "Connect" },
+  { num: 2, icon: UserCircle, title: "Profile" },
+  { num: 3, icon: BarChart3, title: "Compete" },
+  { num: 4, icon: Search, title: "Scout" },
+  { num: 5, icon: ClipboardCheck, title: "Audit" },
+  { num: 6, icon: Monitor, title: "Platform" },
+  { num: 7, icon: FileText, title: "Script" },
+  { num: 8, icon: Video, title: "Video Studio" },
+  { num: 9, icon: LayoutGrid, title: "Storyboard" },
+  { num: 10, icon: Upload, title: "Export" },
+  { num: 11, icon: Users, title: "Lead Scout" },
+  { num: 12, icon: DollarSign, title: "Grant Search" },
 ];
 
 interface AppSidebarProps {
   activeStep: number;
   completedSteps: number[];
+  onStepClick?: (step: number) => void;
 }
 
-const AppSidebar = ({ activeStep, completedSteps }: AppSidebarProps) => {
+const AppSidebar = ({ activeStep, completedSteps, onStepClick }: AppSidebarProps) => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent className="pt-4">
-        {/* Logo */}
         <div className="px-4 mb-6 flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center flex-shrink-0">
             <span className="text-sm font-bold text-primary-foreground">P</span>
@@ -62,7 +62,8 @@ const AppSidebar = ({ activeStep, completedSteps }: AppSidebarProps) => {
                 return (
                   <SidebarMenuItem key={step.num}>
                     <SidebarMenuButton
-                      className={`relative transition-all ${
+                      onClick={() => onStepClick?.(step.num)}
+                      className={`relative transition-all cursor-pointer ${
                         isActive
                           ? "bg-primary/10 text-primary border-l-2 border-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent"
