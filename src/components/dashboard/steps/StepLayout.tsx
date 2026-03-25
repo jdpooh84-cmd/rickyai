@@ -2,19 +2,21 @@ import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
 import { ReactNode } from "react";
 
-interface StepLayoutProps {
+export interface StepLayoutProps {
   title: string;
   description: string;
   icon: string;
   loading: boolean;
   hasData: boolean;
   onGenerate: () => void;
-  onRegenerate: () => void;
+  onRegenerate?: () => void;
   children: ReactNode;
   needsProfile?: boolean;
+  hideGenerateButton?: boolean;
+  generateLabel?: string;
 }
 
-const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, onRegenerate, children, needsProfile }: StepLayoutProps) => {
+const StepLayout = ({ title, description, icon, loading, hasData, onGenerate, onRegenerate, children, needsProfile, hideGenerateButton, generateLabel }: StepLayoutProps) => {
   return (
     <div className="max-w-3xl mx-auto pb-12">
       <div className="mb-8">
