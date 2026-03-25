@@ -49,13 +49,13 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
+      customer_update: customerId ? { address: "auto" } : undefined,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
+      automatic_tax: { enabled: true },
+      tax_id_collection: { enabled: true },
       success_url: `${origin}/app?checkout=success`,
       cancel_url: `${origin}/signup?checkout=cancelled`,
-      subscription_data: {
-        trial_period_days: undefined,
-      },
     });
 
     logStep("Checkout session created", { sessionId: session.id });
