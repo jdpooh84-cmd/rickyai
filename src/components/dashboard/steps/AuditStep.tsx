@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
+import CalendarExportButton from "@/components/dashboard/CalendarExportButton";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
@@ -62,8 +63,9 @@ const AuditStep = ({ businessId, locationId, onComplete }: Props) => {
                     <p className="text-xs text-muted-foreground">{w.type} • Goal: {w.goal}</p>
                   </div>
                 ))}
-              </div>
             </div>
+            <CalendarExportButton actionItems={data.content_calendar} stepName="Content Calendar" />
+          </div>
           )}
         </div>
       )}

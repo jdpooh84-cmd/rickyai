@@ -44,8 +44,8 @@ const RickyHelper = ({ currentStep = 1, businessId }: RickyHelperProps) => {
         <div className="mb-4 w-80 glass rounded-2xl shadow-glow overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
           <div className="p-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-hero flex items-center justify-center">
-                <span className="text-xs font-bold text-primary-foreground">R</span>
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-hero flex items-center justify-center">
+                <img src={rickyMascot} alt="Ricky" className="w-8 h-8 object-cover object-top" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">Ricky</p>

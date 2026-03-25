@@ -4,6 +4,7 @@ import StepLayout from "./StepLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import CalendarExportButton from "@/components/dashboard/CalendarExportButton";
 
 interface Props {
   businessId: string;
@@ -233,6 +234,7 @@ const SearchVisibilityStep = ({ businessId, locationId, onComplete }: Props) => 
                   </div>
                 </div>
               ))}
+              <CalendarExportButton actionItems={data.action_plan} stepName="Search Visibility Action Plan" />
             </div>
           )}
         </div>

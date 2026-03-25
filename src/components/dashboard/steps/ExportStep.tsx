@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
+import CalendarExportButton from "@/components/dashboard/CalendarExportButton";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
@@ -25,6 +26,7 @@ const ExportStep = ({ businessId, locationId, onComplete }: Props) => {
               </div>
             </div>
           ))}
+          <CalendarExportButton actionItems={data.distribution_plan} stepName="Distribution Plan" />
 
           {data.repurposing_ideas && (
             <div className="glass rounded-xl p-4">
