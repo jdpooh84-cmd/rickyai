@@ -45,6 +45,20 @@ interface AppSidebarProps {
 const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, onSectionClick }: AppSidebarProps) => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [user]);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
