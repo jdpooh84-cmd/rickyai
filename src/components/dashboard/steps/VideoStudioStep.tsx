@@ -114,7 +114,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
 
-    navigator.clipboard.writeText(text);
+    const copyToClipboard = (text: string, id: string) => {
     setCopiedId(id);
     toast.success("Copied to clipboard!");
     setTimeout(() => setCopiedId(null), 2000);
