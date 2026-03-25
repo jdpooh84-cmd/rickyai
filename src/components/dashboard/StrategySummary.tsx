@@ -2,9 +2,11 @@ import { Activity } from "lucide-react";
 
 interface StrategySummaryProps {
   completedSteps?: number[];
+  businessName?: string;
+  locationName?: string;
 }
 
-const StrategySummary = ({ completedSteps = [] }: StrategySummaryProps) => {
+const StrategySummary = ({ completedSteps = [], businessName, locationName }: StrategySummaryProps) => {
   const progress = Math.round((completedSteps.length / 12) * 100);
 
   return (
@@ -18,22 +20,38 @@ const StrategySummary = ({ completedSteps = [] }: StrategySummaryProps) => {
         <div className="p-3 rounded-lg bg-secondary/30 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Active Business</p>
           <p className="text-sm text-foreground font-medium">
-            {completedSteps.includes(2) ? "Configured" : "No business selected"}
+            {businessName || "No business selected"}
           </p>
         </div>
         <div className="p-3 rounded-lg bg-secondary/30 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Active Location</p>
           <p className="text-sm text-foreground font-medium">
-            {completedSteps.includes(2) ? "Configured" : "No location selected"}
+            {locationName || "No location selected"}
           </p>
         </div>
         <div className="p-3 rounded-lg bg-secondary/30 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Visibility Grade</p>
-          <p className="text-sm text-muted-foreground">Complete Step 3</p>
+          <p className="text-sm text-foreground font-medium">
+            {completedSteps.includes(3) ? "✅ Generated" : "Complete Step 3"}
+          </p>
         </div>
         <div className="p-3 rounded-lg bg-secondary/30 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Best Platform</p>
-          <p className="text-sm text-muted-foreground">Complete Step 6</p>
+          <p className="text-sm text-foreground font-medium">
+            {completedSteps.includes(6) ? "✅ Generated" : "Complete Step 6"}
+          </p>
+        </div>
+        <div className="p-3 rounded-lg bg-secondary/30 border border-border">
+          <p className="text-xs text-muted-foreground mb-1">Scripts Ready</p>
+          <p className="text-sm text-foreground font-medium">
+            {completedSteps.includes(7) ? "✅ Generated" : "Complete Step 7"}
+          </p>
+        </div>
+        <div className="p-3 rounded-lg bg-secondary/30 border border-border">
+          <p className="text-xs text-muted-foreground mb-1">Leads & Grants</p>
+          <p className="text-sm text-foreground font-medium">
+            {completedSteps.includes(11) && completedSteps.includes(12) ? "✅ Generated" : "Complete Steps 11-12"}
+          </p>
         </div>
         <div className="p-3 rounded-lg bg-secondary/30 border border-border">
           <p className="text-xs text-muted-foreground mb-1">Progress</p>
