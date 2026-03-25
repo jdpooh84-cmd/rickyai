@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     );
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { step, businessId, locationId } = await req.json();
+    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
 
     // Fetch business data
     const { data: business } = await supabase
