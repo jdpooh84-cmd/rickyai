@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
-import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker, Zap, Clock, Calendar, BarChart3, Play } from "lucide-react";
+import ExternalAppConnections from "./ExternalAppConnections";
+import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker, Zap, Clock, Calendar, BarChart3, Play, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import sampleVideoAsset from "@/assets/sample-promo-video.mp4.asset.json";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
