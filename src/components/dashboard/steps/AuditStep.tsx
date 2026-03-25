@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
+import CalendarExportButton from "@/components/dashboard/CalendarExportButton";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 

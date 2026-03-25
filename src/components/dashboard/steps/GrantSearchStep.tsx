@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
+import CalendarExportButton from "@/components/dashboard/CalendarExportButton";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
@@ -57,7 +58,18 @@ const GrantSearchStep = ({ businessId, locationId, onComplete }: Props) => {
                   <p className="text-sm text-secondary-foreground">{s}</p>
                 </div>
               ))}
+              <CalendarExportButton
+                actionItems={data.preparation_steps.map((s: string, i: number) => ({ action: s, timeframe: "this month" }))}
+                stepName="Grant Preparation"
+              />
             </div>
+          )}
+
+          {data.grants && data.grants.length > 0 && (
+            <CalendarExportButton
+              actionItems={data.grants.map((g: any) => ({ action: `Apply: ${g.name} (${g.amount})`, timeframe: g.deadline, description: g.eligibility }))}
+              stepName="Grant Deadlines"
+            />
           )}
         </div>
       )}
