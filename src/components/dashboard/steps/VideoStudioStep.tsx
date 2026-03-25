@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
+import VideoStudioGuide from "./VideoStudioGuide";
 import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker } from "lucide-react";
 import { toast } from "sonner";
 
