@@ -1,29 +1,66 @@
+import { useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/dashboard/AppSidebar";
 import StrategySummary from "@/components/dashboard/StrategySummary";
 import RickyHelper from "@/components/dashboard/RickyHelper";
 import ConnectStep from "@/components/dashboard/ConnectStep";
+import ProfileStep from "@/components/dashboard/ProfileStep";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChevronDown, LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
+const stepTitles: Record<number, string> = {
+  1: "Connect", 2: "Profile", 3: "Compete", 4: "Scout", 5: "Audit",
+  6: "Platform", 7: "Script", 8: "Video Studio", 9: "Storyboard",
+  10: "Export", 11: "Lead Scout", 12: "Grant Search",
+};
+
 const Dashboard = () => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
+  const [activeStep, setActiveStep] = useState(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
   };
 
+  const markComplete = (step: number) => {
+    if (!completedSteps.includes(step)) {
+      setCompletedSteps((prev) => [...prev, step]);
+    }
+    if (step < 12) setActiveStep(step + 1);
+  };
+
+  const renderStep = () => {
+    switch (activeStep) {
+      case 1:
+        return <ConnectStep />;
+      case 2:
+        return <ProfileStep onComplete={() => markComplete(2)} />;
+      default:
+        return (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mb-4">
+              <span className="text-2xl font-bold text-muted-foreground">{activeStep}</span>
+            </div>
+            <h2 className="text-xl font-display font-bold text-foreground mb-2">{stepTitles[activeStep]}</h2>
+            <p className="text-sm text-muted-foreground max-w-md">
+              This step is coming soon. Complete the earlier steps first to build your strategy foundation.
+            </p>
+          </div>
+        );
+    }
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar activeStep={1} completedSteps={[]} />
+        <AppSidebar activeStep={activeStep} completedSteps={completedSteps} onStepClick={setActiveStep} />
 
         <div className="flex-1 flex flex-col">
-          {/* Top bar */}
           <header className="h-14 flex items-center justify-between border-b border-border px-4 bg-card/50">
             <div className="flex items-center gap-3">
               <SidebarTrigger />
@@ -48,12 +85,11 @@ const Dashboard = () => {
             </div>
           </header>
 
-          {/* Main content area */}
           <div className="flex flex-1 overflow-hidden">
             <main className="flex-1 overflow-y-auto p-8">
-              <ConnectStep />
+              {renderStep()}
             </main>
-            <StrategySummary />
+            <StrategySummary completedSteps={completedSteps} />
           </div>
         </div>
 
