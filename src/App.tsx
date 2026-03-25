@@ -20,51 +20,53 @@ import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/install" element={<InstallApp />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route
-              path="/app/*"
-              element={
-                <ProtectedRoute>
-                  <BanCheck>
-                    <TermsAcceptanceGate>
-                      <Dashboard />
-                    </TermsAcceptanceGate>
-                  </BanCheck>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute>
-                  <BanCheck>
-                    <TermsAcceptanceGate>
-                      <AdminDashboard />
-                    </TermsAcceptanceGate>
-                  </BanCheck>
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/install" element={<InstallApp />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/app/*"
+                element={
+                  <ProtectedRoute>
+                    <BanCheck>
+                      <TermsAcceptanceGate>
+                        <Dashboard />
+                      </TermsAcceptanceGate>
+                    </BanCheck>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute>
+                    <BanCheck>
+                      <TermsAcceptanceGate>
+                        <AdminDashboard />
+                      </TermsAcceptanceGate>
+                    </BanCheck>
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
