@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, TrendingUp, Eye, ShieldCheck, ArrowLeft, UserPlus, Activity, CreditCard } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Users, DollarSign, TrendingUp, Eye, ShieldCheck, ArrowLeft, UserPlus, Activity, CreditCard, Search, Shield, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface AdminStats {
   totalUsers: number;
@@ -17,11 +19,21 @@ interface AdminStats {
   topReferrers: Array<{ user_id: string; conversions: number; code: string }>;
 }
 
+interface ManagedUser {
+  id: string;
+  email: string;
+  created_at: string;
+  roles: string[];
+}
+
 const AdminDashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchEmail, setSearchEmail] = useState("");
+  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0, totalBusinesses: 0, totalReferrals: 0,
     pendingPayouts: 0, activeAds: 0, totalAdRevenue: 0,
@@ -71,6 +83,47 @@ const AdminDashboard = () => {
     const interval = setInterval(fetchStats, 30_000);
     return () => clearInterval(interval);
   }, [isAdmin]);
+
+  const handleSearchUsers = async () => {
+    setSearchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "search", email: searchEmail },
+      });
+      if (error) throw error;
+      setManagedUsers(data.users || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to search users");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleGrantRole = async (userId: string, role: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "grant_role", user_id: userId, role },
+      });
+      if (error) throw error;
+      toast.success("Role granted!");
+      handleSearchUsers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to grant role");
+    }
+  };
+
+  const handleRevokeRole = async (userId: string, role: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "revoke_role", user_id: userId, role },
+      });
+      if (error) throw error;
+      toast.success("Role revoked!");
+      handleSearchUsers();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to revoke role");
+    }
+  };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background text-foreground">Loading...</div>;
   if (!isAdmin) return null;
@@ -165,6 +218,57 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* User Management */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" /> User &amp; Role Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search by email..."
+                value={searchEmail}
+                onChange={(e) => setSearchEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchUsers()}
+                className="max-w-sm"
+              />
+              <Button onClick={handleSearchUsers} disabled={searchLoading} size="sm">
+                <Search className="w-4 h-4 mr-1" /> {searchLoading ? "Searching..." : "Search"}
+              </Button>
+            </div>
+
+            {managedUsers.length > 0 && (
+              <div className="space-y-2">
+                {managedUsers.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between py-3 px-4 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{u.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Roles: {u.roles.length > 0 ? u.roles.join(", ") : "none"} · Joined {new Date(u.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {!u.roles.includes("admin") ? (
+                        <Button size="sm" variant="outline" onClick={() => handleGrantRole(u.id, "admin")}>
+                          <ShieldCheck className="w-3 h-3 mr-1" /> Make Admin
+                        </Button>
+                      ) : u.id !== user?.id ? (
+                        <Button size="sm" variant="destructive" onClick={() => handleRevokeRole(u.id, "admin")}>
+                          <Trash2 className="w-3 h-3 mr-1" /> Remove Admin
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">You</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
