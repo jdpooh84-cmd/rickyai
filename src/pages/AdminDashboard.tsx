@@ -2,42 +2,22 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Users, DollarSign, TrendingUp, Eye, ShieldCheck, ArrowLeft, UserPlus, Activity, CreditCard, Search, Shield, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-
-interface AdminStats {
-  totalUsers: number;
-  totalBusinesses: number;
-  totalReferrals: number;
-  pendingPayouts: number;
-  activeAds: number;
-  totalAdRevenue: number;
-  recentSignups: Array<{ email: string; created_at: string }>;
-  topReferrers: Array<{ user_id: string; conversions: number; code: string }>;
-}
-
-interface ManagedUser {
-  id: string;
-  email: string;
-  created_at: string;
-  roles: string[];
-}
+import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, LayoutDashboard } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AdminStatsCards from "@/components/admin/AdminStatsCards";
+import TeamManagement from "@/components/admin/TeamManagement";
+import AffiliatePayoutManagement from "@/components/admin/AffiliatePayoutManagement";
+import AdvertiserManagement from "@/components/admin/AdvertiserManagement";
 
 const AdminDashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchEmail, setSearchEmail] = useState("");
-  const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [stats, setStats] = useState<AdminStats>({
+  const [stats, setStats] = useState({
     totalUsers: 0, totalBusinesses: 0, totalReferrals: 0,
     pendingPayouts: 0, activeAds: 0, totalAdRevenue: 0,
-    recentSignups: [], topReferrers: [],
   });
 
   useEffect(() => {
@@ -60,9 +40,9 @@ const AdminDashboard = () => {
     if (!isAdmin) return;
     const fetchStats = async () => {
       const [profiles, businesses, referrals, payouts, ads, adCampaigns] = await Promise.all([
-        supabase.from("profiles").select("user_id, created_at, display_name", { count: "exact" }),
+        supabase.from("profiles").select("user_id", { count: "exact" }),
         supabase.from("businesses").select("id", { count: "exact" }),
-        supabase.from("referral_codes").select("id, code, user_id, conversions").order("conversions", { ascending: false }).limit(10),
+        supabase.from("referral_codes").select("id, conversions"),
         supabase.from("affiliate_payouts").select("amount_cents").eq("status", "pending"),
         supabase.from("ad_placements").select("id", { count: "exact" }).eq("is_active", true),
         supabase.from("ad_campaigns").select("spent_cents"),
@@ -75,8 +55,6 @@ const AdminDashboard = () => {
         pendingPayouts: payouts.data?.reduce((sum, p) => sum + p.amount_cents, 0) || 0,
         activeAds: ads.count || 0,
         totalAdRevenue: adCampaigns.data?.reduce((sum, c) => sum + c.spent_cents, 0) || 0,
-        recentSignups: [],
-        topReferrers: (referrals.data || []).map(r => ({ user_id: r.user_id, conversions: r.conversions, code: r.code })),
       });
     };
     fetchStats();
@@ -84,58 +62,8 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, [isAdmin]);
 
-  const handleSearchUsers = async () => {
-    setSearchLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("admin-users", {
-        body: { action: "search", email: searchEmail },
-      });
-      if (error) throw error;
-      setManagedUsers(data.users || []);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to search users");
-    } finally {
-      setSearchLoading(false);
-    }
-  };
-
-  const handleGrantRole = async (userId: string, role: string) => {
-    try {
-      const { error } = await supabase.functions.invoke("admin-users", {
-        body: { action: "grant_role", user_id: userId, role },
-      });
-      if (error) throw error;
-      toast.success("Role granted!");
-      handleSearchUsers();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to grant role");
-    }
-  };
-
-  const handleRevokeRole = async (userId: string, role: string) => {
-    try {
-      const { error } = await supabase.functions.invoke("admin-users", {
-        body: { action: "revoke_role", user_id: userId, role },
-      });
-      if (error) throw error;
-      toast.success("Role revoked!");
-      handleSearchUsers();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to revoke role");
-    }
-  };
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background text-foreground">Loading...</div>;
   if (!isAdmin) return null;
-
-  const statCards = [
-    { title: "Total Users", value: stats.totalUsers, icon: Users, color: "text-primary" },
-    { title: "Businesses", value: stats.totalBusinesses, icon: TrendingUp, color: "text-accent" },
-    { title: "Referral Conversions", value: stats.totalReferrals, icon: UserPlus, color: "text-green-400" },
-    { title: "Pending Payouts", value: `$${(stats.pendingPayouts / 100).toFixed(2)}`, icon: CreditCard, color: "text-yellow-400" },
-    { title: "Active Ads", value: stats.activeAds, icon: Eye, color: "text-blue-400" },
-    { title: "Ad Revenue", value: `$${(stats.totalAdRevenue / 100).toFixed(2)}`, icon: DollarSign, color: "text-primary" },
-  ];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -152,123 +80,33 @@ const AdminDashboard = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {statCards.map((s) => (
-            <Card key={s.title} className="bg-card border-border">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{s.title}</CardTitle>
-                <s.icon className={`w-5 h-5 ${s.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">{s.value}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <AdminStatsCards stats={stats} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-primary" /> Top Referrers
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {stats.topReferrers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No referrals yet. Affiliate program is ready for launch.</p>
-              ) : (
-                <div className="space-y-3">
-                  {stats.topReferrers.map((r, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                      <div>
-                        <span className="text-sm font-medium text-foreground">Code: {r.code}</span>
-                        <p className="text-xs text-muted-foreground">{r.user_id.slice(0, 8)}...</p>
-                      </div>
-                      <span className="text-sm font-bold text-primary">{r.conversions} conversions</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="team" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="team" className="flex items-center gap-2">
+              <Users className="w-4 h-4" /> Team
+            </TabsTrigger>
+            <TabsTrigger value="affiliates" className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" /> Affiliates
+            </TabsTrigger>
+            <TabsTrigger value="advertisers" className="flex items-center gap-2">
+              <Megaphone className="w-4 h-4" /> Advertisers
+            </TabsTrigger>
+          </TabsList>
 
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Activity className="w-5 h-5 text-accent" /> System Status
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Affiliate Program</span>
-                <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary font-medium">Ready</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Ad Platform</span>
-                <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary font-medium">Active</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Stripe Payments</span>
-                <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary font-medium">Connected</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Community Forum</span>
-                <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary font-medium">Active</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="team" className="mt-6">
+            <TeamManagement currentUserId={user?.id || ""} />
+          </TabsContent>
 
-        {/* User Management */}
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" /> User &amp; Role Management
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Search by email..."
-                value={searchEmail}
-                onChange={(e) => setSearchEmail(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSearchUsers()}
-                className="max-w-sm"
-              />
-              <Button onClick={handleSearchUsers} disabled={searchLoading} size="sm">
-                <Search className="w-4 h-4 mr-1" /> {searchLoading ? "Searching..." : "Search"}
-              </Button>
-            </div>
+          <TabsContent value="affiliates" className="mt-6">
+            <AffiliatePayoutManagement />
+          </TabsContent>
 
-            {managedUsers.length > 0 && (
-              <div className="space-y-2">
-                {managedUsers.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between py-3 px-4 border border-border rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{u.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Roles: {u.roles.length > 0 ? u.roles.join(", ") : "none"} · Joined {new Date(u.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      {!u.roles.includes("admin") ? (
-                        <Button size="sm" variant="outline" onClick={() => handleGrantRole(u.id, "admin")}>
-                          <ShieldCheck className="w-3 h-3 mr-1" /> Make Admin
-                        </Button>
-                      ) : u.id !== user?.id ? (
-                        <Button size="sm" variant="destructive" onClick={() => handleRevokeRole(u.id, "admin")}>
-                          <Trash2 className="w-3 h-3 mr-1" /> Remove Admin
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">You</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          <TabsContent value="advertisers" className="mt-6">
+            <AdvertiserManagement />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
