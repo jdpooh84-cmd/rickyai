@@ -187,19 +187,19 @@ const CampaignBlueprintStep = ({ businessId, locationId, onComplete }: Props) =>
 
       {/* Compliance */}
       {data.compliance_check && (
-        <div className={`glass rounded-2xl p-5 mb-4 ${data.compliance_check.status === "pass" ? "ring-1 ring-green-500/30" : "ring-1 ring-yellow-500/30"}`}>
+        <div className={`glass rounded-2xl p-5 mb-4 ${data.compliance_check.status === "pass" ? "ring-1 ring-primary/30" : "ring-1 ring-destructive/30"}`}>
           <h4 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
             <Shield className="w-4 h-4" />
             Compliance: {data.compliance_check.status === "pass" ? (
-              <span className="text-green-600 flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Pass</span>
+              <span className="text-primary flex items-center gap-1"><CheckCircle className="w-4 h-4" /> Pass</span>
             ) : (
-              <span className="text-yellow-600 flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Flagged</span>
+              <span className="text-destructive flex items-center gap-1"><AlertTriangle className="w-4 h-4" /> Flagged</span>
             )}
           </h4>
           {data.compliance_check.flagged_items?.length > 0 && (
             <div className="space-y-1">
               {data.compliance_check.flagged_items.map((item: any, i: number) => (
-                <div key={i} className="p-2 rounded-lg bg-yellow-500/5 border border-yellow-500/10">
+                <div key={i} className="p-2 rounded-lg bg-destructive/5 border border-destructive/10">
                   <p className="text-xs text-foreground">Episode {item.episode}: {item.issue}</p>
                   <p className="text-[10px] text-muted-foreground">💡 {item.suggestion}</p>
                 </div>
