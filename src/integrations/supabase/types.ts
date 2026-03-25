@@ -14,6 +14,210 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_campaigns: {
+        Row: {
+          advertiser_id: string
+          budget_cents: number
+          cpc_cents: number
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          spent_cents: number
+          start_date: string | null
+          status: string
+          target_industries: string[] | null
+          target_locations: string[] | null
+          target_niches: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          advertiser_id: string
+          budget_cents?: number
+          cpc_cents?: number
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          spent_cents?: number
+          start_date?: string | null
+          status?: string
+          target_industries?: string[] | null
+          target_locations?: string[] | null
+          target_niches?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          advertiser_id?: string
+          budget_cents?: number
+          cpc_cents?: number
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          spent_cents?: number
+          start_date?: string | null
+          status?: string
+          target_industries?: string[] | null
+          target_locations?: string[] | null
+          target_niches?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaigns_advertiser_id_fkey"
+            columns: ["advertiser_id"]
+            isOneToOne: false
+            referencedRelation: "advertiser_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          placement_id: string
+          user_id: string | null
+          user_industry: string | null
+          user_location: string | null
+          user_niche: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          placement_id: string
+          user_id?: string | null
+          user_industry?: string | null
+          user_location?: string | null
+          user_niche?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          placement_id?: string
+          user_id?: string | null
+          user_industry?: string | null
+          user_location?: string | null
+          user_niche?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_events_placement_id_fkey"
+            columns: ["placement_id"]
+            isOneToOne: false
+            referencedRelation: "ad_placements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_placements: {
+        Row: {
+          body_text: string | null
+          campaign_id: string
+          clicks: number
+          created_at: string
+          cta_text: string | null
+          cta_url: string
+          headline: string
+          id: string
+          image_url: string | null
+          impressions: number
+          is_active: boolean
+          placement_type: string
+          updated_at: string
+        }
+        Insert: {
+          body_text?: string | null
+          campaign_id: string
+          clicks?: number
+          created_at?: string
+          cta_text?: string | null
+          cta_url: string
+          headline: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          placement_type?: string
+          updated_at?: string
+        }
+        Update: {
+          body_text?: string | null
+          campaign_id?: string
+          clicks?: number
+          created_at?: string
+          cta_text?: string | null
+          cta_url?: string
+          headline?: string
+          id?: string
+          image_url?: string | null
+          impressions?: number
+          is_active?: boolean
+          placement_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_placements_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      advertiser_accounts: {
+        Row: {
+          balance_cents: number
+          company_name: string
+          contact_email: string
+          contact_name: string | null
+          created_at: string
+          id: string
+          industry: string
+          logo_url: string | null
+          status: string
+          total_spent_cents: number
+          updated_at: string
+          website_url: string | null
+        }
+        Insert: {
+          balance_cents?: number
+          company_name: string
+          contact_email: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          industry: string
+          logo_url?: string | null
+          status?: string
+          total_spent_cents?: number
+          updated_at?: string
+          website_url?: string | null
+        }
+        Update: {
+          balance_cents?: number
+          company_name?: string
+          contact_email?: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          industry?: string
+          logo_url?: string | null
+          status?: string
+          total_spent_cents?: number
+          updated_at?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       businesses: {
         Row: {
           brand_tone: string | null
