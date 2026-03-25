@@ -104,9 +104,17 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     );
   };
 
+  const handleDownloadGuide = () => {
+    window.open(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-guide-pdf`, '_blank');
+  };
+
   return (
     <StepLayout title="Video Studio" description="Your video production plan with ready-to-use prompts for 11 tools — from free options to professional AI platforms."
       icon="🎬" loading={loading} hasData={!!data} onGenerate={handleGenerate} onRegenerate={handleGenerate} needsProfile={!businessId}>
+
+      {/* In-app guide - always visible */}
+      <VideoStudioGuide onDownloadGuide={handleDownloadGuide} />
+
       {data && (
         <div className="space-y-6">
           {data.video_strategy && (
