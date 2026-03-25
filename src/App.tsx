@@ -30,13 +30,18 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/app/*"
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <BanCheck>
+                    <TermsAcceptanceGate>
+                      <Dashboard />
+                    </TermsAcceptanceGate>
+                  </BanCheck>
                 </ProtectedRoute>
               }
             />
@@ -44,7 +49,11 @@ const App = () => (
               path="/admin"
               element={
                 <ProtectedRoute>
-                  <AdminDashboard />
+                  <BanCheck>
+                    <TermsAcceptanceGate>
+                      <AdminDashboard />
+                    </TermsAcceptanceGate>
+                  </BanCheck>
                 </ProtectedRoute>
               }
             />
