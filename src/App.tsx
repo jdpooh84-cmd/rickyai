@@ -15,6 +15,7 @@ import ResetPassword from "./pages/ResetPassword.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
+import InstallApp from "./pages/InstallApp.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/signup" element={<Signup />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/install" element={<InstallApp />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/app/*"
