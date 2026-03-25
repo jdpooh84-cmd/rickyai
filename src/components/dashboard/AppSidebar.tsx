@@ -139,6 +139,29 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
+              {!collapsed && "Admin"}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={() => navigate("/admin")}
+                    className="cursor-pointer text-sidebar-foreground hover:bg-sidebar-accent"
+                  >
+                    <div className="flex items-center gap-3 w-full">
+                      <ShieldCheck className="w-5 h-5 flex-shrink-0 text-primary" />
+                      {!collapsed && <span className="text-sm font-medium">Admin Dashboard</span>}
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );
