@@ -173,6 +173,30 @@ export type Database = {
           },
         ]
       }
+      admin_activity_log: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       advertiser_accounts: {
         Row: {
           balance_cents: number
@@ -215,6 +239,39 @@ export type Database = {
           total_spent_cents?: number
           updated_at?: string
           website_url?: string | null
+        }
+        Relationships: []
+      }
+      affiliate_payouts: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          payout_method: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payout_method?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          payout_method?: string | null
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -522,6 +579,83 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_codes: {
+        Row: {
+          clicks: number
+          code: string
+          commission_rate_percent: number
+          conversions: number
+          created_at: string
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clicks?: number
+          code: string
+          commission_rate_percent?: number
+          conversions?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clicks?: number
+          code?: string
+          commission_rate_percent?: number
+          conversions?: number
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      referral_conversions: {
+        Row: {
+          commission_cents: number
+          converted_at: string | null
+          created_at: string
+          id: string
+          referral_code_id: string
+          referred_user_id: string
+          referrer_user_id: string
+          status: string
+        }
+        Insert: {
+          commission_cents?: number
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code_id: string
+          referred_user_id: string
+          referrer_user_id: string
+          status?: string
+        }
+        Update: {
+          commission_cents?: number
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          referral_code_id?: string
+          referred_user_id?: string
+          referrer_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_conversions_referral_code_id_fkey"
+            columns: ["referral_code_id"]
+            isOneToOne: false
+            referencedRelation: "referral_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       strategy_outputs: {
         Row: {
           business_id: string
@@ -707,6 +841,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       winning_strategies: {
         Row: {
           category: string
@@ -773,9 +925,16 @@ export type Database = {
     }
     Functions: {
       check_trial_used: { Args: { check_email: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -902,6 +1061,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
