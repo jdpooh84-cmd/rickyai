@@ -11,11 +11,12 @@ const planList = [
     features: [
       "Unlimited Businesses & Locations",
       "Full 13-Step Growth System",
+      "AI Video Production (In-App)",
       "Ricky AI Guide",
       "Lead Scout & Grant Search",
       "Search Visibility Engine",
       "Community & Marketplace",
-      "HeyGen Video Export",
+      "HeyGen / InVideo Integration",
     ],
   },
   {
