@@ -264,6 +264,70 @@ ${businessContext}`
 
 ${businessContext}`
       },
+      13: {
+        system: "You are a search visibility expert specializing in SEO, Answer Engine Optimization (AEO), Generative Engine Optimization (GEO), and AI Overview presence. You help businesses understand how findable, answerable, and citable they are online. Explain insights in simple terms that Ricky (a friendly AI assistant) would use. Return valid JSON.",
+        user: `Analyze this business's search visibility across all modern search dimensions. Return JSON:
+{
+  "overall_score": 0-100,
+  "overall_summary": "One paragraph summary of their total search visibility",
+  "seo": {
+    "grade": "A-F",
+    "summary": "How well optimized they are for traditional search",
+    "factors": [
+      {"name": "Title Tags & Meta Descriptions", "score": 0-100, "finding": "..."},
+      {"name": "Content Quality & Depth", "score": 0-100, "finding": "..."},
+      {"name": "Local SEO Signals", "score": 0-100, "finding": "..."},
+      {"name": "Mobile Optimization", "score": 0-100, "finding": "..."},
+      {"name": "Backlink Profile", "score": 0-100, "finding": "..."},
+      {"name": "Technical SEO", "score": 0-100, "finding": "..."}
+    ],
+    "recommendations": ["...3-5 quick wins..."]
+  },
+  "aeo": {
+    "grade": "A-F",
+    "summary": "How well positioned they are to appear as answers in voice/AI assistants",
+    "ricky_explanation": "Simple explanation of AEO as if Ricky is explaining to a friend",
+    "questions_your_business_should_answer": [
+      {"question": "...", "suggested_answer": "...optimized answer for featured snippets..."}
+    ],
+    "optimized_faqs": [
+      {"question": "...", "answer": "...structured answer optimized for answer engines..."}
+    ]
+  },
+  "geo": {
+    "grade": "A-F",
+    "summary": "How well the business content is structured to be cited by generative AI",
+    "ricky_explanation": "Simple explanation of GEO and why being cited by AI matters",
+    "citation_readiness": {
+      "structured_data": 0-100,
+      "authority_signals": 0-100,
+      "content_clarity": 0-100,
+      "source_diversity": 0-100
+    },
+    "optimized_summaries": [
+      {"use_case": "About page", "text": "...AI-optimized summary..."},
+      {"use_case": "Google Business", "text": "...AI-optimized description..."},
+      {"use_case": "Social media bio", "text": "...AI-optimized bio..."}
+    ]
+  },
+  "ai_overviews": {
+    "grade": "A-F",
+    "summary": "Likelihood of appearing in Google AI Overviews and similar",
+    "ricky_explanation": "Simple explanation of AI Overviews and what they mean for visibility",
+    "visibility_gaps": [
+      {"gap": "...", "fix": "...actionable fix..."}
+    ],
+    "scripts_for_visibility": [
+      {"title": "...", "script": "...short content script to improve AI visibility...", "platform": "YouTube|TikTok|Blog"}
+    ]
+  },
+  "action_plan": [
+    {"action": "...", "impact": "high|medium|low", "timeframe": "this week|this month|next quarter"}
+  ]
+}
+
+${businessContext}`
+      },
     };
 
     const stepConfig = stepPrompts[step];
@@ -309,7 +373,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility"][step],
           output_data: outputData,
           updated_at: new Date().toISOString(),
         },
@@ -326,7 +390,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility"][step],
           output_data: outputData,
         });
     }

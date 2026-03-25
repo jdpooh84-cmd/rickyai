@@ -1,7 +1,7 @@
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag
+  Trophy, MessageSquare, ShoppingBag, Eye
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -21,6 +21,7 @@ const steps = [
   { num: 10, icon: Upload, title: "Export" },
   { num: 11, icon: Users, title: "Lead Scout" },
   { num: 12, icon: DollarSign, title: "Grant Search" },
+  { num: 13, icon: Eye, title: "Search Visibility" },
 ];
 
 const extras = [
