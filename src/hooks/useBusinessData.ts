@@ -63,6 +63,37 @@ export const useBusinessData = () => {
     setSelectedLocation(primary?.id || locations.find(l => l.business_id === id)?.id || null);
   };
 
+  const refresh = async () => {
+    if (!user) return;
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("id, business_name, business_category")
+      .eq("user_id", user.id)
+      .order("created_at");
+
+    if (biz && biz.length > 0) {
+      setBusinesses(biz);
+      if (!selectedBusiness || !biz.find(b => b.id === selectedBusiness)) {
+        setSelectedBusiness(biz[0].id);
+      }
+
+      const { data: locs } = await supabase
+        .from("locations")
+        .select("id, business_id, location_name, city, state, is_primary")
+        .eq("user_id", user.id)
+        .order("created_at");
+
+      if (locs) {
+        setLocations(locs);
+        const currentBizId = selectedBusiness || biz[0].id;
+        if (!selectedLocation || !locs.find(l => l.id === selectedLocation)) {
+          const primary = locs.find(l => l.business_id === currentBizId && l.is_primary);
+          setSelectedLocation(primary?.id || locs.find(l => l.business_id === currentBizId)?.id || null);
+        }
+      }
+    }
+  };
+
   return {
     businesses,
     locations: businessLocations,
@@ -71,5 +102,6 @@ export const useBusinessData = () => {
     selectBusiness,
     setSelectedLocation,
     loading,
+    refresh,
   };
 };

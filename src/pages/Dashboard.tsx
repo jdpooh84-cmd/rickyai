@@ -33,7 +33,7 @@ const Dashboard = () => {
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [showBizDropdown, setShowBizDropdown] = useState(false);
   const [showLocDropdown, setShowLocDropdown] = useState(false);
-  const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation } = useBusinessData();
+  const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation, refresh: refreshBusinessData } = useBusinessData();
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
@@ -61,7 +61,7 @@ const Dashboard = () => {
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
-      case 2: return <ProfileStep onComplete={() => markComplete(2)} />;
+      case 2: return <ProfileStep onComplete={() => { refreshBusinessData(); markComplete(2); }} />;
       case 3: return <CompeteStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(3)} />;
       case 4: return <ScoutStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(4)} />;
       case 5: return <AuditStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(5)} />;

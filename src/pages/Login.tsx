@@ -49,6 +49,8 @@ const Login = () => {
               <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
               <input
                 type="email"
+                name="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
@@ -61,6 +63,8 @@ const Login = () => {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -87,7 +91,13 @@ const Login = () => {
             </Button>
           </form>
 
-          <p className="text-sm text-muted-foreground text-center mt-6">
+          <div className="text-center mt-4">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline font-medium">
+              Forgot your password?
+            </Link>
+          </div>
+
+          <p className="text-sm text-muted-foreground text-center mt-4">
             Don't have an account?{" "}
             <Link to="/signup" className="text-primary hover:underline font-medium">
               Start free trial
