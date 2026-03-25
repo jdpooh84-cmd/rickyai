@@ -9,6 +9,7 @@ import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import TeamManagement from "@/components/admin/TeamManagement";
 import AffiliatePayoutManagement from "@/components/admin/AffiliatePayoutManagement";
 import AdvertiserManagement from "@/components/admin/AdvertiserManagement";
+import BanManagement from "@/components/admin/BanManagement";
 
 const AdminDashboard = () => {
   const { user, signOut } = useAuth();
