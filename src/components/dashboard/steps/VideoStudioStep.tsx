@@ -30,6 +30,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [renderedVideos, setRenderedVideos] = useState<any[]>([]);
   const [insightReport, setInsightReport] = useState<any>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [generatingVideo, setGeneratingVideo] = useState(false);
+  const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(null);
 
   useEffect(() => { if (businessId) loadExisting(businessId); }, [businessId]);
 
