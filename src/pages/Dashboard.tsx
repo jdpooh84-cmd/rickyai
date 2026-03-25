@@ -3,9 +3,20 @@ import AppSidebar from "@/components/dashboard/AppSidebar";
 import StrategySummary from "@/components/dashboard/StrategySummary";
 import RickyHelper from "@/components/dashboard/RickyHelper";
 import ConnectStep from "@/components/dashboard/ConnectStep";
-import { ChevronDown } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { ChevronDown, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -25,11 +36,15 @@ const Dashboard = () => {
                 Select Location <ChevronDown className="w-3 h-3" />
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-xs">
                 <span className="w-1.5 h-1.5 rounded-full bg-destructive" />
                 No AI Connected
               </div>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
+              <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out">
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </header>
 
