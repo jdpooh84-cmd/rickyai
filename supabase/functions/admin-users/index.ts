@@ -36,10 +36,12 @@ serve(async (req) => {
       .maybeSingle();
     if (!roleData) throw new Error("Unauthorized: admin role required");
 
-    const { action, email, user_id, role } = await req.json();
+    const body = await req.json();
+    const { action } = body;
 
+    // --- User Management ---
     if (action === "search") {
-      // Search users by email using admin API
+      const { email } = body;
       const { data: users, error } = await supabaseClient.auth.admin.listUsers({ perPage: 50 });
       if (error) throw error;
       
@@ -47,7 +49,6 @@ serve(async (req) => {
         ? users.users.filter(u => u.email?.toLowerCase().includes(email.toLowerCase()))
         : users.users;
 
-      // Get roles for matched users
       const userIds = filtered.map(u => u.id);
       const { data: roles } = await supabaseClient
         .from("user_roles")
@@ -73,6 +74,7 @@ serve(async (req) => {
     }
 
     if (action === "grant_role") {
+      const { user_id, role } = body;
       if (!user_id || !role) throw new Error("user_id and role are required");
       const { error } = await supabaseClient
         .from("user_roles")
@@ -84,8 +86,8 @@ serve(async (req) => {
     }
 
     if (action === "revoke_role") {
+      const { user_id, role } = body;
       if (!user_id || !role) throw new Error("user_id and role are required");
-      // Prevent removing your own admin role
       if (user_id === callerId && role === "admin") {
         throw new Error("Cannot remove your own admin role");
       }
@@ -94,6 +96,85 @@ serve(async (req) => {
         .delete()
         .eq("user_id", user_id)
         .eq("role", role);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Affiliate Payouts ---
+    if (action === "list_payouts") {
+      const { data: payouts } = await supabaseClient
+        .from("affiliate_payouts")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return new Response(JSON.stringify({ payouts: payouts || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "list_referrers") {
+      const { data: referrers } = await supabaseClient
+        .from("referral_codes")
+        .select("user_id, code, conversions, commission_rate_percent")
+        .order("conversions", { ascending: false })
+        .limit(20);
+      return new Response(JSON.stringify({ referrers: referrers || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update_payout") {
+      const { payout_id, status } = body;
+      if (!payout_id || !status) throw new Error("payout_id and status required");
+      const updateData: any = { status };
+      if (status === "paid") updateData.paid_at = new Date().toISOString();
+      const { error } = await supabaseClient
+        .from("affiliate_payouts")
+        .update(updateData)
+        .eq("id", payout_id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- Advertiser Management ---
+    if (action === "list_advertisers") {
+      const { data: advertisers } = await supabaseClient
+        .from("advertiser_accounts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      const { data: campaigns } = await supabaseClient
+        .from("ad_campaigns")
+        .select("id, name, status, budget_cents, spent_cents, advertiser_id")
+        .order("created_at", { ascending: false })
+        .limit(50);
+      return new Response(JSON.stringify({ advertisers: advertisers || [], campaigns: campaigns || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "create_advertiser") {
+      const { company_name, contact_email, industry } = body;
+      if (!company_name || !contact_email || !industry) throw new Error("company_name, contact_email, industry required");
+      const { error } = await supabaseClient
+        .from("advertiser_accounts")
+        .insert({ company_name, contact_email, industry, status: "pending" });
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "update_advertiser_status") {
+      const { advertiser_id, status } = body;
+      if (!advertiser_id || !status) throw new Error("advertiser_id and status required");
+      const { error } = await supabaseClient
+        .from("advertiser_accounts")
+        .update({ status })
+        .eq("id", advertiser_id);
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
