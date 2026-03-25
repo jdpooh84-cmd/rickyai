@@ -210,19 +210,19 @@ const TermsOfService = () => {
           of the laws of any other jurisdiction.
         </p>
 
-        <h2>9. Governing Law</h2>
+        <h2>12. Governing Law</h2>
         <p>
           These Terms shall be governed by and construed in accordance with the laws of the Commonwealth of Virginia,
           without regard to its conflict of law provisions.
         </p>
 
-        <h2>10. Changes to Terms</h2>
+        <h2>13. Changes to Terms</h2>
         <p>
           The Company reserves the right to modify these Terms at any time. Material changes will be communicated
           through the platform. Your continued use after changes constitutes acceptance of the revised Terms.
         </p>
 
-        <h2>11. Contact</h2>
+        <h2>14. Contact</h2>
         <p>
           For questions about these Terms, contact us at <span className="text-primary">support@rickyai.com</span>.
         </p>
