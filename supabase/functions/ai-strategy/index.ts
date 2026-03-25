@@ -171,18 +171,41 @@ ${businessContext}`
 ${businessContext}`
       },
       8: {
-        system: "You are a video production consultant for small businesses. Return valid JSON.",
-        user: `Create a video production plan for this business. Return JSON:
+        system: "You are a video production consultant for small businesses. You provide BOTH professional AI video tool workflows (HeyGen, InVideo) AND completely free alternatives (CapCut, Canva, phone camera). Every video idea MUST include a detailed free production prompt that the user can paste directly into a free tool. Return valid JSON.",
+        user: `Create a comprehensive video production plan for this business with BOTH paid AI tool instructions AND free alternatives. Return JSON:
 {
-  "video_strategy": "...",
+  "video_strategy": "...overall video strategy tailored to this specific business...",
   "video_ideas": [
-    {"title": "...", "type": "testimonial|tutorial|behind-scenes|promo|educational", "difficulty": "easy|medium|hard", "equipment": ["..."], "estimated_views": "...", "script_outline": "..."}
+    {
+      "title": "...specific to this business...",
+      "type": "testimonial|tutorial|behind-scenes|promo|educational",
+      "difficulty": "easy|medium|hard",
+      "equipment": ["..."],
+      "estimated_views": "...",
+      "script_outline": "...detailed script with specific dialogue for this business...",
+      "heygen_prompt": "...exact prompt to paste into HeyGen to generate this video, including avatar description, script, tone, background setting...",
+      "invideo_prompt": "...exact prompt to paste into InVideo AI to generate this video, including style, narration text, b-roll suggestions...",
+      "free_production_guide": {
+        "tool": "CapCut|Canva|Phone Camera + CapCut",
+        "step_by_step": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+        "prompt_for_tool": "...exact text/prompt to use in the free tool...",
+        "tips": "...specific tips for making it look professional without paid tools..."
+      }
+    }
   ],
   "equipment_recommendations": [
     {"item": "...", "price_range": "...", "priority": "essential|nice-to-have"}
   ],
   "filming_tips": ["..."],
-  "editing_workflow": "..."
+  "editing_workflow": "...",
+  "ai_tool_comparison": {
+    "heygen": {"best_for": "...", "cost": "...", "signup_url": "https://www.heygen.com"},
+    "invideo": {"best_for": "...", "cost": "...", "signup_url": "https://invideo.io"},
+    "free_alternatives": [
+      {"name": "CapCut", "best_for": "...", "url": "https://www.capcut.com"},
+      {"name": "Canva", "best_for": "...", "url": "https://www.canva.com/video-editor"}
+    ]
+  }
 }
 
 ${businessContext}`
