@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, DollarSign, TrendingUp, Eye, ShieldCheck, ArrowLeft, UserPlus, Activity, CreditCard } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Users, DollarSign, TrendingUp, Eye, ShieldCheck, ArrowLeft, UserPlus, Activity, CreditCard, Search, Shield, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface AdminStats {
   totalUsers: number;
