@@ -37,11 +37,11 @@ const HeroSection = () => {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Button variant="hero" size="xl">
+            <Button variant="hero" size="xl" onClick={() => navigate("/signup")}>
               Start Free Trial
               <ArrowRight className="w-5 h-5" />
             </Button>
-            <Button variant="outline" size="xl" className="border-border hover:border-primary/40">
+            <Button variant="outline" size="xl" className="border-border hover:border-primary/40" onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}>
               See How It Works
             </Button>
           </div>
