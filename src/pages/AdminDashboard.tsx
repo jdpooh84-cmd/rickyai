@@ -177,6 +177,57 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* User Management */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" /> User &amp; Role Management
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Search by email..."
+                value={searchEmail}
+                onChange={(e) => setSearchEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchUsers()}
+                className="max-w-sm"
+              />
+              <Button onClick={handleSearchUsers} disabled={searchLoading} size="sm">
+                <Search className="w-4 h-4 mr-1" /> {searchLoading ? "Searching..." : "Search"}
+              </Button>
+            </div>
+
+            {managedUsers.length > 0 && (
+              <div className="space-y-2">
+                {managedUsers.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between py-3 px-4 border border-border rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{u.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Roles: {u.roles.length > 0 ? u.roles.join(", ") : "none"} · Joined {new Date(u.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {!u.roles.includes("admin") ? (
+                        <Button size="sm" variant="outline" onClick={() => handleGrantRole(u.id, "admin")}>
+                          <ShieldCheck className="w-3 h-3 mr-1" /> Make Admin
+                        </Button>
+                      ) : u.id !== user?.id ? (
+                        <Button size="sm" variant="destructive" onClick={() => handleRevokeRole(u.id, "admin")}>
+                          <Trash2 className="w-3 h-3 mr-1" /> Remove Admin
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">You</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
