@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
@@ -26,6 +26,7 @@ const steps = [
   { num: 11, icon: Users, title: "Lead Scout" },
   { num: 12, icon: DollarSign, title: "Grant Search" },
   { num: 13, icon: Eye, title: "Search Visibility" },
+  { num: 14, icon: Zap, title: "Campaign Blueprint" },
 ];
 
 const extras = [
