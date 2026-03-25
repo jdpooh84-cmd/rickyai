@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
-import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone } from "lucide-react";
+import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
-type TabType = "free" | "heygen" | "invideo";
+type TabType = "free" | "heygen" | "invideo" | "canva" | "pixelbin" | "easemate" | "virbo";
 
 const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const { data, loading, generate, loadExisting } = useStrategyStep(8);
@@ -34,13 +34,40 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   );
 
   const tabs: { key: TabType; label: string; icon: React.ReactNode; desc: string }[] = [
-    { key: "free", label: "Free Tools", icon: <Smartphone className="w-4 h-4" />, desc: "CapCut, Canva, Phone" },
-    { key: "heygen", label: "HeyGen", icon: <Sparkles className="w-4 h-4" />, desc: "AI Avatar Videos" },
+    { key: "free", label: "Free Tools", icon: <Smartphone className="w-4 h-4" />, desc: "CapCut, Phone" },
+    { key: "canva", label: "Canva", icon: <Palette className="w-4 h-4" />, desc: "Video Editor" },
     { key: "invideo", label: "InVideo", icon: <Film className="w-4 h-4" />, desc: "AI Video Editor" },
+    { key: "heygen", label: "HeyGen", icon: <Sparkles className="w-4 h-4" />, desc: "AI Avatars" },
+    { key: "pixelbin", label: "PixelBin", icon: <Wand2 className="w-4 h-4" />, desc: "API Pipeline" },
+    { key: "easemate", label: "EaseMate", icon: <Video className="w-4 h-4" />, desc: "AI Generator" },
+    { key: "virbo", label: "Virbo", icon: <Bot className="w-4 h-4" />, desc: "Talking Head" },
   ];
 
+  const getPromptForTab = (video: any, tab: TabType): string | null => {
+    switch (tab) {
+      case "heygen": return video.heygen_prompt;
+      case "invideo": return video.invideo_prompt;
+      case "canva": return video.canva_prompt;
+      case "pixelbin": return video.pixelbin_prompt;
+      case "easemate": return video.easemate_prompt;
+      case "virbo": return video.virbo_prompt;
+      default: return null;
+    }
+  };
+
+  const getTabLabel = (tab: TabType): string => {
+    return tabs.find(t => t.key === tab)?.label || tab;
+  };
+
+  const getTabIcon = (tab: TabType): string => {
+    const icons: Record<TabType, string> = {
+      free: "📱", heygen: "✨", invideo: "🎬", canva: "🎨", pixelbin: "⚡", easemate: "🤖", virbo: "🗣️"
+    };
+    return icons[tab];
+  };
+
   return (
-    <StepLayout title="Video Studio" description="Your video production plan with ideas, gear, and workflow — with ready-to-use prompts for both paid AI tools and free alternatives."
+    <StepLayout title="Video Studio" description="Your video production plan with ready-to-use prompts for 7 tools — from free options to professional AI platforms."
       icon="🎬" loading={loading} hasData={!!data} onGenerate={handleGenerate} onRegenerate={handleGenerate} needsProfile={!businessId}>
       {data && (
         <div className="space-y-6">
@@ -51,13 +78,13 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             </div>
           )}
 
-          {/* Tool Selection Tabs */}
-          <div className="flex gap-2 p-1 bg-secondary/50 rounded-xl">
+          {/* Tool Selection Tabs - scrollable */}
+          <div className="flex gap-1.5 p-1 bg-secondary/50 rounded-xl overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                   activeTab === tab.key
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
@@ -66,13 +93,13 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 {tab.icon}
                 <div className="text-left">
                   <div className="text-xs font-semibold">{tab.label}</div>
-                  <div className="text-[10px] opacity-75">{tab.desc}</div>
+                  <div className="text-[9px] opacity-75">{tab.desc}</div>
                 </div>
               </button>
             ))}
           </div>
 
-          {/* AI Tool Comparison */}
+          {/* Tool Guide */}
           {data.ai_tool_comparison && (
             <div className="glass rounded-xl p-4">
               <h4 className="text-sm font-semibold text-foreground mb-3">🔧 Tool Guide</h4>
@@ -80,6 +107,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <div className="space-y-2">
                   <p className="text-sm text-secondary-foreground"><strong>Best for:</strong> {data.ai_tool_comparison.heygen.best_for}</p>
                   <p className="text-sm text-secondary-foreground"><strong>Cost:</strong> {data.ai_tool_comparison.heygen.cost}</p>
+                  <p className="text-xs text-muted-foreground">{data.ai_tool_comparison.heygen.workflow_tip || "Create AI avatar videos with custom scripts and backgrounds."}</p>
                   <a href={data.ai_tool_comparison.heygen.signup_url} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     Sign up for HeyGen <ExternalLink className="w-3 h-3" />
@@ -90,9 +118,54 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <div className="space-y-2">
                   <p className="text-sm text-secondary-foreground"><strong>Best for:</strong> {data.ai_tool_comparison.invideo.best_for}</p>
                   <p className="text-sm text-secondary-foreground"><strong>Cost:</strong> {data.ai_tool_comparison.invideo.cost}</p>
+                  <p className="text-xs text-muted-foreground">{data.ai_tool_comparison.invideo.workflow_tip || "Auto-generate scripts, visuals, and voiceovers for YouTube automation."}</p>
                   <a href={data.ai_tool_comparison.invideo.signup_url} target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                     Sign up for InVideo <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+              {activeTab === "canva" && data.ai_tool_comparison.canva && (
+                <div className="space-y-2">
+                  <p className="text-sm text-secondary-foreground"><strong>Best for:</strong> {data.ai_tool_comparison.canva.best_for}</p>
+                  <p className="text-sm text-secondary-foreground"><strong>Cost:</strong> {data.ai_tool_comparison.canva.cost}</p>
+                  <p className="text-xs text-muted-foreground">{data.ai_tool_comparison.canva.workflow_tip || "Connects with Zapier for automated video creation from templates."}</p>
+                  <a href="https://www.canva.com/video-editor" target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    Open Canva Video Editor <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+              {activeTab === "pixelbin" && data.ai_tool_comparison.pixelbin && (
+                <div className="space-y-2">
+                  <p className="text-sm text-secondary-foreground"><strong>Best for:</strong> {data.ai_tool_comparison.pixelbin.best_for}</p>
+                  <p className="text-sm text-secondary-foreground"><strong>Cost:</strong> {data.ai_tool_comparison.pixelbin.cost}</p>
+                  <p className="text-xs text-muted-foreground">{data.ai_tool_comparison.pixelbin.workflow_tip || "API-first platform with Zapier connector for automated pipelines."}</p>
+                  <a href="https://www.pixelbin.io" target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    Open PixelBin <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+              {activeTab === "easemate" && data.ai_tool_comparison.easemate && (
+                <div className="space-y-2">
+                  <p className="text-sm text-secondary-foreground"><strong>Best for:</strong> {data.ai_tool_comparison.easemate.best_for}</p>
+                  <p className="text-sm text-secondary-foreground"><strong>Cost:</strong> {data.ai_tool_comparison.easemate.cost}</p>
+                  <p className="text-xs text-muted-foreground">{data.ai_tool_comparison.easemate.workflow_tip || "Consistent steps make it ideal for browser automation workflows."}</p>
+                  <a href="https://www.easemate.com" target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    Open EaseMate <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+              {activeTab === "virbo" && data.ai_tool_comparison.virbo && (
+                <div className="space-y-2">
+                  <p className="text-sm text-secondary-foreground"><strong>Best for:</strong> {data.ai_tool_comparison.virbo.best_for}</p>
+                  <p className="text-sm text-secondary-foreground"><strong>Cost:</strong> {data.ai_tool_comparison.virbo.cost}</p>
+                  <p className="text-xs text-muted-foreground">{data.ai_tool_comparison.virbo.workflow_tip || "Standardize idea → script → talking-head video as a repeatable process."}</p>
+                  <a href="https://virbo.wondershare.com" target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    Open Virbo <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
               )}
@@ -139,27 +212,20 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               )}
 
-              {/* HeyGen Tab */}
-              {activeTab === "heygen" && v.heygen_prompt && (
-                <div className="mt-3 p-3 rounded-lg bg-accent/5 border border-accent/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-semibold text-accent">✨ HeyGen Prompt</h5>
-                    <CopyButton text={v.heygen_prompt} id={`heygen-${i}`} />
+              {/* All other platform tabs */}
+              {activeTab !== "free" && (() => {
+                const prompt = getPromptForTab(v, activeTab);
+                if (!prompt) return null;
+                return (
+                  <div className="mt-3 p-3 rounded-lg bg-accent/5 border border-accent/10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs font-semibold text-accent">{getTabIcon(activeTab)} {getTabLabel(activeTab)} Prompt</h5>
+                      <CopyButton text={prompt} id={`${activeTab}-${i}`} />
+                    </div>
+                    <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{prompt}</p>
                   </div>
-                  <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{v.heygen_prompt}</p>
-                </div>
-              )}
-
-              {/* InVideo Tab */}
-              {activeTab === "invideo" && v.invideo_prompt && (
-                <div className="mt-3 p-3 rounded-lg bg-accent/5 border border-accent/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-semibold text-accent">🎬 InVideo AI Prompt</h5>
-                    <CopyButton text={v.invideo_prompt} id={`invideo-${i}`} />
-                  </div>
-                  <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{v.invideo_prompt}</p>
-                </div>
-              )}
+                );
+              })()}
 
               {v.equipment && (
                 <div className="mt-2 flex flex-wrap gap-1">
