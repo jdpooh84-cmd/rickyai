@@ -537,6 +537,55 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       )}
 
       {/* Insight Reports Button */}
+      {/* Generate Video Button */}
+      {workflowMode === "auto" && (
+        <div className="glass rounded-2xl p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Film className="w-4 h-4 text-primary" /> Produce a Video Now
+              </h4>
+              <p className="text-[10px] text-muted-foreground">Generate an AI video based on your business profile</p>
+            </div>
+            <button onClick={() => handleGenerateVideo("promotional")} disabled={generatingVideo}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
+              {generatingVideo ? "Producing..." : "🎬 Produce Video"}
+            </button>
+          </div>
+          {generatedVideoScript?.script && (
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                <h5 className="text-xs font-semibold text-primary mb-1">{generatedVideoScript.script.title}</h5>
+                <p className="text-xs text-secondary-foreground">{generatedVideoScript.script.description}</p>
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {generatedVideoScript.script.hashtags?.map((h: string, i: number) => (
+                    <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">{h}</span>
+                  ))}
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-accent/5 border border-accent/10">
+                <h5 className="text-xs font-semibold text-accent-foreground mb-1">📋 Production Prompt</h5>
+                <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{generatedVideoScript.script.video_prompt}</p>
+                <CopyButton text={generatedVideoScript.script.video_prompt} id="gen-video-prompt" />
+              </div>
+              <div className="p-3 rounded-xl bg-secondary/30">
+                <h5 className="text-xs font-semibold text-foreground mb-1">📱 Text Overlay</h5>
+                <p className="text-sm text-secondary-foreground">{generatedVideoScript.script.suggested_text_overlay}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Best for: {generatedVideoScript.script.target_platform}</p>
+              </div>
+            </div>
+          )}
+          {/* Sample video preview */}
+          <div className="mt-4">
+            <p className="text-[10px] text-muted-foreground mb-2">Sample AI-generated video preview:</p>
+            <video controls className="w-full rounded-xl max-h-[200px] bg-black">
+              <source src={sampleVideoAsset.url} type="video/mp4" />
+            </video>
+          </div>
+        </div>
+      )}
+
+      {/* Insight Reports */}
       {workflowMode === "auto" && (
         <div className="glass rounded-2xl p-4 mb-6">
           <div className="flex items-center justify-between">
