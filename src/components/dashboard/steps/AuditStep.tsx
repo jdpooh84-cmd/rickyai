@@ -63,8 +63,9 @@ const AuditStep = ({ businessId, locationId, onComplete }: Props) => {
                     <p className="text-xs text-muted-foreground">{w.type} • Goal: {w.goal}</p>
                   </div>
                 ))}
-              </div>
             </div>
+            <CalendarExportButton actionItems={data.content_calendar} stepName="Content Calendar" />
+          </div>
           )}
         </div>
       )}

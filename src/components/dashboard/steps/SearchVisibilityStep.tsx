@@ -234,6 +234,7 @@ const SearchVisibilityStep = ({ businessId, locationId, onComplete }: Props) => 
                   </div>
                 </div>
               ))}
+              <CalendarExportButton actionItems={data.action_plan} stepName="Search Visibility Action Plan" />
             </div>
           )}
         </div>
