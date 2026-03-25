@@ -350,6 +350,45 @@ export type Database = {
         }
         Relationships: []
       }
+      content_flags: {
+        Row: {
+          content_id: string | null
+          content_type: string
+          created_at: string
+          id: string
+          reason: string
+          reported_by: string | null
+          reported_user_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          content_id?: string | null
+          content_type: string
+          created_at?: string
+          id?: string
+          reason: string
+          reported_by?: string | null
+          reported_user_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          content_id?: string | null
+          content_type?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          reported_by?: string | null
+          reported_user_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       forum_posts: {
         Row: {
           body: string
@@ -736,6 +775,33 @@ export type Database = {
           },
         ]
       }
+      tos_acceptances: {
+        Row: {
+          accepted_at: string
+          id: string
+          ip_address: string | null
+          tos_version: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          ip_address?: string | null
+          tos_version?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          ip_address?: string | null
+          tos_version?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       trial_used_emails: {
         Row: {
           email: string
@@ -801,6 +867,45 @@ export type Database = {
           badge_id?: string
           earned_at?: string
           id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_bans: {
+        Row: {
+          ban_expires_at: string | null
+          banned_at: string
+          created_at: string
+          id: string
+          is_permanent: boolean
+          issued_by: string | null
+          notes: string | null
+          offense_number: number
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          ban_expires_at?: string | null
+          banned_at?: string
+          created_at?: string
+          id?: string
+          is_permanent?: boolean
+          issued_by?: string | null
+          notes?: string | null
+          offense_number?: number
+          reason: string
+          user_id: string
+        }
+        Update: {
+          ban_expires_at?: string | null
+          banned_at?: string
+          created_at?: string
+          id?: string
+          is_permanent?: boolean
+          issued_by?: string | null
+          notes?: string | null
+          offense_number?: number
+          reason?: string
           user_id?: string
         }
         Relationships: []

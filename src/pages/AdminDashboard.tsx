@@ -3,12 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, LayoutDashboard } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, ShieldAlert } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import TeamManagement from "@/components/admin/TeamManagement";
 import AffiliatePayoutManagement from "@/components/admin/AffiliatePayoutManagement";
 import AdvertiserManagement from "@/components/admin/AdvertiserManagement";
+import BanManagement from "@/components/admin/BanManagement";
 
 const AdminDashboard = () => {
   const { user, signOut } = useAuth();
@@ -83,9 +84,12 @@ const AdminDashboard = () => {
         <AdminStatsCards stats={stats} />
 
         <Tabs defaultValue="team" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="team" className="flex items-center gap-2">
               <Users className="w-4 h-4" /> Team
+            </TabsTrigger>
+            <TabsTrigger value="moderation" className="flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4" /> Moderation
             </TabsTrigger>
             <TabsTrigger value="affiliates" className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" /> Affiliates
@@ -97,6 +101,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="team" className="mt-6">
             <TeamManagement currentUserId={user?.id || ""} />
+          </TabsContent>
+
+          <TabsContent value="moderation" className="mt-6">
+            <BanManagement />
           </TabsContent>
 
           <TabsContent value="affiliates" className="mt-6">
