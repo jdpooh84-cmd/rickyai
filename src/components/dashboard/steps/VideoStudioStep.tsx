@@ -41,7 +41,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     { key: "heygen", label: "HeyGen", icon: <Sparkles className="w-4 h-4" />, desc: "AI Avatars" },
     { key: "detail", label: "Detail", icon: <Monitor className="w-4 h-4" />, desc: "Screen Rec" },
     { key: "elevenlabs", label: "ElevenLabs", icon: <Mic className="w-4 h-4" />, desc: "AI Voice" },
-    { key: "nvidia", label: "Nvidia", icon: <Gpu className="w-4 h-4" />, desc: "Broadcast" },
+    { key: "nvidia", label: "Nvidia", icon: <MonitorSpeaker className="w-4 h-4" />, desc: "Broadcast" },
     { key: "pixelbin", label: "PixelBin", icon: <Wand2 className="w-4 h-4" />, desc: "API Pipeline" },
     { key: "easemate", label: "EaseMate", icon: <Video className="w-4 h-4" />, desc: "AI Generator" },
     { key: "virbo", label: "Virbo", icon: <Bot className="w-4 h-4" />, desc: "Talking Head" },
