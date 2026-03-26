@@ -30,6 +30,8 @@ Deno.serve(async (req) => {
 
     const { businessId, videoType, productionMode } = await req.json();
 
+    const requestPayload = { businessId, videoType, productionMode };
+
     // Fetch business data
     const { data: business } = await supabase
       .from("businesses")
@@ -47,6 +49,21 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .limit(1);
     const location = locations?.[0];
+
+    const { data: job, error: jobInsertError } = await supabase
+      .from("video_generation_jobs")
+      .insert({
+        user_id: user.id,
+        business_id: businessId,
+        location_id: location?.id ?? null,
+        provider: "built_in_ai",
+        status: "processing",
+        request_payload: requestPayload,
+      })
+      .select("id")
+      .single();
+
+    if (jobInsertError) throw new Error(`Failed to create video job: ${jobInsertError.message}`);
 
     // Generate video script using AI
     const scriptResponse = await fetch(AI_URL, {
@@ -104,32 +121,23 @@ Return JSON:
       throw new Error("Failed to parse AI script response");
     }
 
-    // Generate video using Lovable AI image/video generation
-    const videoGenResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: `Create a professional promotional image for: ${scriptContent.video_prompt}. Style: clean, modern, high-quality commercial photography feel. Include text overlay: "${scriptContent.suggested_text_overlay}". Business name: ${business.business_name}.`
-          }
-        ],
-      }),
-    });
+    await supabase
+      .from("video_generation_jobs")
+      .update({
+        status: "completed",
+        result_payload: scriptContent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
 
-    // Return the script data + generation status
     return new Response(JSON.stringify({
       success: true,
+      job_id: job.id,
       script: scriptContent,
       business_name: business.business_name,
       production_mode: productionMode,
-      status: "script_ready",
-      message: "Video script and production plan generated. Use the prompts in your preferred video tool or generate directly.",
+      status: "completed",
+      message: "Video brief generated and saved. Your setup now survives refreshes and interruptions.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
