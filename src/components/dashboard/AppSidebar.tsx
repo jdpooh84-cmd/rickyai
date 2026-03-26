@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -14,24 +14,45 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import UsageDashboard from "./UsageDashboard";
 
-const steps = [
-  { num: 1, icon: Link, title: "Connect" },
-  { num: 2, icon: UserCircle, title: "Profile" },
-  { num: 3, icon: BarChart3, title: "Compete" },
-  { num: 4, icon: Search, title: "Scout" },
-  { num: 5, icon: ClipboardCheck, title: "Audit" },
-  { num: 6, icon: Monitor, title: "Platform" },
-  { num: 7, icon: FileText, title: "Script" },
-  { num: 8, icon: Video, title: "Video Studio" },
-  { num: 9, icon: LayoutGrid, title: "Storyboard" },
-  { num: 10, icon: Upload, title: "Export" },
-  { num: 11, icon: Users, title: "Lead Scout" },
-  { num: 12, icon: DollarSign, title: "Grant Search" },
-  { num: 13, icon: Eye, title: "Search Visibility" },
-  { num: 14, icon: Zap, title: "Campaign Blueprint" },
+const phases = [
+  {
+    label: "Setup",
+    steps: [
+      { num: 1, icon: Link, title: "Connect" },
+      { num: 2, icon: UserCircle, title: "Profile" },
+    ],
+  },
+  {
+    label: "Research",
+    steps: [
+      { num: 3, icon: BarChart3, title: "Compete" },
+      { num: 4, icon: Search, title: "Scout" },
+      { num: 5, icon: ClipboardCheck, title: "Audit" },
+      { num: 6, icon: Monitor, title: "Platform" },
+    ],
+  },
+  {
+    label: "Create",
+    steps: [
+      { num: 7, icon: FileText, title: "Script" },
+      { num: 8, icon: Video, title: "Video Studio" },
+      { num: 9, icon: LayoutGrid, title: "Storyboard" },
+      { num: 10, icon: Upload, title: "Export" },
+    ],
+  },
+  {
+    label: "Grow",
+    steps: [
+      { num: 11, icon: Users, title: "Lead Scout" },
+      { num: 12, icon: DollarSign, title: "Grant Search" },
+      { num: 13, icon: Eye, title: "Search Visibility" },
+      { num: 14, icon: Zap, title: "Campaign Blueprint" },
+    ],
+  },
 ];
 
 const extras = [
+  { id: "watch", icon: Play, title: "Watch Videos" },
   { id: "ready", icon: Check, title: "Ready to Post" },
   { id: "score", icon: Trophy, title: "Growth Score" },
   { id: "community", icon: MessageSquare, title: "Community" },
@@ -74,58 +95,62 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
           {!collapsed && <span className="font-display font-bold text-foreground">RickyAI</span>}
         </div>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
-            {!collapsed && "Growth Steps"}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {steps.map((step) => {
-                const isActive = !activeSection && step.num === activeStep;
-                const isCompleted = completedSteps.includes(step.num);
-                return (
-                  <SidebarMenuItem key={step.num}>
-                    <SidebarMenuButton
-                      onClick={() => { onSectionClick?.(""); onStepClick?.(step.num); }}
-                      className={`relative transition-all cursor-pointer ${
-                        isActive ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="relative flex-shrink-0">
-                          {isCompleted ? (
-                            <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                              <Check className="w-3.5 h-3.5 text-primary" />
+        {/* Phases */}
+        {phases.map(phase => (
+          <SidebarGroup key={phase.label}>
+            <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
+              {!collapsed && phase.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {phase.steps.map((step) => {
+                  const isActive = !activeSection && step.num === activeStep;
+                  const isCompleted = completedSteps.includes(step.num);
+                  return (
+                    <SidebarMenuItem key={step.num}>
+                      <SidebarMenuButton
+                        onClick={() => { onSectionClick?.(""); onStepClick?.(step.num); }}
+                        className={`relative transition-all cursor-pointer ${
+                          isActive ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="relative flex-shrink-0">
+                            {isCompleted ? (
+                              <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                                <Check className="w-3.5 h-3.5 text-primary" />
+                              </div>
+                            ) : (
+                              <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
+                                isActive ? "border-primary text-primary" : "border-muted-foreground/30 text-muted-foreground/50"
+                              }`}>{step.num}</div>
+                            )}
+                          </div>
+                          {!collapsed && (
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <step.icon className="w-4 h-4 flex-shrink-0" />
+                              <span className="text-sm font-medium truncate">{step.title}</span>
+                              <div className="flex gap-0.5 ml-auto flex-shrink-0">
+                                {getLayersForStep(step.num).slice(0, 2).map(l => (
+                                  <span key={l} className={`text-[8px] font-bold px-1 py-0 rounded ${LAYER_META[l].color}`}>{l}</span>
+                                ))}
+                              </div>
                             </div>
-                          ) : (
-                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
-                              isActive ? "border-primary text-primary" : "border-muted-foreground/30 text-muted-foreground/50"
-                            }`}>{step.num}</div>
                           )}
                         </div>
-                        {!collapsed && (
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <step.icon className="w-4 h-4 flex-shrink-0" />
-                            <span className="text-sm font-medium truncate">{step.title}</span>
-                            <div className="flex gap-0.5 ml-auto flex-shrink-0">
-                              {getLayersForStep(step.num).slice(0, 2).map(l => (
-                                <span key={l} className={`text-[8px] font-bold px-1 py-0 rounded ${LAYER_META[l].color}`}>{l}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
 
+        {/* Extras */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
-            {!collapsed && "Community"}
+            {!collapsed && "Your Content"}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
