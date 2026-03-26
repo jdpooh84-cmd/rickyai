@@ -13,6 +13,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let jobId: string | null = null;
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
@@ -64,6 +66,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (jobInsertError) throw new Error(`Failed to create video job: ${jobInsertError.message}`);
+    jobId = job.id;
 
     // Generate video script using AI
     const scriptResponse = await fetch(AI_URL, {
@@ -144,6 +147,26 @@ Return JSON:
 
   } catch (error) {
     console.error("generate-video error:", error);
+
+    try {
+      if (jobId) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        await supabase
+          .from("video_generation_jobs")
+          .update({
+            status: "failed",
+            error_message: error.message,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", jobId);
+      }
+    } catch (jobUpdateError) {
+      console.error("generate-video job update error:", jobUpdateError);
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

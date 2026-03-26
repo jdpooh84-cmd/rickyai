@@ -430,7 +430,10 @@ ${businessContext}`
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      throw new Error(`AI error: ${aiResponse.status} ${errText}`);
+      const friendlyMessage = aiResponse.status === 402
+        ? "AI credits are unavailable right now. Your step and business selections were preserved, so you can retry without restarting."
+        : `AI error: ${aiResponse.status} ${errText}`;
+      throw new Error(friendlyMessage);
     }
 
     const aiData = await aiResponse.json();
