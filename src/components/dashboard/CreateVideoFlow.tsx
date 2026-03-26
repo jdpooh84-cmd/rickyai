@@ -361,7 +361,6 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
 
   // step === "done"
   const result = jobResult || {};
-  const result = jobResult || {};
   const sceneImages = result.scene_images || [];
   const videoSrc = finalVideoUrl || result.video_url;
 
