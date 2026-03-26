@@ -39,12 +39,25 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
+    // Check trial status from profiles
+    const { data: profile } = await supabaseClient
+      .from("profiles")
+      .select("trial_ends_at")
+      .eq("user_id", user.id)
+      .single();
+
+    const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
     if (customers.data.length === 0) {
       logStep("No Stripe customer found");
-      return new Response(JSON.stringify({ subscribed: false }), {
+      return new Response(JSON.stringify({ 
+        subscribed: false, 
+        trial_active: !!trialActive,
+        trial_ends_at: profile?.trial_ends_at || null,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -68,6 +81,18 @@ serve(async (req) => {
       subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       productId = subscription.items.data[0].price.product;
       logStep("Active subscription found", { productId, subscriptionEnd });
+
+      // Upsert usage tracking via service role
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+
+      await supabaseClient
+        .from("usage_tracking")
+        .upsert(
+          { user_id: user.id, period_start: periodStart, period_end: periodEnd },
+          { onConflict: "user_id,period_start" }
+        );
     } else {
       logStep("No active subscription");
     }
@@ -76,6 +101,8 @@ serve(async (req) => {
       subscribed: hasActiveSub,
       product_id: productId,
       subscription_end: subscriptionEnd,
+      trial_active: !!trialActive,
+      trial_ends_at: profile?.trial_ends_at || null,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
