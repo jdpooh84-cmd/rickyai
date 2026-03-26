@@ -325,20 +325,20 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           </div>
           <h3 className="text-lg font-bold text-foreground text-center">How hands-on do you want to be?</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button onClick={() => setWorkflowMode("diy")}
               className="glass rounded-2xl p-6 text-left hover:ring-2 hover:ring-primary transition-all">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-3 rounded-xl bg-accent/10"><Scissors className="w-6 h-6 text-accent-foreground" /></div>
                 <div>
-                  <h4 className="font-bold text-foreground text-lg">🛠 I'll Build It Myself</h4>
-                  <span className="text-xs text-muted-foreground">DIY with AI research</span>
+                  <h4 className="font-bold text-foreground">🛠 DIY</h4>
+                  <span className="text-xs text-muted-foreground">Build it yourself</span>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">The app does all the research, scripting, and prompt generation. You take those assets and produce the video using your tool of choice.</p>
+              <p className="text-xs text-muted-foreground mb-3">AI generates scripts & prompts. You produce the video in your tool of choice.</p>
               <ul className="space-y-1">
-                {["AI-generated scripts & prompts", "Copy-paste into any tool", "Full creative control", "Use free or paid platforms"].map(item => (
-                  <li key={item} className="text-xs text-secondary-foreground flex items-center gap-1.5">
+                {["AI scripts & prompts", "Full creative control", "Use any platform"].map(item => (
+                  <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
                     <Check className="w-3 h-3 text-primary" /> {item}
                   </li>
                 ))}
@@ -350,19 +350,39 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-3 rounded-xl bg-primary/10"><Sparkles className="w-6 h-6 text-primary" /></div>
                 <div>
-                  <h4 className="font-bold text-foreground text-lg">🚀 Do It All For Me</h4>
-                  <span className="text-xs text-muted-foreground">Full automation</span>
+                  <h4 className="font-bold text-foreground">🚀 Full Auto</h4>
+                  <span className="text-xs text-muted-foreground">We do everything</span>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">The app researches, scripts, produces, and delivers complete video content ready to post. Complete hands-off experience.</p>
+              <p className="text-xs text-muted-foreground mb-3">Complete research, scripting, production & scheduling. Hands-off experience.</p>
               <ul className="space-y-1">
-                {["Complete video production", "Ready-to-post content", "Automated posting schedule", "Daily & weekly insight reports"].map(item => (
-                  <li key={item} className="text-xs text-secondary-foreground flex items-center gap-1.5">
+                {["Complete production", "Automated posting", "Insight reports"].map(item => (
+                  <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
                     <Check className="w-3 h-3 text-primary" /> {item}
                   </li>
                 ))}
               </ul>
-              <span className="inline-block mt-3 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Most Popular</span>
+              <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Most Popular</span>
+            </button>
+
+            <button onClick={() => setWorkflowMode("pipeline")}
+              className="glass rounded-2xl p-6 text-left hover:ring-2 hover:ring-primary transition-all">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 rounded-xl bg-primary/10"><Zap className="w-6 h-6 text-primary" /></div>
+                <div>
+                  <h4 className="font-bold text-foreground">⚡ Automated Pipeline</h4>
+                  <span className="text-xs text-muted-foreground">Make.com powered</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">Keyword → Research → Script → Voice → Video → Post. Fully automated end-to-end pipeline.</p>
+              <ul className="space-y-1">
+                {["HeyGen + ElevenLabs", "Auto YouTube posting", "Uses your API keys"].map(item => (
+                  <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
+                    <Check className="w-3 h-3 text-primary" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-accent/10 text-accent-foreground font-semibold">Pro Upgrade</span>
             </button>
           </div>
         </div>
