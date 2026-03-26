@@ -9,80 +9,31 @@ const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-flash";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  let jobId: string | null = null;
+async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, productionMode: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization");
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-    if (authError || !user) throw new Error("Unauthorized");
-
-    const { businessId, videoType, productionMode } = await req.json();
-
-    // Fetch business data
-    const { data: business } = await supabase
-      .from("businesses")
-      .select("*")
-      .eq("id", businessId)
-      .eq("user_id", user.id)
-      .single();
+    const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", userId).single();
     if (!business) throw new Error("Business not found");
 
-    // Fetch location
-    const { data: locations } = await supabase
-      .from("locations")
-      .select("*")
-      .eq("business_id", businessId)
-      .eq("user_id", user.id)
-      .limit(1);
+    const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
     const location = locations?.[0];
 
-    // Get user's API keys for external services
-    const { data: userKeys } = await supabase
-      .from("user_api_keys")
-      .select("provider, api_key_encrypted")
-      .eq("user_id", user.id);
-
+    const { data: userKeys } = await supabase.from("user_api_keys").select("provider, api_key_encrypted").eq("user_id", userId);
     const keyMap: Record<string, string> = {};
     userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
-
     const heygenKey = keyMap["heygen"];
     const elevenlabsKey = keyMap["elevenlabs"];
 
-    // Create job record
-    const { data: job, error: jobInsertError } = await supabase
-      .from("video_generation_jobs")
-      .insert({
-        user_id: user.id,
-        business_id: businessId,
-        location_id: location?.id ?? null,
-        provider: heygenKey ? "heygen" : "built_in_ai",
-        status: "processing",
-        request_payload: { businessId, videoType, productionMode },
-      })
-      .select("id")
-      .single();
-
-    if (jobInsertError) throw new Error(`Failed to create video job: ${jobInsertError.message}`);
-    jobId = job.id;
-
     const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "Not specified";
 
-    // ── Step 1: Generate the script via AI ──
+    // Update status: generating script
+    await supabase.from("video_generation_jobs").update({ status: "generating_script", updated_at: new Date().toISOString() }).eq("id", jobId);
+
+    // ── Step 1: Generate script ──
     const scriptResponse = await fetch(AI_URL, {
       method: "POST",
       headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
@@ -140,11 +91,17 @@ Return JSON with:
       throw new Error("Failed to parse AI script response");
     }
 
-    // ── Step 2: Generate scene images using built-in AI (FREE) ──
+    // Save script immediately so user sees progress
+    await supabase.from("video_generation_jobs").update({
+      status: "generating_images",
+      result_payload: { ...scriptContent, scene_images: [], pipeline_steps: { script: "completed", scene_images: "processing" } },
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
+
+    // ── Step 2: Generate scene images ──
     const sceneImageUrls: string[] = [];
     const scenesToRender = (scriptContent.scenes || []).slice(0, 4);
 
-    // Ensure storage bucket exists
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
     for (let i = 0; i < scenesToRender.length; i++) {
@@ -166,232 +123,228 @@ Return JSON with:
 
         if (imgResponse.ok) {
           const imgData = await imgResponse.json();
-          const message = imgData.choices?.[0]?.message;
-          const images = message?.images;
-
+          const images = imgData.choices?.[0]?.message?.images;
           if (images && images.length > 0) {
             let base64Data = images[0]?.image_url?.url || "";
             if (base64Data.startsWith("data:") && base64Data.includes(";base64,")) {
               base64Data = base64Data.split(";base64,")[1];
             }
-
             if (base64Data) {
-              // Decode base64 to bytes
               const binaryString = atob(base64Data);
               const bytes = new Uint8Array(binaryString.length);
               for (let j = 0; j < binaryString.length; j++) {
                 bytes[j] = binaryString.charCodeAt(j);
               }
-
-              const fileName = `scenes/${user.id}/${job.id}/scene-${i + 1}.png`;
-              const { error: uploadError } = await supabase.storage
-                .from("media")
-                .upload(fileName, bytes, { contentType: "image/png", upsert: true });
-
+              const fileName = `scenes/${userId}/${jobId}/scene-${i + 1}.png`;
+              const { error: uploadError } = await supabase.storage.from("media").upload(fileName, bytes, { contentType: "image/png", upsert: true });
               if (!uploadError) {
                 const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
                 sceneImageUrls.push(urlData.publicUrl);
                 console.log(`[generate-video] Scene ${i + 1} image uploaded: ${urlData.publicUrl}`);
-              } else {
-                console.error(`[generate-video] Scene ${i + 1} upload error:`, uploadError);
               }
             }
           }
         } else {
           const errText = await imgResponse.text();
-          console.error(`[generate-video] Scene ${i + 1} image generation failed: ${imgResponse.status}`, errText);
+          console.error(`[generate-video] Scene ${i + 1} failed: ${imgResponse.status}`, errText);
         }
       } catch (imgErr) {
-        console.error(`[generate-video] Scene ${i + 1} image error:`, imgErr);
-        // Non-fatal — continue
+        console.error(`[generate-video] Scene ${i + 1} error:`, imgErr);
       }
+
+      // Update progress after each image
+      await supabase.from("video_generation_jobs").update({
+        result_payload: {
+          ...scriptContent,
+          scene_images: sceneImageUrls,
+          pipeline_steps: { script: "completed", scene_images: `${i + 1}/${scenesToRender.length}` },
+        },
+        updated_at: new Date().toISOString(),
+      }).eq("id", jobId);
     }
 
-    // ── Step 3: If user has ElevenLabs key, generate voiceover ──
+    // ── Step 3: Voiceover (if ElevenLabs key) ──
     let voiceoverUrl: string | null = null;
     if (elevenlabsKey && scriptContent.voiceover_script) {
       try {
-        console.log("[generate-video] Generating ElevenLabs voiceover...");
+        await supabase.from("video_generation_jobs").update({ status: "generating_voiceover", updated_at: new Date().toISOString() }).eq("id", jobId);
         const voiceId = "21m00Tcm4TlvDq8ikWAM";
-        const ttsResponse = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-          {
-            method: "POST",
-            headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: scriptContent.voiceover_script,
-              model_id: "eleven_monolingual_v1",
-              voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-            }),
-          }
-        );
-
+        const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          method: "POST",
+          headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ text: scriptContent.voiceover_script, model_id: "eleven_monolingual_v1", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+        });
         if (ttsResponse.ok) {
           const audioBlob = await ttsResponse.blob();
-          const audioFileName = `voiceovers/${user.id}/${job.id}.mp3`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from("media")
-            .upload(audioFileName, audioBlob, { contentType: "audio/mpeg", upsert: true });
-
-          if (!uploadError && uploadData) {
+          const audioFileName = `voiceovers/${userId}/${jobId}.mp3`;
+          const { error: uploadError } = await supabase.storage.from("media").upload(audioFileName, audioBlob, { contentType: "audio/mpeg", upsert: true });
+          if (!uploadError) {
             const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
             voiceoverUrl = urlData.publicUrl;
           }
         }
       } catch (voiceErr) {
-        console.error("[generate-video] Voiceover generation failed:", voiceErr);
+        console.error("[generate-video] Voiceover failed:", voiceErr);
       }
     }
 
-    // ── Step 4: If user has HeyGen key, generate actual video ──
+    // ── Step 4: HeyGen video (if key) ──
     let videoUrl: string | null = null;
-    let heygenJobId: string | null = null;
     if (heygenKey) {
       try {
-        const heygenPayload = {
-          video_inputs: [{
-            character: { type: "avatar", avatar_id: "Anna_public_3_20240108", avatar_style: "normal" },
-            voice: {
-              type: "text",
-              input_text: scriptContent.voiceover_script || scriptContent.description || `Welcome to ${business.business_name}!`,
-              voice_id: "1bd001e7e50f421d891986aed6e1b4a",
-            },
-            background: { type: "color", value: "#f5f5f5" },
-          }],
-          dimension: {
-            width: productionMode === "quick" ? 1080 : 1920,
-            height: productionMode === "quick" ? 1920 : 1080,
-          },
-          test: false,
-        };
-
+        await supabase.from("video_generation_jobs").update({ status: "rendering_video", updated_at: new Date().toISOString() }).eq("id", jobId);
         const heygenResponse = await fetch("https://api.heygen.com/v2/video/generate", {
           method: "POST",
           headers: { "X-Api-Key": heygenKey, "Content-Type": "application/json" },
-          body: JSON.stringify(heygenPayload),
+          body: JSON.stringify({
+            video_inputs: [{ character: { type: "avatar", avatar_id: "Anna_public_3_20240108", avatar_style: "normal" }, voice: { type: "text", input_text: scriptContent.voiceover_script || `Welcome to ${business.business_name}!`, voice_id: "1bd001e7e50f421d891986aed6e1b4a" }, background: { type: "color", value: "#f5f5f5" } }],
+            dimension: { width: productionMode === "quick" ? 1080 : 1920, height: productionMode === "quick" ? 1920 : 1080 },
+            test: false,
+          }),
         });
-
         if (heygenResponse.ok) {
           const heygenData = await heygenResponse.json();
-          heygenJobId = heygenData.data?.video_id;
-
+          const heygenJobId = heygenData.data?.video_id;
           if (heygenJobId) {
             let attempts = 0;
             while (attempts < 30) {
               await new Promise(r => setTimeout(r, 10000));
               attempts++;
-              const statusResponse = await fetch(
-                `https://api.heygen.com/v1/video_status.get?video_id=${heygenJobId}`,
-                { headers: { "X-Api-Key": heygenKey } }
-              );
+              const statusResponse = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${heygenJobId}`, { headers: { "X-Api-Key": heygenKey } });
               if (statusResponse.ok) {
                 const statusData = await statusResponse.json();
-                if (statusData.data?.status === "completed") {
-                  videoUrl = statusData.data?.video_url;
-                  break;
-                } else if (statusData.data?.status === "failed") break;
+                if (statusData.data?.status === "completed") { videoUrl = statusData.data?.video_url; break; }
+                else if (statusData.data?.status === "failed") break;
               }
             }
           }
         }
       } catch (heygenErr) {
-        console.error("[generate-video] HeyGen generation failed:", heygenErr);
+        console.error("[generate-video] HeyGen failed:", heygenErr);
       }
     }
 
-    // ── Update job with results ──
+    // ── Final update ──
     const hasImages = sceneImageUrls.length > 0;
-    const finalStatus = videoUrl ? "completed" : hasImages ? "media_ready" : "script_ready";
+    const finalStatus = videoUrl ? "completed" : hasImages ? "completed" : "completed";
     const resultPayload = {
       ...scriptContent,
       scene_images: sceneImageUrls,
       voiceover_url: voiceoverUrl,
       video_url: videoUrl,
-      heygen_job_id: heygenJobId,
       pipeline_steps: {
         script: "completed",
         scene_images: hasImages ? "completed" : "failed",
-        voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "skipped_no_key",
-        video: videoUrl ? "completed" : heygenKey ? (heygenJobId ? "processing" : "failed") : "skipped_no_key",
+        voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "skipped",
+        video: videoUrl ? "completed" : heygenKey ? "failed" : "skipped",
       },
+      message: videoUrl
+        ? "🎬 Video produced! Download or share it directly."
+        : hasImages
+        ? `🖼️ ${sceneImageUrls.length} professional scene images + script generated! Import into CapCut or Canva to assemble your video.`
+        : "📝 Script generated! Add API keys for images and video.",
     };
 
-    await supabase
-      .from("video_generation_jobs")
-      .update({
-        status: finalStatus,
-        result_payload: resultPayload,
-        video_url: videoUrl,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", job.id);
+    await supabase.from("video_generation_jobs").update({
+      status: "completed",
+      result_payload: resultPayload,
+      video_url: videoUrl,
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
 
-    // Save as content post for Ready to Post
+    // Save as content post
     if (scriptContent.title) {
       const { error: postErr } = await supabase.from("content_posts").insert({
-        user_id: user.id,
+        user_id: userId,
         business_id: businessId,
-        location_id: location?.id ?? null,
+        location_id: locations?.[0]?.id ?? null,
         title: scriptContent.title,
         caption: scriptContent.caption || scriptContent.description,
         hashtags: scriptContent.hashtags || [],
         media_url: videoUrl || sceneImageUrls[0] || voiceoverUrl || null,
-        media_type: videoUrl ? "video" : hasImages ? "image" : voiceoverUrl ? "audio" : "text",
+        media_type: videoUrl ? "video" : hasImages ? "image" : "text",
         platform: scriptContent.target_platform || "instagram",
         video_script: scriptContent.voiceover_script,
         voiceover_script: scriptContent.voiceover_script,
         shot_list: scriptContent.scenes,
         cta: scriptContent.cta,
-        status: videoUrl ? "media_ready" : hasImages ? "media_ready" : "caption_ready",
+        status: "media_ready",
         production_tool: heygenKey ? "heygen" : "rickyai",
         thumbnail_url: sceneImageUrls[0] || null,
       });
       if (postErr) console.error("[generate-video] content_posts insert error:", postErr);
     }
 
+    console.log(`[generate-video] Job ${jobId} completed successfully`);
+  } catch (error) {
+    console.error(`[generate-video] Job ${jobId} failed:`, error);
+    await supabase.from("video_generation_jobs").update({
+      status: "failed",
+      error_message: error.message,
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("Missing authorization");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    if (authError || !user) throw new Error("Unauthorized");
+
+    const { businessId, videoType, productionMode } = await req.json();
+
+    // Create job record immediately
+    const { data: job, error: jobInsertError } = await supabase
+      .from("video_generation_jobs")
+      .insert({
+        user_id: user.id,
+        business_id: businessId,
+        location_id: null,
+        provider: "built_in_ai",
+        status: "queued",
+        request_payload: { businessId, videoType, productionMode },
+      })
+      .select("id")
+      .single();
+
+    if (jobInsertError) throw new Error(`Failed to create job: ${jobInsertError.message}`);
+
+    // Start async processing — returns immediately to client
+    const promise = processVideoJob(job.id, user.id, businessId, videoType || "promotional", productionMode || "standard");
+    
+    // Use EdgeRuntime.waitUntil if available, otherwise just let it run
+    try {
+      // @ts-ignore — EdgeRuntime.waitUntil is available in Supabase Edge Functions
+      EdgeRuntime.waitUntil(promise);
+    } catch {
+      // Fallback: the promise will still execute
+      promise.catch(err => console.error("[generate-video] Background processing error:", err));
+    }
+
     return new Response(JSON.stringify({
       success: true,
       job_id: job.id,
-      status: finalStatus,
-      script: scriptContent,
-      scene_images: sceneImageUrls,
-      voiceover_url: voiceoverUrl,
-      video_url: videoUrl,
-      pipeline_steps: resultPayload.pipeline_steps,
-      business_name: business.business_name,
-      production_mode: productionMode,
-      message: videoUrl
-        ? "🎬 Video produced successfully! Download or share it directly."
-        : hasImages
-        ? `🖼️ ${sceneImageUrls.length} professional scene images + script generated! Import them into CapCut or Canva to assemble your video in minutes.`
-        : voiceoverUrl
-        ? "🎙️ Script + voiceover ready! Connect HeyGen to auto-generate the final video."
-        : "📝 Script generated! Connect ElevenLabs (free tier) for voiceover or HeyGen ($24/mo) for full video.",
-      next_steps: videoUrl ? [] : [
-        hasImages ? "Import these scene images into CapCut (free) to create your video" : null,
-        hasImages ? "Or use Canva Video to turn these scenes into an animated slideshow" : null,
-        !elevenlabsKey ? "Add ElevenLabs API key (free tier) for professional voiceover" : null,
-        !heygenKey ? "Add HeyGen API key ($24/mo) for fully automated video rendering" : null,
-      ].filter(Boolean),
+      status: "queued",
+      message: "Video production started! We're generating your script and scene images now.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
     console.error("generate-video error:", error);
-
-    if (jobId) {
-      try {
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        await supabase
-          .from("video_generation_jobs")
-          .update({ status: "failed", error_message: error.message, updated_at: new Date().toISOString() })
-          .eq("id", jobId);
-      } catch {}
-    }
-
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
