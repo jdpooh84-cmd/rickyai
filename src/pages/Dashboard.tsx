@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/dashboard/AppSidebar";
 import StrategySummary from "@/components/dashboard/StrategySummary";
@@ -25,16 +25,23 @@ import { useBusinessData } from "@/hooks/useBusinessData";
 import { ChevronDown, LogOut, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { readLocalStorage, writeLocalStorage } from "@/lib/persistence";
+
+const DASHBOARD_STATE_KEY = "rickyai-dashboard-state";
 
 const Dashboard = () => {
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
-  const [activeStep, setActiveStep] = useState(1);
-  const [activeSection, setActiveSection] = useState("");
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [activeStep, setActiveStep] = useState(() => readLocalStorage(DASHBOARD_STATE_KEY, { activeStep: 1, activeSection: "", completedSteps: [] as number[] }).activeStep);
+  const [activeSection, setActiveSection] = useState(() => readLocalStorage(DASHBOARD_STATE_KEY, { activeStep: 1, activeSection: "", completedSteps: [] as number[] }).activeSection);
+  const [completedSteps, setCompletedSteps] = useState<number[]>(() => readLocalStorage(DASHBOARD_STATE_KEY, { activeStep: 1, activeSection: "", completedSteps: [] as number[] }).completedSteps);
   const [showBizDropdown, setShowBizDropdown] = useState(false);
   const [showLocDropdown, setShowLocDropdown] = useState(false);
   const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation, refresh: refreshBusinessData } = useBusinessData();
+
+  useEffect(() => {
+    writeLocalStorage(DASHBOARD_STATE_KEY, { activeStep, activeSection, completedSteps });
+  }, [activeStep, activeSection, completedSteps]);
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 

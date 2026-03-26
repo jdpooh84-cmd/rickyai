@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { readLocalStorage, writeLocalStorage } from "@/lib/persistence";
+
+const BUSINESS_SELECTION_KEY = "rickyai-business-selection";
 
 interface Business {
   id: string;
@@ -21,9 +24,16 @@ export const useBusinessData = () => {
   const { user } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
-  const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
+  const [selectedBusiness, setSelectedBusiness] = useState<string | null>(() => readLocalStorage(BUSINESS_SELECTION_KEY, { businessId: null, locationId: null }).businessId);
+  const [selectedLocation, setSelectedLocation] = useState<string | null>(() => readLocalStorage(BUSINESS_SELECTION_KEY, { businessId: null, locationId: null }).locationId);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    writeLocalStorage(BUSINESS_SELECTION_KEY, {
+      businessId: selectedBusiness,
+      locationId: selectedLocation,
+    });
+  }, [selectedBusiness, selectedLocation]);
 
   useEffect(() => {
     if (!user) return;
@@ -36,7 +46,12 @@ export const useBusinessData = () => {
 
       if (biz && biz.length > 0) {
         setBusinesses(biz);
-        setSelectedBusiness(biz[0].id);
+
+        const persisted = readLocalStorage(BUSINESS_SELECTION_KEY, { businessId: null, locationId: null });
+        const nextBusinessId = persisted.businessId && biz.some((b) => b.id === persisted.businessId)
+          ? persisted.businessId
+          : biz[0].id;
+        setSelectedBusiness(nextBusinessId);
 
         const { data: locs } = await supabase
           .from("locations")
@@ -46,8 +61,9 @@ export const useBusinessData = () => {
 
         if (locs) {
           setLocations(locs);
-          const primary = locs.find(l => l.business_id === biz[0].id && l.is_primary);
-          setSelectedLocation(primary?.id || locs.find(l => l.business_id === biz[0].id)?.id || null);
+          const persistedLocationValid = persisted.locationId && locs.some((l) => l.id === persisted.locationId && l.business_id === nextBusinessId);
+          const primary = locs.find(l => l.business_id === nextBusinessId && l.is_primary);
+          setSelectedLocation(persistedLocationValid ? persisted.locationId : primary?.id || locs.find(l => l.business_id === nextBusinessId)?.id || null);
         }
       }
       setLoading(false);

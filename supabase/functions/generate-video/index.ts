@@ -13,6 +13,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let jobId: string | null = null;
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization");
@@ -29,6 +31,8 @@ Deno.serve(async (req) => {
     if (authError || !user) throw new Error("Unauthorized");
 
     const { businessId, videoType, productionMode } = await req.json();
+
+    const requestPayload = { businessId, videoType, productionMode };
 
     // Fetch business data
     const { data: business } = await supabase
@@ -47,6 +51,22 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .limit(1);
     const location = locations?.[0];
+
+    const { data: job, error: jobInsertError } = await supabase
+      .from("video_generation_jobs")
+      .insert({
+        user_id: user.id,
+        business_id: businessId,
+        location_id: location?.id ?? null,
+        provider: "built_in_ai",
+        status: "processing",
+        request_payload: requestPayload,
+      })
+      .select("id")
+      .single();
+
+    if (jobInsertError) throw new Error(`Failed to create video job: ${jobInsertError.message}`);
+    jobId = job.id;
 
     // Generate video script using AI
     const scriptResponse = await fetch(AI_URL, {
@@ -104,38 +124,49 @@ Return JSON:
       throw new Error("Failed to parse AI script response");
     }
 
-    // Generate video using Lovable AI image/video generation
-    const videoGenResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: `Create a professional promotional image for: ${scriptContent.video_prompt}. Style: clean, modern, high-quality commercial photography feel. Include text overlay: "${scriptContent.suggested_text_overlay}". Business name: ${business.business_name}.`
-          }
-        ],
-      }),
-    });
+    await supabase
+      .from("video_generation_jobs")
+      .update({
+        status: "completed",
+        result_payload: scriptContent,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
 
-    // Return the script data + generation status
     return new Response(JSON.stringify({
       success: true,
+      job_id: job.id,
       script: scriptContent,
       business_name: business.business_name,
       production_mode: productionMode,
-      status: "script_ready",
-      message: "Video script and production plan generated. Use the prompts in your preferred video tool or generate directly.",
+      status: "completed",
+      message: "Video brief generated and saved. Your setup now survives refreshes and interruptions.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (error) {
     console.error("generate-video error:", error);
+
+    try {
+      if (jobId) {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        await supabase
+          .from("video_generation_jobs")
+          .update({
+            status: "failed",
+            error_message: error.message,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", jobId);
+      }
+    } catch (jobUpdateError) {
+      console.error("generate-video job update error:", jobUpdateError);
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

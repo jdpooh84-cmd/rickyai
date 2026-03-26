@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
@@ -7,6 +7,7 @@ import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import sampleVideoAsset from "@/assets/sample-promo-video.mp4.asset.json";
+import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/persistence";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
@@ -16,32 +17,104 @@ type WorkflowMode = "diy" | "auto" | "pipeline";
 type PostFrequency = "1x" | "2x" | "3x";
 type PostSchedule = "daily" | "weekly" | "monthly" | "yearly";
 
+interface VideoStudioPersistedState {
+  businessId: string | null;
+  locationId: string | null;
+  productionMode: ProductionMode | null;
+  workflowMode: WorkflowMode | null;
+  postFrequency: PostFrequency;
+  postSchedule: PostSchedule;
+  pipelineKeyword: string;
+  pipelineResult: any;
+  generatedVideoScript: any;
+  insightReport: any;
+}
+
+const VIDEO_STUDIO_STATE_KEY = "rickyai-video-studio-state";
+
+const defaultPersistedState: VideoStudioPersistedState = {
+  businessId: null,
+  locationId: null,
+  productionMode: null,
+  workflowMode: null,
+  postFrequency: "1x",
+  postSchedule: "daily",
+  pipelineKeyword: "",
+  pipelineResult: null,
+  generatedVideoScript: null,
+  insightReport: null,
+};
+
 const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const { data, loading, generate, loadExisting, setData } = useStrategyStep(8);
+  const persistedState = useMemo(() => readLocalStorage(VIDEO_STUDIO_STATE_KEY, defaultPersistedState), []);
   const [activeTab, setActiveTab] = useState<TabType>("free");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   
   // New state for production modes
-  const [productionMode, setProductionMode] = useState<ProductionMode | null>(null);
-  const [workflowMode, setWorkflowMode] = useState<WorkflowMode | null>(null);
-  const [postFrequency, setPostFrequency] = useState<PostFrequency>("1x");
-  const [postSchedule, setPostSchedule] = useState<PostSchedule>("daily");
+  const [productionMode, setProductionMode] = useState<ProductionMode | null>(persistedState.productionMode);
+  const [workflowMode, setWorkflowMode] = useState<WorkflowMode | null>(persistedState.workflowMode);
+  const [postFrequency, setPostFrequency] = useState<PostFrequency>(persistedState.postFrequency);
+  const [postSchedule, setPostSchedule] = useState<PostSchedule>(persistedState.postSchedule);
   const [renderingVideo, setRenderingVideo] = useState(false);
   const [renderedVideos, setRenderedVideos] = useState<any[]>([]);
-  const [insightReport, setInsightReport] = useState<any>(null);
+  const [insightReport, setInsightReport] = useState<any>(persistedState.insightReport);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
-  const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(null);
-  const [pipelineKeyword, setPipelineKeyword] = useState("");
+  const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persistedState.generatedVideoScript);
+  const [pipelineKeyword, setPipelineKeyword] = useState(persistedState.pipelineKeyword);
   const [pipelineRunning, setPipelineRunning] = useState(false);
-  const [pipelineResult, setPipelineResult] = useState<any>(null);
+  const [pipelineResult, setPipelineResult] = useState<any>(persistedState.pipelineResult);
 
   useEffect(() => { if (businessId) loadExisting(businessId); }, [businessId]);
+
+  useEffect(() => {
+    writeLocalStorage(VIDEO_STUDIO_STATE_KEY, {
+      businessId,
+      locationId,
+      productionMode,
+      workflowMode,
+      postFrequency,
+      postSchedule,
+      pipelineKeyword,
+      pipelineResult,
+      generatedVideoScript,
+      insightReport,
+    });
+  }, [businessId, generatedVideoScript, insightReport, locationId, pipelineKeyword, pipelineResult, postFrequency, postSchedule, productionMode, workflowMode]);
+
+  useEffect(() => {
+    if (!businessId || persistedState.businessId !== businessId || persistedState.locationId !== locationId) return;
+
+    if (persistedState.workflowMode) {
+      setWorkflowMode((current) => current ?? persistedState.workflowMode);
+    }
+
+    if (persistedState.productionMode) {
+      setProductionMode((current) => current ?? persistedState.productionMode);
+    }
+  }, [businessId, locationId, persistedState.businessId, persistedState.locationId, persistedState.productionMode, persistedState.workflowMode]);
 
   const handleGenerate = async () => {
     if (!businessId) return;
     const r = await generate(businessId, locationId);
-    if (r) onComplete?.();
+    if (r) {
+      onComplete?.();
+    }
+  };
+
+  const resetVideoStudioFlow = () => {
+    setProductionMode(null);
+    setWorkflowMode(null);
+    setPostFrequency("1x");
+    setPostSchedule("daily");
+    setPipelineKeyword("");
+    setPipelineResult(null);
+    setGeneratedVideoScript(null);
+    setInsightReport(null);
+    setRenderedVideos([]);
+    setData(null);
+    removeLocalStorage(VIDEO_STUDIO_STATE_KEY);
   };
 
   const handleAutoGenerate = async () => {
@@ -108,7 +181,11 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       });
       if (response.error) throw new Error(response.error.message);
       setGeneratedVideoScript(response.data);
-      toast.success("Video production plan generated!");
+      if (response.data?.video_url) {
+        toast.success("Video generated successfully!");
+      } else {
+        toast.success(response.data?.message || "Video generation result received.");
+      }
     } catch (err: any) {
       toast.error(err.message || "Failed to generate video");
     } finally {
@@ -133,8 +210,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       });
       if (response.error) throw new Error(response.error.message);
       if (response.data?.error) {
-        if (response.data.upgrade_required) {
-          toast.error("Monthly video limit reached. Upgrade your plan for more.");
+        if (response.data.upgrade_required || response.data.code === "USAGE_LIMIT_REACHED") {
+          toast.error(response.data.error || "Monthly video limit reached. This run was stopped safely and your setup was preserved.");
         } else {
           throw new Error(response.data.error);
         }
@@ -578,8 +655,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       onRegenerate={workflowMode === "auto" ? handleAutoGenerate : handleGenerate} needsProfile={!businessId}>
 
       {/* Mode badges */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <button onClick={() => { setProductionMode(null); setWorkflowMode(null); setData(null); }}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <button onClick={resetVideoStudioFlow}
           className="text-xs text-muted-foreground hover:text-foreground">← Change Mode</button>
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
           {productionMode === "quick" ? "⚡ Quick" : productionMode === "standard" ? "🎬 Standard" : "📹 Long-Form"}
@@ -713,6 +790,22 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <p className="text-sm text-secondary-foreground">{generatedVideoScript.script.suggested_text_overlay}</p>
                 <p className="text-[10px] text-muted-foreground mt-1">Best for: {generatedVideoScript.script.target_platform}</p>
               </div>
+              {generatedVideoScript.video_url && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  <h5 className="text-xs font-semibold text-primary mb-2">🎥 Generated Video</h5>
+                  <video controls className="w-full rounded-xl max-h-[260px] bg-black">
+                    <source src={generatedVideoScript.video_url} type="video/mp4" />
+                  </video>
+                  <a
+                    href={generatedVideoScript.video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
+                  >
+                    <Download className="w-3 h-3" /> Open video asset
+                  </a>
+                </div>
+              )}
             </div>
           )}
           {/* Sample video preview */}

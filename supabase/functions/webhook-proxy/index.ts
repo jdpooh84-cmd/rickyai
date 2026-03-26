@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
     if (renderJobsUsed >= RENDER_LIMIT) {
       return new Response(JSON.stringify({
         error: "Monthly video limit reached",
+        code: "USAGE_LIMIT_REACHED",
         usage: { render_jobs_used: renderJobsUsed, limit: RENDER_LIMIT },
         upgrade_required: true,
       }), {
@@ -124,6 +125,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         source: "make_webhook",
+        status: "processing",
         scenario,
         data: result,
         message: scenario === "video_production"
@@ -189,6 +191,7 @@ Keyword: ${keyword || "not specified"}`
     return new Response(JSON.stringify({
       success: true,
       source: "built_in_ai",
+      status: "completed",
       script: content,
       business_name: business.business_name,
       production_mode: productionMode,
