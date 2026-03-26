@@ -7,68 +7,77 @@ import {
   Sequence,
   AbsoluteFill,
 } from "remotion";
-import { loadFont as loadPoppins } from "@remotion/google-fonts/Poppins";
-import { loadFont as loadLobster } from "@remotion/google-fonts/LobsterTwo";
+import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
+import { loadFont as loadSpaceGrotesk } from "@remotion/google-fonts/SpaceGrotesk";
 
-const { fontFamily: poppins } = loadPoppins("normal", { weights: ["400", "700"], subsets: ["latin"] });
-const { fontFamily: lobster } = loadLobster("normal", { weights: ["700"], subsets: ["latin"] });
+const { fontFamily: inter } = loadInter("normal", { weights: ["400", "600", "700", "800"], subsets: ["latin"] });
+const { fontFamily: spaceGrotesk } = loadSpaceGrotesk("normal", { weights: ["500", "700"], subsets: ["latin"] });
 
-const DONATOS_RED = "#C8102E";
-const DONATOS_GOLD = "#F5A623";
-const WARM_BG = "#1A0A00";
-const CREAM = "#FFF8F0";
+// Brand colors
+const TEAL = "#0EA5E9";
+const DARK = "#0B1120";
+const GOLD = "#F59E0B";
+const WHITE = "#F8FAFC";
+const TEAL_DIM = "#0EA5E933";
+const PURPLE = "#8B5CF6";
 
-const script = {
-  title: "Edge-to-Edge Perfection",
-  tagline: "Every Piece is a Masterpiece",
-  scene1: "Hungry for a pizza that doesn't skip the toppings?",
-  scene2: "Famous edge-to-edge thin crust loaded with flavor.",
-  scene3: "Perfect for family nights, catering, or a quick dine-in treat.",
-  scene4: "Fresh ingredients & premium meats on every square slice.",
-  cta: "Order now at Donatos.com!",
-  hashtags: ["#DonatosPizza", "#EdgeToEdge", "#PizzaLover", "#FamilyDinner", "#PizzaNight"],
-};
-
-// Animated background with warm gradient
+// Animated gradient background
 const Background: React.FC = () => {
   const frame = useCurrentFrame();
-  const shift = Math.sin(frame / 60) * 10;
+  const hue1 = 200 + Math.sin(frame / 80) * 15;
+  const hue2 = 260 + Math.cos(frame / 60) * 20;
   return (
     <AbsoluteFill
       style={{
-        background: `radial-gradient(ellipse at 50% ${50 + shift}%, ${DONATOS_RED}33 0%, ${WARM_BG} 70%)`,
+        background: `radial-gradient(ellipse at 30% 20%, hsl(${hue1}, 80%, 15%) 0%, ${DARK} 50%), radial-gradient(ellipse at 70% 80%, hsl(${hue2}, 60%, 12%) 0%, transparent 60%)`,
       }}
     />
   );
 };
 
-// Floating pizza slice shapes
-const FloatingAccents: React.FC = () => {
+// Grid pattern overlay
+const GridOverlay: React.FC = () => {
   const frame = useCurrentFrame();
-  const accents = [
-    { x: 80, y: 200, size: 60, speed: 0.8, delay: 0 },
-    { x: 900, y: 400, size: 45, speed: 1.2, delay: 20 },
-    { x: 200, y: 1400, size: 55, speed: 0.6, delay: 10 },
-    { x: 850, y: 1100, size: 40, speed: 1.0, delay: 30 },
-    { x: 500, y: 800, size: 35, speed: 0.9, delay: 15 },
+  const opacity = 0.04 + Math.sin(frame / 100) * 0.02;
+  return (
+    <AbsoluteFill style={{ opacity }}>
+      <svg width="100%" height="100%">
+        <defs>
+          <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+            <path d="M 60 0 L 0 0 0 60" fill="none" stroke={TEAL} strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
+// Floating orbs
+const FloatingOrbs: React.FC = () => {
+  const frame = useCurrentFrame();
+  const orbs = [
+    { x: 150, y: 300, size: 200, color: TEAL, speed: 0.7 },
+    { x: 800, y: 1200, size: 300, color: PURPLE, speed: 0.5 },
+    { x: 600, y: 600, size: 150, color: GOLD, speed: 0.9 },
   ];
   return (
-    <AbsoluteFill style={{ opacity: 0.15 }}>
-      {accents.map((a, i) => {
-        const y = a.y + Math.sin((frame + a.delay) / 40 * a.speed) * 30;
-        const rotate = (frame + a.delay) * a.speed * 0.5;
+    <AbsoluteFill>
+      {orbs.map((o, i) => {
+        const y = o.y + Math.sin((frame * o.speed) / 30) * 40;
+        const x = o.x + Math.cos((frame * o.speed) / 40) * 20;
         return (
           <div
             key={i}
             style={{
               position: "absolute",
-              left: a.x,
-              top: y,
-              width: a.size,
-              height: a.size,
-              background: i % 2 === 0 ? DONATOS_RED : DONATOS_GOLD,
-              borderRadius: "50% 50% 50% 0%",
-              transform: `rotate(${rotate}deg)`,
+              left: x - o.size / 2,
+              top: y - o.size / 2,
+              width: o.size,
+              height: o.size,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${o.color}22, transparent 70%)`,
+              filter: "blur(40px)",
             }}
           />
         );
@@ -77,35 +86,32 @@ const FloatingAccents: React.FC = () => {
   );
 };
 
-// Text reveal component
-const RevealText: React.FC<{
+// Animated text with spring
+const AnimText: React.FC<{
   text: string;
   fontSize?: number;
   color?: string;
   font?: string;
-  bold?: boolean;
+  weight?: number;
   delay?: number;
-  align?: "center" | "left";
-}> = ({ text, fontSize = 64, color = CREAM, font = poppins, bold = true, delay = 0 }) => {
+  maxWidth?: number;
+}> = ({ text, fontSize = 64, color = WHITE, font = spaceGrotesk, weight = 700, delay = 0, maxWidth }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-
-  const s = spring({ frame: frame - delay, fps, config: { damping: 15, stiffness: 120 } });
-  const opacity = interpolate(s, [0, 1], [0, 1]);
-  const y = interpolate(s, [0, 1], [60, 0]);
-
+  const s = spring({ frame: frame - delay, fps, config: { damping: 18, stiffness: 120 } });
   return (
     <div
       style={{
         fontFamily: font,
         fontSize,
-        fontWeight: bold ? 700 : 400,
+        fontWeight: weight,
         color,
-        opacity,
-        transform: `translateY(${y}px)`,
+        opacity: interpolate(s, [0, 1], [0, 1]),
+        transform: `translateY(${interpolate(s, [0, 1], [50, 0])}px)`,
         textAlign: "center",
-        lineHeight: 1.2,
-        padding: "0 60px",
+        lineHeight: 1.15,
+        maxWidth: maxWidth || "auto",
+        letterSpacing: "-0.02em",
       }}
     >
       {text}
@@ -113,98 +119,138 @@ const RevealText: React.FC<{
   );
 };
 
-// Scene 1: Opening hook
+// Badge pill component
+const Badge: React.FC<{ label: string; color: string; delay: number }> = ({ label, color, delay }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const s = spring({ frame: frame - delay, fps, config: { damping: 12, stiffness: 200 } });
+  return (
+    <div
+      style={{
+        fontFamily: inter,
+        fontSize: 26,
+        fontWeight: 600,
+        color: WHITE,
+        background: `${color}33`,
+        border: `1.5px solid ${color}88`,
+        borderRadius: 50,
+        padding: "10px 24px",
+        opacity: interpolate(s, [0, 1], [0, 1]),
+        transform: `scale(${interpolate(s, [0, 1], [0.5, 1])})`,
+      }}
+    >
+      {label}
+    </div>
+  );
+};
+
+// Scene 1: Hero intro
 const Scene1: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pulse = 1 + Math.sin(frame / 15) * 0.02;
+  const logoScale = spring({ frame, fps, config: { damping: 15, stiffness: 100 } });
+  const pulse = 1 + Math.sin(frame / 12) * 0.015;
 
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-      {/* Big Donatos logo text */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
+        {/* Logo */}
         <div
           style={{
-            fontFamily: lobster,
-            fontSize: 120,
-            color: DONATOS_RED,
-            transform: `scale(${pulse})`,
-            textShadow: `0 0 40px ${DONATOS_RED}66`,
+            fontSize: 100,
+            fontFamily: spaceGrotesk,
+            fontWeight: 700,
+            color: TEAL,
+            transform: `scale(${interpolate(logoScale, [0, 1], [0.3, 1]) * pulse})`,
+            textShadow: `0 0 60px ${TEAL}44`,
+            letterSpacing: "-0.03em",
           }}
         >
-          Donato's
+          RickyAI
         </div>
+        {/* Divider */}
         <div
           style={{
-            width: 200,
-            height: 4,
-            background: `linear-gradient(90deg, transparent, ${DONATOS_GOLD}, transparent)`,
-            opacity: interpolate(frame, [15, 30], [0, 1], { extrapolateRight: "clamp" }),
+            width: interpolate(spring({ frame: frame - 10, fps, config: { damping: 20 } }), [0, 1], [0, 300]),
+            height: 3,
+            background: `linear-gradient(90deg, transparent, ${TEAL}, ${PURPLE}, transparent)`,
           }}
         />
-        <RevealText text={script.scene1} fontSize={52} delay={20} />
+        <AnimText text="Your 14-Step Business Growth Engine" fontSize={46} color={GOLD} delay={15} maxWidth={800} />
+        <AnimText text="Powered by AI • Built for Small Business" fontSize={32} color={`${WHITE}99`} font={inter} weight={400} delay={25} />
       </div>
     </AbsoluteFill>
   );
 };
 
-// Scene 2: Value prop
+// Scene 2: 10 Optimization Layers
 const Scene2: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const barWidth = interpolate(
-    spring({ frame: frame - 10, fps, config: { damping: 20 } }),
-    [0, 1], [0, 800]
-  );
+  const layers = [
+    { label: "SEO", color: "#22C55E" },
+    { label: "GEO", color: "#3B82F6" },
+    { label: "AEO", color: "#8B5CF6" },
+    { label: "SGE", color: "#F59E0B" },
+    { label: "LMO", color: "#EF4444" },
+    { label: "RMO", color: "#EC4899" },
+    { label: "CRO", color: "#14B8A6" },
+    { label: "DMO", color: "#F97316" },
+    { label: "CAO", color: "#6366F1" },
+    { label: "PAO", color: "#06B6D4" },
+  ];
 
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 40 }}>
-        <RevealText text="EDGE-TO-EDGE" fontSize={90} color={DONATOS_GOLD} font={lobster} delay={5} />
-        <div
-          style={{
-            width: barWidth,
-            height: 6,
-            background: `linear-gradient(90deg, ${DONATOS_RED}, ${DONATOS_GOLD})`,
-            borderRadius: 3,
-          }}
-        />
-        <RevealText text={script.scene2} fontSize={46} delay={15} />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
+        <AnimText text="10 Optimization Layers" fontSize={56} color={TEAL} delay={0} />
+        <AnimText text="One Unified Dashboard" fontSize={38} color={`${WHITE}88`} font={inter} weight={400} delay={8} />
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", maxWidth: 850, marginTop: 20 }}>
+          {layers.map((l, i) => (
+            <Badge key={l.label} label={l.label} color={l.color} delay={12 + i * 4} />
+          ))}
+        </div>
       </div>
     </AbsoluteFill>
   );
 };
 
-// Scene 3: Use cases
+// Scene 3: Features
 const Scene3: React.FC = () => {
   const frame = useCurrentFrame();
-  const items = ["🍕 Family Nights", "🏢 Office Catering", "🍽️ Quick Dine-In"];
+  const { fps } = useVideoConfig();
+  const features = [
+    "🎯 AI Strategy Engine",
+    "🎬 Video Studio",
+    "📊 Lead Scout & Audit",
+    "🏆 Gamification & Rewards",
+  ];
 
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 50 }}>
-        <RevealText text="Perfect For" fontSize={70} color={DONATOS_GOLD} font={lobster} delay={0} />
-        {items.map((item, i) => {
-          const s = spring({ frame: frame - (i * 12 + 15), fps: 30, config: { damping: 12 } });
-          const x = interpolate(s, [0, 1], [i % 2 === 0 ? -400 : 400, 0]);
-          const opacity = interpolate(s, [0, 1], [0, 1]);
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 35 }}>
+        <AnimText text="Everything You Need" fontSize={54} color={GOLD} delay={0} />
+        {features.map((feat, i) => {
+          const s = spring({ frame: frame - (i * 10 + 12), fps, config: { damping: 14 } });
+          const x = interpolate(s, [0, 1], [i % 2 === 0 ? -500 : 500, 0]);
           return (
             <div
               key={i}
               style={{
-                fontFamily: poppins,
-                fontSize: 48,
-                fontWeight: 700,
-                color: CREAM,
-                opacity,
+                fontFamily: inter,
+                fontSize: 40,
+                fontWeight: 600,
+                color: WHITE,
+                opacity: interpolate(s, [0, 1], [0, 1]),
                 transform: `translateX(${x}px)`,
-                background: `${DONATOS_RED}33`,
-                padding: "16px 40px",
+                background: `linear-gradient(135deg, ${TEAL}15, ${PURPLE}15)`,
+                border: `1px solid ${TEAL}33`,
+                padding: "18px 40px",
                 borderRadius: 16,
-                border: `2px solid ${DONATOS_RED}66`,
+                width: 700,
+                textAlign: "center",
               }}
             >
-              {item}
+              {feat}
             </div>
           );
         })}
@@ -213,87 +259,93 @@ const Scene3: React.FC = () => {
   );
 };
 
-// Scene 4: Quality
+// Scene 4: Pricing
 const Scene4: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const rotate = interpolate(frame, [0, 90], [0, 360]);
+  const tiers = [
+    { name: "Creator", price: "$59/mo", color: TEAL },
+    { name: "Business", price: "$169/mo", color: GOLD },
+    { name: "Growth", price: "$249/mo", color: PURPLE },
+  ];
 
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 40 }}>
-        {/* Spinning pizza shape */}
-        <div
-          style={{
-            width: 120,
-            height: 120,
-            borderRadius: "50% 50% 50% 0%",
-            background: `linear-gradient(135deg, ${DONATOS_RED}, ${DONATOS_GOLD})`,
-            transform: `rotate(${rotate}deg)`,
-            opacity: interpolate(spring({ frame, fps, config: { damping: 20 } }), [0, 1], [0, 1]),
-          }}
-        />
-        <RevealText text={script.scene4} fontSize={48} delay={10} />
-        <RevealText text="🔥 Made Fresh Daily 🔥" fontSize={42} color={DONATOS_GOLD} delay={25} />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
+        <AnimText text="Plans That Scale With You" fontSize={52} delay={0} />
+        <div style={{ display: "flex", gap: 30, marginTop: 20 }}>
+          {tiers.map((t, i) => {
+            const s = spring({ frame: frame - (i * 10 + 10), fps, config: { damping: 12 } });
+            return (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                  background: `${t.color}11`,
+                  border: `2px solid ${t.color}55`,
+                  borderRadius: 24,
+                  padding: "40px 40px",
+                  width: 240,
+                  opacity: interpolate(s, [0, 1], [0, 1]),
+                  transform: `translateY(${interpolate(s, [0, 1], [80, 0])}px)`,
+                }}
+              >
+                <div style={{ fontFamily: spaceGrotesk, fontSize: 30, fontWeight: 700, color: t.color }}>{t.name}</div>
+                <div style={{ fontFamily: inter, fontSize: 42, fontWeight: 800, color: WHITE }}>{t.price}</div>
+              </div>
+            );
+          })}
+        </div>
+        <AnimText text="7-Day Free Trial • No Credit Card" fontSize={28} color={`${WHITE}77`} font={inter} weight={400} delay={40} />
       </div>
     </AbsoluteFill>
   );
 };
 
-// Scene 5: CTA + hashtags
+// Scene 5: CTA
 const Scene5: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const pulse = 1 + Math.sin(frame / 8) * 0.03;
+  const pulse = 1 + Math.sin(frame / 8) * 0.025;
+  const glow = interpolate(Math.sin(frame / 15), [-1, 1], [20, 50]);
 
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 40 }}>
-        <RevealText text="Donato's Pizza" fontSize={80} color={DONATOS_RED} font={lobster} delay={0} />
         <div
           style={{
-            fontFamily: poppins,
-            fontSize: 44,
+            fontFamily: spaceGrotesk,
+            fontSize: 90,
             fontWeight: 700,
-            color: WARM_BG,
-            background: `linear-gradient(135deg, ${DONATOS_GOLD}, ${DONATOS_RED})`,
-            padding: "20px 50px",
-            borderRadius: 20,
+            color: TEAL,
             transform: `scale(${pulse})`,
-            opacity: interpolate(
-              spring({ frame: frame - 15, fps, config: { damping: 12 } }),
-              [0, 1], [0, 1]
-            ),
+            textShadow: `0 0 ${glow}px ${TEAL}66`,
+            letterSpacing: "-0.03em",
           }}
         >
-          {script.cta}
+          RickyAI
         </div>
+        <AnimText text="Dominate Your Market." fontSize={52} color={GOLD} delay={5} />
         <div
           style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            justifyContent: "center",
-            padding: "0 40px",
-            opacity: interpolate(frame, [40, 55], [0, 1], { extrapolateRight: "clamp" }),
+            fontFamily: inter,
+            fontSize: 38,
+            fontWeight: 700,
+            color: DARK,
+            background: `linear-gradient(135deg, ${TEAL}, ${PURPLE})`,
+            padding: "22px 60px",
+            borderRadius: 60,
+            transform: `scale(${interpolate(spring({ frame: frame - 20, fps, config: { damping: 10 } }), [0, 1], [0.5, 1])})`,
+            opacity: interpolate(spring({ frame: frame - 20, fps, config: { damping: 10 } }), [0, 1], [0, 1]),
+            boxShadow: `0 0 40px ${TEAL}44`,
           }}
         >
-          {script.hashtags.map((tag, i) => (
-            <span
-              key={i}
-              style={{
-                fontFamily: poppins,
-                fontSize: 28,
-                color: DONATOS_GOLD,
-                background: `${DONATOS_RED}33`,
-                padding: "8px 20px",
-                borderRadius: 30,
-              }}
-            >
-              {tag}
-            </span>
-          ))}
+          Start Free Today
         </div>
+        <AnimText text="rickyai.app" fontSize={30} color={`${WHITE}66`} font={inter} weight={400} delay={35} />
       </div>
     </AbsoluteFill>
   );
@@ -301,14 +353,15 @@ const Scene5: React.FC = () => {
 
 export const MainVideo: React.FC = () => {
   return (
-    <AbsoluteFill style={{ background: WARM_BG }}>
+    <AbsoluteFill style={{ background: DARK }}>
       <Background />
-      <FloatingAccents />
-      <Sequence from={0} durationInFrames={90}><Scene1 /></Sequence>
-      <Sequence from={90} durationInFrames={90}><Scene2 /></Sequence>
-      <Sequence from={180} durationInFrames={90}><Scene3 /></Sequence>
-      <Sequence from={270} durationInFrames={90}><Scene4 /></Sequence>
-      <Sequence from={360} durationInFrames={90}><Scene5 /></Sequence>
+      <GridOverlay />
+      <FloatingOrbs />
+      <Sequence from={0} durationInFrames={100}><Scene1 /></Sequence>
+      <Sequence from={100} durationInFrames={100}><Scene2 /></Sequence>
+      <Sequence from={200} durationInFrames={100}><Scene3 /></Sequence>
+      <Sequence from={300} durationInFrames={100}><Scene4 /></Sequence>
+      <Sequence from={400} durationInFrames={100}><Scene5 /></Sequence>
     </AbsoluteFill>
   );
 };
