@@ -4,6 +4,7 @@ import {
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
   Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap
 } from "lucide-react";
+import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -102,9 +103,14 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
                           )}
                         </div>
                         {!collapsed && (
-                          <div className="flex items-center gap-2">
-                            <step.icon className="w-4 h-4" />
-                            <span className="text-sm font-medium">{step.title}</span>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <step.icon className="w-4 h-4 flex-shrink-0" />
+                            <span className="text-sm font-medium truncate">{step.title}</span>
+                            <div className="flex gap-0.5 ml-auto flex-shrink-0">
+                              {getLayersForStep(step.num).slice(0, 2).map(l => (
+                                <span key={l} className={`text-[8px] font-bold px-1 py-0 rounded ${LAYER_META[l].color}`}>{l}</span>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
