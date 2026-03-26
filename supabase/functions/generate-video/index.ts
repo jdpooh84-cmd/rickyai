@@ -188,67 +188,31 @@ Return JSON with:
       }
     }
 
-    // ── Step 4: HeyGen video (if key) ──
-    let videoUrl: string | null = null;
-    if (heygenKey) {
-      try {
-        await supabase.from("video_generation_jobs").update({ status: "rendering_video", updated_at: new Date().toISOString() }).eq("id", jobId);
-        const heygenResponse = await fetch("https://api.heygen.com/v2/video/generate", {
-          method: "POST",
-          headers: { "X-Api-Key": heygenKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            video_inputs: [{ character: { type: "avatar", avatar_id: "Anna_public_3_20240108", avatar_style: "normal" }, voice: { type: "text", input_text: scriptContent.voiceover_script || `Welcome to ${business.business_name}!`, voice_id: "1bd001e7e50f421d891986aed6e1b4a" }, background: { type: "color", value: "#f5f5f5" } }],
-            dimension: { width: productionMode === "quick" ? 1080 : 1920, height: productionMode === "quick" ? 1920 : 1080 },
-            test: false,
-          }),
-        });
-        if (heygenResponse.ok) {
-          const heygenData = await heygenResponse.json();
-          const heygenJobId = heygenData.data?.video_id;
-          if (heygenJobId) {
-            let attempts = 0;
-            while (attempts < 30) {
-              await new Promise(r => setTimeout(r, 10000));
-              attempts++;
-              const statusResponse = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${heygenJobId}`, { headers: { "X-Api-Key": heygenKey } });
-              if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                if (statusData.data?.status === "completed") { videoUrl = statusData.data?.video_url; break; }
-                else if (statusData.data?.status === "failed") break;
-              }
-            }
-          }
-        }
-      } catch (heygenErr) {
-        console.error("[generate-video] HeyGen failed:", heygenErr);
-      }
-    }
+    // ── Step 4: Video composing happens client-side (no API key needed) ──
+    // HeyGen is optional premium upgrade; the app auto-composes video in-browser from scene images
 
     // ── Final update ──
     const hasImages = sceneImageUrls.length > 0;
-    const finalStatus = videoUrl ? "completed" : hasImages ? "completed" : "completed";
     const resultPayload = {
       ...scriptContent,
       scene_images: sceneImageUrls,
       voiceover_url: voiceoverUrl,
-      video_url: videoUrl,
+      video_url: null, // Video is composed client-side
       pipeline_steps: {
         script: "completed",
         scene_images: hasImages ? "completed" : "failed",
         voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "skipped",
-        video: videoUrl ? "completed" : heygenKey ? "failed" : "skipped",
+        video: "client_compose", // Signal to frontend to compose
       },
-      message: videoUrl
-        ? "🎬 Video produced! Download or share it directly."
-        : hasImages
-        ? `🖼️ ${sceneImageUrls.length} professional scene images + script generated! Import into CapCut or Canva to assemble your video.`
-        : "📝 Script generated! Add API keys for images and video.",
+      message: hasImages
+        ? "🎬 Assembling your video now..."
+        : "📝 Script generated! Scene images couldn't be created.",
     };
 
     await supabase.from("video_generation_jobs").update({
       status: "completed",
       result_payload: resultPayload,
-      video_url: videoUrl,
+      video_url: null,
       updated_at: new Date().toISOString(),
     }).eq("id", jobId);
 
