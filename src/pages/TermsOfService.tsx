@@ -96,7 +96,27 @@ const TermsOfService = () => {
           </div>
         </div>
 
-        <h2>6. Limitation of Liability</h2>
+        <h2>6. Billing, Cancellation & No-Refund Policy</h2>
+        <p>
+          <strong>Billing Cycle.</strong> Your billing cycle begins on the date you subscribe. For monthly plans,
+          you are billed on the same calendar day each month (e.g., if you subscribe on the 15th, your next payment
+          is due the 15th of the following month). For annual plans, you are billed on the same date twelve months
+          from your subscription start date.
+        </p>
+        <p>
+          <strong>No Refunds.</strong> All subscription payments are non-refundable. If you cancel your subscription,
+          you will retain access to all features through the end of your current paid billing period. No partial
+          refunds, prorated refunds, or credits will be issued for any reason, including but not limited to early
+          cancellation, non-use, dissatisfaction, or account termination due to policy violations.
+        </p>
+        <p>
+          <strong>Cancellation.</strong> You may cancel your subscription at any time through the account management
+          portal. Upon cancellation, your subscription will not renew at the end of the current billing period, and
+          your access will end at that time. You are responsible for cancelling before your next billing date to avoid
+          additional charges.
+        </p>
+
+        <h2>7. Limitation of Liability</h2>
         <p>
           TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, THE COMPANY SHALL NOT BE LIABLE FOR ANY INDIRECT,
           INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS,
@@ -114,7 +134,7 @@ const TermsOfService = () => {
           TO THE COMPANY IN THE TWELVE (12) MONTHS PRECEDING THE CLAIM.
         </p>
 
-        <h2>7. Indemnification</h2>
+        <h2>8. Indemnification</h2>
         <p>
           You agree to defend, indemnify, and hold harmless the Company and its officers, directors, employees,
           contractors, agents, licensors, and suppliers from and against any claims, actions, demands, damages,
@@ -122,7 +142,7 @@ const TermsOfService = () => {
           your use of the Services, your violation of these Terms, or your violation of any third-party rights.
         </p>
 
-        <h2>8. Results Disclaimer</h2>
+        <h2>9. Results Disclaimer</h2>
         <p>
           THE SERVICES ARE PROVIDED ON AN "AS IS" AND "AS AVAILABLE" BASIS. THE COMPANY MAKES NO WARRANTIES,
           EXPRESS OR IMPLIED, REGARDING THE ACCURACY, RELIABILITY, COMPLETENESS, OR SUITABILITY OF ANY STRATEGIES,
@@ -147,7 +167,7 @@ const TermsOfService = () => {
           of the Services at your own risk and discretion.
         </p>
 
-        <h2>9. Location & Posting Time Disclaimer</h2>
+        <h2>10. Location & Posting Time Disclaimer</h2>
         <p>
           Suggested posting times, content schedules, and distribution strategies are generated based on general
           best practices and the information you provide about your business, location, and target audience.
@@ -161,7 +181,7 @@ const TermsOfService = () => {
           should be treated as a starting point, not a definitive strategy.
         </p>
 
-        <h2>10. No Professional Advice</h2>
+        <h2>11. No Professional Advice</h2>
         <p>
           Nothing provided through the Services constitutes legal, financial, tax, medical, or other professional
           advice. The Company is not a law firm, accounting firm, financial advisory firm, or marketing agency.
@@ -170,7 +190,7 @@ const TermsOfService = () => {
           any decisions you make based on the platform's outputs.
         </p>
 
-        <h2>11. Dispute Resolution — Binding Arbitration & Class Action Waiver</h2>
+        <h2>12. Dispute Resolution — Binding Arbitration & Class Action Waiver</h2>
         <p>
           To the fullest extent permitted by applicable law, you and Company agree that any and all claims, disputes,
           or controversies arising out of or relating to these Terms, the Services, or any relationship between you
@@ -210,19 +230,19 @@ const TermsOfService = () => {
           of the laws of any other jurisdiction.
         </p>
 
-        <h2>12. Governing Law</h2>
+        <h2>13. Governing Law</h2>
         <p>
           These Terms shall be governed by and construed in accordance with the laws of the Commonwealth of Virginia,
           without regard to its conflict of law provisions.
         </p>
 
-        <h2>13. Changes to Terms</h2>
+        <h2>14. Changes to Terms</h2>
         <p>
           The Company reserves the right to modify these Terms at any time. Material changes will be communicated
           through the platform. Your continued use after changes constitutes acceptance of the revised Terms.
         </p>
 
-        <h2>14. Contact</h2>
+        <h2>15. Contact</h2>
         <p>
           For questions about these Terms, contact us at <span className="text-primary">support@rickyai.com</span>.
         </p>

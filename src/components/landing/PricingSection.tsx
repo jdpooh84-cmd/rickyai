@@ -145,10 +145,14 @@ const PricingSection = () => {
           </div>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-8 max-w-lg mx-auto">
-          All prices shown exclude applicable sales tax, which is calculated at checkout based on your location.
-          No setup fees. No hidden charges. Cancel anytime. Premium AI features require your own API keys (BYOLLM).
-        </p>
+        <div className="mt-8 max-w-lg mx-auto text-center space-y-2">
+          <p className="text-xs text-muted-foreground">
+            All prices exclude applicable sales tax, calculated at checkout. No setup fees. No hidden charges. Premium AI features require your own API keys (BYOLLM).
+          </p>
+          <p className="text-xs text-muted-foreground font-medium border-t border-border pt-2">
+            <strong className="text-foreground">Cancellation Policy:</strong> You may cancel anytime, but <strong className="text-foreground">no refunds</strong> are issued for the current billing period. Your access continues through the end of your paid cycle. Your billing date is the same day each month (or year) as when you first subscribed.
+          </p>
+        </div>
       </div>
     </section>
   );
