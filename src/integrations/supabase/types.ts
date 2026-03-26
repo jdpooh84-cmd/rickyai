@@ -389,6 +389,96 @@ export type Database = {
         }
         Relationships: []
       }
+      content_posts: {
+        Row: {
+          business_id: string
+          caption: string | null
+          created_at: string
+          cta: string | null
+          hashtags: string[] | null
+          id: string
+          location_id: string | null
+          media_type: string | null
+          media_url: string | null
+          platform: string
+          platform_version: Json | null
+          posted_at: string | null
+          production_tool: string | null
+          scheduled_at: string | null
+          shot_list: Json | null
+          status: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          video_script: string | null
+          voiceover_script: string | null
+        }
+        Insert: {
+          business_id: string
+          caption?: string | null
+          created_at?: string
+          cta?: string | null
+          hashtags?: string[] | null
+          id?: string
+          location_id?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          platform?: string
+          platform_version?: Json | null
+          posted_at?: string | null
+          production_tool?: string | null
+          scheduled_at?: string | null
+          shot_list?: Json | null
+          status?: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          video_script?: string | null
+          voiceover_script?: string | null
+        }
+        Update: {
+          business_id?: string
+          caption?: string | null
+          created_at?: string
+          cta?: string | null
+          hashtags?: string[] | null
+          id?: string
+          location_id?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          platform?: string
+          platform_version?: Json | null
+          posted_at?: string | null
+          production_tool?: string | null
+          scheduled_at?: string | null
+          shot_list?: Json | null
+          status?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          video_script?: string | null
+          voiceover_script?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_posts_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_posts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forum_posts: {
         Row: {
           body: string
@@ -999,6 +1089,33 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_tool_defaults: {
+        Row: {
+          created_at: string
+          default_provider: string
+          id: string
+          tool_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_provider: string
+          id?: string
+          tool_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_provider?: string
+          id?: string
+          tool_type?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
