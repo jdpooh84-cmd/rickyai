@@ -96,7 +96,27 @@ const TermsOfService = () => {
           </div>
         </div>
 
-        <h2>6. Limitation of Liability</h2>
+        <h2>6. Billing, Cancellation & No-Refund Policy</h2>
+        <p>
+          <strong>Billing Cycle.</strong> Your billing cycle begins on the date you subscribe. For monthly plans,
+          you are billed on the same calendar day each month (e.g., if you subscribe on the 15th, your next payment
+          is due the 15th of the following month). For annual plans, you are billed on the same date twelve months
+          from your subscription start date.
+        </p>
+        <p>
+          <strong>No Refunds.</strong> All subscription payments are non-refundable. If you cancel your subscription,
+          you will retain access to all features through the end of your current paid billing period. No partial
+          refunds, prorated refunds, or credits will be issued for any reason, including but not limited to early
+          cancellation, non-use, dissatisfaction, or account termination due to policy violations.
+        </p>
+        <p>
+          <strong>Cancellation.</strong> You may cancel your subscription at any time through the account management
+          portal. Upon cancellation, your subscription will not renew at the end of the current billing period, and
+          your access will end at that time. You are responsible for cancelling before your next billing date to avoid
+          additional charges.
+        </p>
+
+        <h2>7. Limitation of Liability</h2>
         <p>
           TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, THE COMPANY SHALL NOT BE LIABLE FOR ANY INDIRECT,
           INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS,
