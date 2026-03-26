@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import UsageDashboard from "./UsageDashboard";
 
 const steps = [
   { num: 1, icon: Link, title: "Connect" },
@@ -140,6 +141,14 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {!collapsed && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <UsageDashboard />
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {isAdmin && (
           <SidebarGroup>

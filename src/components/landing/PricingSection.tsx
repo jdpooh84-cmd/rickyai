@@ -10,13 +10,17 @@ const planList = [
     savings: null,
     features: [
       "Unlimited Businesses & Locations",
-      "Full 13-Step Growth System",
-      "AI Video Production (In-App)",
+      "Full 14-Step Growth System",
+      "AI Video Production (In-App + Pipeline)",
       "Ricky AI Guide",
+      "50 Video Renders/Month",
+      "500K AI Tokens/Month",
       "Lead Scout & Grant Search",
       "Search Visibility Engine",
       "Community & Marketplace",
-      "HeyGen / InVideo Integration",
+      "HeyGen / ElevenLabs / InVideo Integration",
+      "Automated Posting Pipeline",
+      "Daily & Weekly Insight Reports",
     ],
   },
   {
@@ -28,6 +32,7 @@ const planList = [
       "Priority Ricky AI",
       "Early Access Features",
       "Dedicated Support",
+      "Extended Usage Allowances",
     ],
   },
 ];

@@ -3,13 +3,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, ShieldAlert } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Users, DollarSign, Megaphone, ShieldAlert, Webhook } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminStatsCards from "@/components/admin/AdminStatsCards";
 import TeamManagement from "@/components/admin/TeamManagement";
 import AffiliatePayoutManagement from "@/components/admin/AffiliatePayoutManagement";
 import AdvertiserManagement from "@/components/admin/AdvertiserManagement";
 import BanManagement from "@/components/admin/BanManagement";
+import MakeWebhookConfig from "@/components/dashboard/MakeWebhookConfig";
 
 const AdminDashboard = () => {
   const { user, signOut } = useAuth();
@@ -84,7 +85,7 @@ const AdminDashboard = () => {
         <AdminStatsCards stats={stats} />
 
         <Tabs defaultValue="team" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="team" className="flex items-center gap-2">
               <Users className="w-4 h-4" /> Team
             </TabsTrigger>
@@ -96,6 +97,9 @@ const AdminDashboard = () => {
             </TabsTrigger>
             <TabsTrigger value="advertisers" className="flex items-center gap-2">
               <Megaphone className="w-4 h-4" /> Advertisers
+            </TabsTrigger>
+            <TabsTrigger value="webhooks" className="flex items-center gap-2">
+              <Webhook className="w-4 h-4" /> Webhooks
             </TabsTrigger>
           </TabsList>
 
@@ -113,6 +117,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="advertisers" className="mt-6">
             <AdvertiserManagement />
+          </TabsContent>
+
+          <TabsContent value="webhooks" className="mt-6">
+            <MakeWebhookConfig />
           </TabsContent>
         </Tabs>
       </main>

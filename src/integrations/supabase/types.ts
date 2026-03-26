@@ -1003,6 +1003,33 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_config: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          scenario_type: string
+          updated_at: string
+          webhook_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          scenario_type: string
+          updated_at?: string
+          webhook_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          scenario_type?: string
+          updated_at?: string
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       winning_strategies: {
         Row: {
           category: string

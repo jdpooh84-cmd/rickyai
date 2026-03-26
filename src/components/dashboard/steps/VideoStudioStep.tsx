@@ -12,7 +12,7 @@ interface Props { businessId: string | null; locationId: string | null; onComple
 
 type TabType = "free" | "capcut" | "heygen" | "invideo" | "canva" | "pixelbin" | "easemate" | "virbo" | "detail" | "elevenlabs" | "nvidia";
 type ProductionMode = "quick" | "standard" | "longform";
-type WorkflowMode = "diy" | "auto";
+type WorkflowMode = "diy" | "auto" | "pipeline";
 type PostFrequency = "1x" | "2x" | "3x";
 type PostSchedule = "daily" | "weekly" | "monthly" | "yearly";
 
@@ -32,6 +32,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(null);
+  const [pipelineKeyword, setPipelineKeyword] = useState("");
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineResult, setPipelineResult] = useState<any>(null);
 
   useEffect(() => { if (businessId) loadExisting(businessId); }, [businessId]);
 
@@ -114,7 +117,40 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
 
-    const copyToClipboard = (text: string, id: string) => {
+  const handlePipelineRun = async () => {
+    if (!businessId) return;
+    setPipelineRunning(true);
+    setPipelineResult(null);
+    try {
+      const response = await supabase.functions.invoke("webhook-proxy", {
+        body: {
+          scenario: "video_production",
+          businessId,
+          keyword: pipelineKeyword || undefined,
+          videoType: "promotional",
+          productionMode: productionMode || "standard",
+        },
+      });
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) {
+        if (response.data.upgrade_required) {
+          toast.error("Monthly video limit reached. Upgrade your plan for more.");
+        } else {
+          throw new Error(response.data.error);
+        }
+        return;
+      }
+      setPipelineResult(response.data);
+      toast.success(response.data?.message || "Pipeline triggered!");
+      onComplete?.();
+    } catch (err: any) {
+      toast.error(err.message || "Pipeline failed");
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
     setCopiedId(id);
     toast.success("Copied to clipboard!");
     setTimeout(() => setCopiedId(null), 2000);
@@ -289,20 +325,20 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           </div>
           <h3 className="text-lg font-bold text-foreground text-center">How hands-on do you want to be?</h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button onClick={() => setWorkflowMode("diy")}
               className="glass rounded-2xl p-6 text-left hover:ring-2 hover:ring-primary transition-all">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-3 rounded-xl bg-accent/10"><Scissors className="w-6 h-6 text-accent-foreground" /></div>
                 <div>
-                  <h4 className="font-bold text-foreground text-lg">🛠 I'll Build It Myself</h4>
-                  <span className="text-xs text-muted-foreground">DIY with AI research</span>
+                  <h4 className="font-bold text-foreground">🛠 DIY</h4>
+                  <span className="text-xs text-muted-foreground">Build it yourself</span>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">The app does all the research, scripting, and prompt generation. You take those assets and produce the video using your tool of choice.</p>
+              <p className="text-xs text-muted-foreground mb-3">AI generates scripts & prompts. You produce the video in your tool of choice.</p>
               <ul className="space-y-1">
-                {["AI-generated scripts & prompts", "Copy-paste into any tool", "Full creative control", "Use free or paid platforms"].map(item => (
-                  <li key={item} className="text-xs text-secondary-foreground flex items-center gap-1.5">
+                {["AI scripts & prompts", "Full creative control", "Use any platform"].map(item => (
+                  <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
                     <Check className="w-3 h-3 text-primary" /> {item}
                   </li>
                 ))}
@@ -314,19 +350,39 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-3 rounded-xl bg-primary/10"><Sparkles className="w-6 h-6 text-primary" /></div>
                 <div>
-                  <h4 className="font-bold text-foreground text-lg">🚀 Do It All For Me</h4>
-                  <span className="text-xs text-muted-foreground">Full automation</span>
+                  <h4 className="font-bold text-foreground">🚀 Full Auto</h4>
+                  <span className="text-xs text-muted-foreground">We do everything</span>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground mb-3">The app researches, scripts, produces, and delivers complete video content ready to post. Complete hands-off experience.</p>
+              <p className="text-xs text-muted-foreground mb-3">Complete research, scripting, production & scheduling. Hands-off experience.</p>
               <ul className="space-y-1">
-                {["Complete video production", "Ready-to-post content", "Automated posting schedule", "Daily & weekly insight reports"].map(item => (
-                  <li key={item} className="text-xs text-secondary-foreground flex items-center gap-1.5">
+                {["Complete production", "Automated posting", "Insight reports"].map(item => (
+                  <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
                     <Check className="w-3 h-3 text-primary" /> {item}
                   </li>
                 ))}
               </ul>
-              <span className="inline-block mt-3 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Most Popular</span>
+              <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Most Popular</span>
+            </button>
+
+            <button onClick={() => setWorkflowMode("pipeline")}
+              className="glass rounded-2xl p-6 text-left hover:ring-2 hover:ring-primary transition-all">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 rounded-xl bg-primary/10"><Zap className="w-6 h-6 text-primary" /></div>
+                <div>
+                  <h4 className="font-bold text-foreground">⚡ Automated Pipeline</h4>
+                  <span className="text-xs text-muted-foreground">Make.com powered</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">Keyword → Research → Script → Voice → Video → Post. Fully automated end-to-end pipeline.</p>
+              <ul className="space-y-1">
+                {["HeyGen + ElevenLabs", "Auto YouTube posting", "Uses your API keys"].map(item => (
+                  <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
+                    <Check className="w-3 h-3 text-primary" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <span className="inline-block mt-2 text-[10px] px-2 py-0.5 rounded-full bg-accent/10 text-accent-foreground font-semibold">Pro Upgrade</span>
             </button>
           </div>
         </div>
@@ -423,6 +479,86 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           </span>
         </div>
         <VideoStudioGuide onDownloadGuide={handleDownloadGuide} />
+      </StepLayout>
+    );
+  }
+
+  // Pipeline mode - automated Make.com workflow
+  if (workflowMode === "pipeline") {
+    return (
+      <StepLayout title="Video Studio" description="Automated video pipeline powered by your Make.com workflows"
+        icon="🎬" loading={pipelineRunning} hasData={!!pipelineResult} onGenerate={handlePipelineRun} needsProfile={!businessId}
+        generateLabel="⚡ Run Pipeline">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <button onClick={() => setWorkflowMode(null)} className="text-xs text-muted-foreground hover:text-foreground">← Back</button>
+            <span className="text-xs text-muted-foreground">
+              {productionMode === "quick" ? "⚡ Quick" : productionMode === "standard" ? "🎬 Standard" : "📹 Long-Form"} • ⚡ Pipeline
+            </span>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <h4 className="text-sm font-bold text-foreground mb-2">How it works</h4>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { step: "1", label: "Keyword", emoji: "🔍" },
+                { step: "2", label: "Research", emoji: "📊" },
+                { step: "3", label: "Script + Voice", emoji: "🎙️" },
+                { step: "4", label: "Video Render", emoji: "🎬" },
+                { step: "5", label: "Post", emoji: "📱" },
+              ].map(s => (
+                <div key={s.step} className="text-center p-2 rounded-lg bg-primary/5">
+                  <div className="text-lg">{s.emoji}</div>
+                  <div className="text-[10px] font-medium text-foreground">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Enter a keyword and the pipeline will research, write a script, generate voiceover with ElevenLabs, 
+              render a video with HeyGen (30+ seconds with captions), and optionally post to YouTube — all automatically.
+            </p>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <h4 className="text-sm font-bold text-foreground mb-3">Start a video run</h4>
+            <input
+              type="text"
+              value={pipelineKeyword}
+              onChange={e => setPipelineKeyword(e.target.value)}
+              placeholder="Enter a keyword (e.g., 'pizza delivery near me')"
+              className="w-full px-3 py-2.5 rounded-lg bg-secondary/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Your HeyGen and ElevenLabs API keys from the Connect step will be used. Make sure they're connected before running.
+            </p>
+          </div>
+
+          {pipelineResult && (
+            <div className="glass rounded-2xl p-6">
+              <h4 className="text-sm font-bold text-primary mb-2">✅ Pipeline {pipelineResult.source === "make_webhook" ? "Triggered" : "Complete"}</h4>
+              <p className="text-sm text-secondary-foreground">{pipelineResult.message}</p>
+              {pipelineResult.usage && (
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Usage: {pipelineResult.usage.render_jobs_used}/{pipelineResult.usage.limit} renders this month
+                </p>
+              )}
+              {pipelineResult.script && (
+                <div className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  <h5 className="text-xs font-semibold text-primary mb-1">{pipelineResult.script.title}</h5>
+                  <p className="text-xs text-secondary-foreground">{pipelineResult.script.description}</p>
+                  {pipelineResult.script.script && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">Script:</p>
+                      <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{pipelineResult.script.script}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <ExternalAppConnections />
+        </div>
       </StepLayout>
     );
   }
