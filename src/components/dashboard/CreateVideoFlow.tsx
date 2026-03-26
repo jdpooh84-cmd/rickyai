@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { ArrowRight, ArrowLeft, Building2, MapPin, Video, Sparkles, Check, Loader2 } from "lucide-react";
+import { ArrowRight, ArrowLeft, Building2, MapPin, Video, Sparkles, Check, Loader2, Image, FileText, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -16,8 +16,9 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
   const { user } = useAuth();
   const [step, setStep] = useState<WizardStep>("info");
   const [saving, setSaving] = useState(false);
-  const [producing, setProducing] = useState(false);
-  const [videoResult, setVideoResult] = useState<any>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>("queued");
+  const [jobResult, setJobResult] = useState<any>(null);
 
   // Business info
   const [businessName, setBusinessName] = useState("");
@@ -33,6 +34,37 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
   const [createdBusinessId, setCreatedBusinessId] = useState<string | null>(null);
   const [createdLocationId, setCreatedLocationId] = useState<string | null>(null);
 
+  // Poll for job status
+  useEffect(() => {
+    if (!jobId || step !== "producing") return;
+
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("video_generation_jobs")
+        .select("status, result_payload, video_url, error_message")
+        .eq("id", jobId)
+        .single();
+
+      if (data) {
+        setJobStatus(data.status);
+        if (data.result_payload) {
+          setJobResult(data.result_payload);
+        }
+        if (data.status === "completed") {
+          clearInterval(interval);
+          setStep("done");
+          toast.success("Your video content is ready! 🎉");
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          toast.error(data.error_message || "Production failed — try again");
+          setStep("format");
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [jobId, step]);
+
   const handleSaveAndContinue = async () => {
     if (!businessName.trim()) { toast.error("Enter your business name"); return; }
     if (!city.trim()) { toast.error("Enter your city"); return; }
@@ -40,7 +72,6 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
 
     setSaving(true);
     try {
-      // Create business
       const { data: biz, error: bizErr } = await supabase
         .from("businesses")
         .insert({
@@ -57,7 +88,6 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
       if (bizErr) throw bizErr;
       setCreatedBusinessId(biz.id);
 
-      // Create location
       const { data: loc, error: locErr } = await supabase
         .from("locations")
         .insert({
@@ -75,7 +105,6 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
       if (locErr) throw locErr;
       setCreatedLocationId(loc.id);
 
-      // Mark onboarding
       await supabase
         .from("profiles")
         .update({ onboarding_completed: true })
@@ -92,7 +121,8 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
   const handleProduce = async () => {
     if (!createdBusinessId) return;
     setStep("producing");
-    setProducing(true);
+    setJobStatus("queued");
+    setJobResult(null);
 
     try {
       const productionMode = videoType === "youtube" ? "standard" : "quick";
@@ -107,15 +137,35 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
 
       if (response.error) throw new Error(response.error.message);
 
-      setVideoResult(response.data);
-      setStep("done");
-      toast.success("Your first video content is ready! 🎉");
+      if (response.data?.job_id) {
+        setJobId(response.data.job_id);
+      } else {
+        throw new Error("No job ID returned");
+      }
     } catch (err: any) {
       toast.error(err.message || "Production failed — try again");
       setStep("format");
-    } finally {
-      setProducing(false);
     }
+  };
+
+  const getStatusLabel = () => {
+    switch (jobStatus) {
+      case "queued": return "Starting up...";
+      case "generating_script": return "Writing your script...";
+      case "generating_images": return "Creating scene images...";
+      case "generating_voiceover": return "Recording voiceover...";
+      case "rendering_video": return "Rendering final video...";
+      default: return "Processing...";
+    }
+  };
+
+  const getProgressSteps = () => {
+    const steps = [
+      { label: "Script", done: ["generating_images", "generating_voiceover", "rendering_video", "completed"].includes(jobStatus) },
+      { label: "Scene Images", done: ["generating_voiceover", "rendering_video", "completed"].includes(jobStatus) },
+      { label: "Finishing", done: jobStatus === "completed" },
+    ];
+    return steps;
   };
 
   if (step === "info") {
@@ -188,9 +238,9 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
 
         <div className="space-y-3">
           {([
-            { key: "tiktok" as const, label: "TikTok / Reels Short", desc: "15-30 sec vertical video. Perfect for daily social.", emoji: "🎵", platforms: "TikTok, Instagram Reels, YouTube Shorts" },
-            { key: "reel" as const, label: "Instagram Reel", desc: "30-60 sec vertical video. Great for brand stories.", emoji: "📸", platforms: "Instagram, Facebook Reels" },
-            { key: "youtube" as const, label: "YouTube Video", desc: "1-3 min horizontal video. Ideal for tutorials & promos.", emoji: "▶️", platforms: "YouTube, Facebook, LinkedIn" },
+            { key: "tiktok" as const, label: "TikTok / Reels Short", desc: "15-30 sec vertical video.", emoji: "🎵" },
+            { key: "reel" as const, label: "Instagram Reel", desc: "30-60 sec vertical video.", emoji: "📸" },
+            { key: "youtube" as const, label: "YouTube Video", desc: "1-3 min horizontal video.", emoji: "▶️" },
           ]).map(opt => (
             <button key={opt.key} onClick={() => setVideoType(opt.key)}
               className={`w-full rounded-2xl p-4 text-left transition-all border ${
@@ -201,7 +251,6 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
                 <div className="flex-1">
                   <div className="text-sm font-bold text-foreground">{opt.label}</div>
                   <div className="text-xs text-muted-foreground">{opt.desc}</div>
-                  <div className="text-[10px] text-muted-foreground/70 mt-1">{opt.platforms}</div>
                 </div>
                 {videoType === opt.key && <Check className="w-5 h-5 text-primary" />}
               </div>
@@ -222,92 +271,124 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
   }
 
   if (step === "producing") {
+    const progressSteps = getProgressSteps();
+    const sceneImages = jobResult?.scene_images || [];
+
     return (
-      <div className="max-w-lg mx-auto text-center space-y-6 py-12">
-        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto animate-pulse">
-          <Sparkles className="w-10 h-10 text-primary" />
+      <div className="max-w-lg mx-auto space-y-6 py-8">
+        <div className="text-center space-y-3">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto animate-pulse">
+            <Sparkles className="w-10 h-10 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground">{getStatusLabel()}</h2>
+          <p className="text-muted-foreground text-sm">
+            Creating content for {businessName}. This takes about 60 seconds.
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-foreground">Creating your video...</h2>
-        <p className="text-muted-foreground text-sm">
-          Our AI is writing a script, generating professional scene images, and packaging everything for {businessName}.
-          This takes about 30-60 seconds.
-        </p>
-        <div className="flex justify-center gap-3 mt-4">
-          {["Writing script", "Generating images", "Packaging"].map((label, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin text-primary" />
-              <span className="text-xs text-muted-foreground">{label}</span>
+
+        {/* Progress steps */}
+        <div className="flex justify-center gap-6">
+          {progressSteps.map((s, i) => (
+            <div key={i} className="flex items-center gap-2">
+              {s.done ? (
+                <Check className="w-4 h-4 text-green-500" />
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              )}
+              <span className={`text-xs ${s.done ? "text-green-500 font-semibold" : "text-muted-foreground"}`}>{s.label}</span>
             </div>
           ))}
         </div>
+
+        {/* Show images as they arrive */}
+        {sceneImages.length > 0 && (
+          <div className="rounded-2xl border border-border p-4 space-y-2">
+            <p className="text-xs font-semibold text-foreground">🖼️ Scene images ready ({sceneImages.length})</p>
+            <div className="grid grid-cols-2 gap-2">
+              {sceneImages.map((url: string, i: number) => (
+                <img key={i} src={url} alt={`Scene ${i + 1}`} className="w-full rounded-xl object-cover aspect-video" />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   // step === "done"
+  const result = jobResult || {};
+  const sceneImages = result.scene_images || [];
+  const hasVideo = !!result.video_url;
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="text-center space-y-2">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto mb-4">
           <Check className="w-8 h-8 text-white" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground">Your first video is ready! 🎉</h2>
-        <p className="text-muted-foreground text-sm">Here's what we made for {businessName}.</p>
+        <h2 className="text-2xl font-bold text-foreground">Your content is ready! 🎉</h2>
+        <p className="text-muted-foreground text-sm">{result.message || `Here's what we made for ${businessName}.`}</p>
       </div>
 
-      {/* Scene Images */}
-      {videoResult?.scene_images?.length > 0 && (
-        <div className="glass rounded-2xl p-6">
-          <h3 className="text-sm font-bold text-foreground mb-3">🖼️ Your Scene Images</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {videoResult.scene_images.map((url: string, i: number) => (
-              <img key={i} src={url} alt={`Scene ${i + 1}`} className="w-full rounded-xl object-cover aspect-video" />
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Video Player */}
-      {videoResult?.video_url && (
-        <div className="glass rounded-2xl p-6">
+      {result.video_url && (
+        <div className="rounded-2xl border border-border p-6">
           <h3 className="text-sm font-bold text-foreground mb-3">🎬 Your Video</h3>
           <video controls className="w-full rounded-xl bg-black max-h-[400px]">
-            <source src={videoResult.video_url} type="video/mp4" />
+            <source src={result.video_url} type="video/mp4" />
           </video>
         </div>
       )}
 
+      {/* Scene Images */}
+      {sceneImages.length > 0 && (
+        <div className="rounded-2xl border border-border p-6">
+          <h3 className="text-sm font-bold text-foreground mb-3">🖼️ Your Scene Images ({sceneImages.length})</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {sceneImages.map((url: string, i: number) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                <img src={url} alt={`Scene ${i + 1}`} className="w-full rounded-xl object-cover aspect-video hover:opacity-90 transition-opacity cursor-pointer" />
+              </a>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">Click any image to view full size. Download them and import into CapCut or Canva to create your video.</p>
+        </div>
+      )}
+
+      {/* Voiceover */}
+      {result.voiceover_url && (
+        <div className="rounded-2xl border border-border p-6">
+          <h3 className="text-sm font-bold text-foreground mb-3">🎙️ Voiceover</h3>
+          <audio controls className="w-full">
+            <source src={result.voiceover_url} type="audio/mpeg" />
+          </audio>
+        </div>
+      )}
+
       {/* Script */}
-      {videoResult?.script && (
-        <div className="glass rounded-2xl p-6">
-          <h3 className="text-sm font-bold text-foreground mb-2">{videoResult.script.title}</h3>
-          <p className="text-xs text-muted-foreground mb-3">{videoResult.script.description}</p>
-          {videoResult.script.voiceover_script && (
+      {result.title && (
+        <div className="rounded-2xl border border-border p-6">
+          <h3 className="text-sm font-bold text-foreground mb-2">{result.title}</h3>
+          <p className="text-xs text-muted-foreground mb-3">{result.description}</p>
+          {result.voiceover_script && (
             <div className="p-3 rounded-xl bg-secondary/30 mb-3">
-              <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover:</p>
-              <p className="text-xs text-secondary-foreground">{videoResult.script.voiceover_script}</p>
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
+              <p className="text-xs text-secondary-foreground">{result.voiceover_script}</p>
             </div>
           )}
-          {videoResult.script.caption && (
-            <div className="p-3 rounded-xl bg-secondary/30">
+          {result.caption && (
+            <div className="p-3 rounded-xl bg-secondary/30 mb-3">
               <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
-              <p className="text-xs text-secondary-foreground">{videoResult.script.caption}</p>
+              <p className="text-xs text-secondary-foreground">{result.caption}</p>
             </div>
           )}
-          {videoResult.script.hashtags?.length > 0 && (
+          {result.hashtags?.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {videoResult.script.hashtags.map((h: string, i: number) => (
+              {result.hashtags.map((h: string, i: number) => (
                 <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">#{h.replace("#", "")}</span>
               ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Message */}
-      {videoResult?.message && (
-        <div className="glass rounded-2xl p-4">
-          <p className="text-sm text-secondary-foreground">{videoResult.message}</p>
         </div>
       )}
 
