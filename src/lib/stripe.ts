@@ -6,7 +6,7 @@ export const PLANS = {
     product_id: "prod_UDPGYEdFpDRvVC",
     price: "$99",
     period: "/mo",
-    desc: "Full access with AI video production, cancel anytime",
+    desc: "Full 14-step growth system, AI video production, community, and automation",
   },
   annual: {
     name: "Annual",
@@ -14,7 +14,7 @@ export const PLANS = {
     product_id: "prod_UDPHH5QTYvPRzQ",
     price: "$79",
     period: "/mo",
-    desc: "Billed $948/year — save $240",
+    desc: "Billed $948/year — save $240. All features + priority AI",
   },
 } as const;
 
