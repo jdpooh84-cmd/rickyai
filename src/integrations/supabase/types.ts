@@ -1003,6 +1003,66 @@ export type Database = {
         }
         Relationships: []
       }
+      video_generation_jobs: {
+        Row: {
+          business_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          location_id: string | null
+          provider: string
+          request_payload: Json
+          result_payload: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location_id?: string | null
+          provider?: string
+          request_payload?: Json
+          result_payload?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          location_id?: string | null
+          provider?: string
+          request_payload?: Json
+          result_payload?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_generation_jobs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_generation_jobs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       webhook_config: {
         Row: {
           created_at: string
