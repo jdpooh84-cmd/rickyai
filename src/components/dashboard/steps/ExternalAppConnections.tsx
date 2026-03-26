@@ -131,14 +131,14 @@ const ExternalAppConnections = () => {
                     </div>
                     <div className="flex items-center gap-1">
                       {connected?.is_valid ? (
-                        <>
+                        <div className="flex flex-col items-end gap-1">
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
                             <Check className="w-3 h-3" /> Connected
                           </span>
-                          <button onClick={() => handleDisconnect(app.id)} className="text-[10px] px-1 py-1 rounded text-destructive hover:bg-destructive/10">
-                            <X className="w-3 h-3" />
+                          <button onClick={() => handleDisconnect(app.id)} className="text-[9px] px-2 py-0.5 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                            Disconnect
                           </button>
-                        </>
+                        </div>
                       ) : (
                         <button onClick={() => setShowKeyInput(showKeyInput === app.id ? null : app.id)}
                           className="text-[10px] px-2 py-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1">
