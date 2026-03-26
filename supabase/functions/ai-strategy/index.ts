@@ -496,7 +496,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step],
           output_data: outputData,
           updated_at: new Date().toISOString(),
         },
@@ -513,7 +513,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step],
           output_data: outputData,
         });
     }
