@@ -12,7 +12,7 @@ interface Props { businessId: string | null; locationId: string | null; onComple
 
 type TabType = "free" | "capcut" | "heygen" | "invideo" | "canva" | "pixelbin" | "easemate" | "virbo" | "detail" | "elevenlabs" | "nvidia";
 type ProductionMode = "quick" | "standard" | "longform";
-type WorkflowMode = "diy" | "auto";
+type WorkflowMode = "diy" | "auto" | "pipeline";
 type PostFrequency = "1x" | "2x" | "3x";
 type PostSchedule = "daily" | "weekly" | "monthly" | "yearly";
 
@@ -32,6 +32,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(null);
+  const [pipelineKeyword, setPipelineKeyword] = useState("");
+  const [pipelineRunning, setPipelineRunning] = useState(false);
+  const [pipelineResult, setPipelineResult] = useState<any>(null);
 
   useEffect(() => { if (businessId) loadExisting(businessId); }, [businessId]);
 
