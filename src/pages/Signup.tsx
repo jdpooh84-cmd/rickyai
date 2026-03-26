@@ -6,6 +6,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, Eye, EyeOff, Check, Mail, Loader2 } from "lucide-react";
 import { PLANS, PlanKey } from "@/lib/stripe";
 
+const planOptions: { key: PlanKey; label: string }[] = [
+  { key: "creator", label: "Creator" },
+  { key: "business", label: "Business Starter" },
+  { key: "growth", label: "Growth" },
+  { key: "agency", label: "Agency" },
+];
+
 const Signup = () => {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -16,7 +23,7 @@ const Signup = () => {
   const [success, setSuccess] = useState(false);
   const [trialUsed, setTrialUsed] = useState(false);
   const [checkingTrial, setCheckingTrial] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>("creator");
   const [emailMarketingOptIn, setEmailMarketingOptIn] = useState(true);
   const { signUp } = useAuth();
   const navigate = useNavigate();
@@ -161,34 +168,22 @@ const Signup = () => {
             {trialUsed && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground block">Select Plan</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlan("monthly")}
-                    className={`p-3 rounded-lg border text-left transition-all ${
-                      selectedPlan === "monthly"
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/30"
-                    }`}
-                  >
-                    <p className="text-sm font-bold text-foreground">{PLANS.monthly.price}{PLANS.monthly.period}</p>
-                    <p className="text-xs text-muted-foreground">Monthly</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlan("annual")}
-                    className={`p-3 rounded-lg border text-left transition-all relative ${
-                      selectedPlan === "annual"
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/30"
-                    }`}
-                  >
-                    <span className="absolute -top-2 right-2 text-[9px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground font-bold">
-                      Save 25%
-                    </span>
-                    <p className="text-sm font-bold text-foreground">{PLANS.annual.price}{PLANS.annual.period}</p>
-                    <p className="text-xs text-muted-foreground">Billed annually</p>
-                  </button>
+                <div className="grid grid-cols-2 gap-2">
+                  {planOptions.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSelectedPlan(key)}
+                      className={`p-3 rounded-lg border text-left transition-all ${
+                        selectedPlan === key
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/30"
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-foreground">{PLANS[key].price}{PLANS[key].period}</p>
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -213,7 +208,7 @@ const Signup = () => {
               {loading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>
               ) : trialUsed ? (
-                <>Continue with {selectedPlan === "annual" ? "Annual" : "Monthly"} Plan <ArrowRight className="w-4 h-4" /></>
+                <>Continue with {PLANS[selectedPlan].name} Plan <ArrowRight className="w-4 h-4" /></>
               ) : (
                 <>Start 7-Day Free Trial <ArrowRight className="w-4 h-4" /></>
               )}
@@ -222,7 +217,7 @@ const Signup = () => {
 
           {!trialUsed && (
             <div className="mt-4 flex flex-wrap gap-3 justify-center">
-              {["13-Step System", "Ricky AI Guide", "Lead Scout", "Grant Search"].map((f) => (
+              {["14-Step System", "Ricky AI Guide", "Lead Scout", "Video Studio"].map((f) => (
                 <span key={f} className="text-[10px] px-2 py-1 rounded-full bg-primary/10 text-primary">
                   {f}
                 </span>
