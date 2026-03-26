@@ -117,7 +117,40 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
 
-    const copyToClipboard = (text: string, id: string) => {
+  const handlePipelineRun = async () => {
+    if (!businessId) return;
+    setPipelineRunning(true);
+    setPipelineResult(null);
+    try {
+      const response = await supabase.functions.invoke("webhook-proxy", {
+        body: {
+          scenario: "video_production",
+          businessId,
+          keyword: pipelineKeyword || undefined,
+          videoType: "promotional",
+          productionMode: productionMode || "standard",
+        },
+      });
+      if (response.error) throw new Error(response.error.message);
+      if (response.data?.error) {
+        if (response.data.upgrade_required) {
+          toast.error("Monthly video limit reached. Upgrade your plan for more.");
+        } else {
+          throw new Error(response.data.error);
+        }
+        return;
+      }
+      setPipelineResult(response.data);
+      toast.success(response.data?.message || "Pipeline triggered!");
+      onComplete?.();
+    } catch (err: any) {
+      toast.error(err.message || "Pipeline failed");
+    } finally {
+      setPipelineRunning(false);
+    }
+  };
+
+
     setCopiedId(id);
     toast.success("Copied to clipboard!");
     setTimeout(() => setCopiedId(null), 2000);
