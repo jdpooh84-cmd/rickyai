@@ -13,7 +13,7 @@ const SUPPORTED_APPS = [
   // Video Production
   { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
   { id: "elevenlabs", name: "ElevenLabs", description: "AI voiceovers & dubbing", url: "https://elevenlabs.io/app/settings/api-keys", cost: "Free tier / $5/mo+", icon: "🎙️", category: "Voice" },
-  { id: "invideo", name: "InVideo AI", description: "Text-to-video AI production", url: "https://ai.invideo.io/workspace", cost: "$25/mo+", icon: "🎬", category: "Video" },
+  { id: "pictory", name: "Pictory AI", description: "Script-to-video, blog-to-video AI production", url: "https://app.pictory.ai/home", cost: "Free trial / $19/mo+", icon: "🎬", category: "Video" },
   { id: "capcut", name: "CapCut", description: "Free video editing & templates", url: "https://www.capcut.com/", cost: "Free / Pro $8/mo", icon: "✂️", category: "Video" },
   { id: "canva", name: "Canva", description: "Thumbnails, graphics & short video", url: "https://www.canva.com/", cost: "Free / Pro $13/mo", icon: "🎨", category: "Video" },
   { id: "opusclip", name: "OpusClip", description: "Repurpose long videos into clips", url: "https://www.opus.pro/", cost: "Free tier / $15/mo+", icon: "✂️", category: "Video" },
