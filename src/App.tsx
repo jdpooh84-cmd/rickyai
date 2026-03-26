@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/AdminDashboard.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
 import InstallApp from "./pages/InstallApp.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import DemoVideoShowcase from "./pages/DemoVideoShowcase.tsx";
 
 const queryClient = new QueryClient();
 
