@@ -225,15 +225,15 @@ Return JSON with:
         title: scriptContent.title,
         caption: scriptContent.caption || scriptContent.description,
         hashtags: scriptContent.hashtags || [],
-        media_url: videoUrl || sceneImageUrls[0] || voiceoverUrl || null,
-        media_type: videoUrl ? "video" : hasImages ? "image" : "text",
+        media_url: sceneImageUrls[0] || voiceoverUrl || null,
+        media_type: hasImages ? "image" : "text",
         platform: scriptContent.target_platform || "instagram",
         video_script: scriptContent.voiceover_script,
         voiceover_script: scriptContent.voiceover_script,
         shot_list: scriptContent.scenes,
         cta: scriptContent.cta,
         status: "media_ready",
-        production_tool: heygenKey ? "heygen" : "rickyai",
+        production_tool: "rickyai",
         thumbnail_url: sceneImageUrls[0] || null,
       });
       if (postErr) console.error("[generate-video] content_posts insert error:", postErr);
