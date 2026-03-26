@@ -203,6 +203,8 @@ const PricingSection = React.forwardRef<HTMLElement>((_, ref) => {
       </div>
     </section>
   );
-};
+});
+
+PricingSection.displayName = "PricingSection";
 
 export default PricingSection;
