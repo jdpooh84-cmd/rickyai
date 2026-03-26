@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { ArrowRight, ArrowLeft, Building2, MapPin, Video, Sparkles, Check, Loader2, Image, FileText, Music } from "lucide-react";
+import { ArrowRight, ArrowLeft, Building2, MapPin, Video, Sparkles, Check, Loader2, Image, FileText, Music, Download, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { composeVideo } from "@/lib/videoComposer";
 
 interface Props {
   onComplete: (businessId: string, locationId: string | null) => void;
