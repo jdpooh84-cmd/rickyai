@@ -14,13 +14,23 @@ const SUPPORTED_APPS = [
   { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
   { id: "elevenlabs", name: "ElevenLabs", description: "AI voiceovers & dubbing", url: "https://elevenlabs.io/app/settings/api-keys", cost: "Free tier / $5/mo+", icon: "🎙️", category: "Voice" },
   { id: "invideo", name: "InVideo AI", description: "Text-to-video AI production", url: "https://ai.invideo.io/workspace", cost: "$25/mo+", icon: "🎬", category: "Video" },
+  { id: "capcut", name: "CapCut", description: "Free video editing & templates", url: "https://www.capcut.com/", cost: "Free / Pro $8/mo", icon: "✂️", category: "Video" },
+  { id: "canva", name: "Canva", description: "Thumbnails, graphics & short video", url: "https://www.canva.com/", cost: "Free / Pro $13/mo", icon: "🎨", category: "Video" },
+  { id: "opusclip", name: "OpusClip", description: "Repurpose long videos into clips", url: "https://www.opus.pro/", cost: "Free tier / $15/mo+", icon: "✂️", category: "Video" },
   // Automation
   { id: "make", name: "Make.com", description: "Workflow automation (webhook URL)", url: "https://www.make.com/en/apikey", cost: "Free tier / $9/mo+", icon: "⚡", category: "Automation" },
-  // Social Platforms (for future direct posting)
-  { id: "meta", name: "Meta Business Suite", description: "Facebook + Instagram posting", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📘", category: "Social" },
-  { id: "youtube", name: "YouTube", description: "Video uploads & analytics", url: "https://console.developers.google.com/", cost: "Free", icon: "▶️", category: "Social" },
+  // Social Platforms
+  { id: "facebook", name: "Facebook", description: "Page posting & ads", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📘", category: "Social" },
+  { id: "instagram", name: "Instagram", description: "Reels, Stories & feed posts", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📸", category: "Social" },
   { id: "tiktok", name: "TikTok", description: "Short-form video posting", url: "https://developers.tiktok.com/", cost: "Free", icon: "🎵", category: "Social" },
+  { id: "youtube", name: "YouTube", description: "Video uploads & analytics", url: "https://console.developers.google.com/", cost: "Free", icon: "▶️", category: "Social" },
   { id: "linkedin", name: "LinkedIn", description: "Professional content posting", url: "https://www.linkedin.com/developers/apps", cost: "Free", icon: "💼", category: "Social" },
+  { id: "threads", name: "Threads", description: "Text & image micro-posts", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "🧵", category: "Social" },
+  { id: "x", name: "X (Twitter)", description: "Short posts, threads & Spaces", url: "https://developer.x.com/", cost: "Free", icon: "✖️", category: "Social" },
+  { id: "bluesky", name: "Bluesky", description: "Decentralized social posting", url: "https://bsky.app/", cost: "Free", icon: "🦋", category: "Social" },
+  { id: "lemon8", name: "Lemon8", description: "Visual lifestyle content", url: "https://www.lemon8-app.com/", cost: "Free", icon: "🍋", category: "Social" },
+  { id: "substack", name: "Substack", description: "Newsletter & long-form publishing", url: "https://substack.com/", cost: "Free", icon: "📰", category: "Social" },
+  { id: "clapper", name: "Clapper", description: "Short-form video community", url: "https://www.clapper.app/", cost: "Free", icon: "👏", category: "Social" },
 ];
 
 const ExternalAppConnections = () => {
