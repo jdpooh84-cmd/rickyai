@@ -198,15 +198,16 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
       case "generating_images": return "Creating scene images...";
       case "generating_voiceover": return "Recording voiceover...";
       case "rendering_video": return "Rendering final video...";
+      case "composing_video": return `Composing your video... ${composePct}%`;
       default: return "Processing...";
     }
   };
 
   const getProgressSteps = () => {
     const steps = [
-      { label: "Script", done: ["generating_images", "generating_voiceover", "rendering_video", "completed"].includes(jobStatus) },
-      { label: "Scene Images", done: ["generating_voiceover", "rendering_video", "completed"].includes(jobStatus) },
-      { label: "Finishing", done: jobStatus === "completed" },
+      { label: "Script", done: ["generating_images", "generating_voiceover", "rendering_video", "composing_video", "completed", "media_ready"].includes(jobStatus) },
+      { label: "Scene Images", done: ["generating_voiceover", "rendering_video", "composing_video", "completed", "media_ready"].includes(jobStatus) },
+      { label: "Video", done: jobStatus === "completed" || jobStatus === "media_ready" || !!finalVideoUrl },
     ];
     return steps;
   };
