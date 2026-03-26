@@ -18,10 +18,10 @@ const MakeWebhookConfig = () => {
   useEffect(() => { loadConfigs(); }, []);
 
   const loadConfigs = async () => {
-    const { data } = await supabase.from("webhook_config").select("*");
+    const { data } = await (supabase as any).from("webhook_config").select("*");
     if (data) {
       const map: Record<string, any> = {};
-      data.forEach(d => { map[d.scenario_type] = { id: d.id, url: d.webhook_url, active: d.is_active }; });
+      data.forEach((d: any) => { map[d.scenario_type] = { id: d.id, url: d.webhook_url, active: d.is_active }; });
       setConfigs(map);
     }
   };
@@ -32,9 +32,9 @@ const MakeWebhookConfig = () => {
     setSaving(scenarioType);
     try {
       if (config.id) {
-        await supabase.from("webhook_config").update({ webhook_url: config.url.trim(), is_active: true }).eq("id", config.id);
+        await (supabase as any).from("webhook_config").update({ webhook_url: config.url.trim(), is_active: true }).eq("id", config.id);
       } else {
-        await supabase.from("webhook_config").insert({ scenario_type: scenarioType, webhook_url: config.url.trim(), is_active: true });
+        await (supabase as any).from("webhook_config").insert({ scenario_type: scenarioType, webhook_url: config.url.trim(), is_active: true });
       }
       toast.success("Webhook saved!");
       loadConfigs();
