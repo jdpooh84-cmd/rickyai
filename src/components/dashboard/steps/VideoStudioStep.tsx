@@ -874,6 +874,36 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               )}
 
+              {/* Scene Images (FREE - no API keys needed) */}
+              {generatedVideoScript.scene_images?.length > 0 && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <h5 className="text-xs font-semibold text-primary mb-2">🖼️ AI-Generated Scene Images ({generatedVideoScript.scene_images.length} scenes)</h5>
+                  <p className="text-[10px] text-muted-foreground mb-3">Professional images generated from your business profile — import into CapCut or Canva to create your video.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {generatedVideoScript.scene_images.map((url: string, i: number) => (
+                      <div key={i} className="relative group">
+                        <img src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                          <a href={url} download className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground">
+                            <Download className="w-3 h-3" />
+                          </a>
+                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-1 rounded bg-secondary text-foreground">
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                        <span className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-black/60 text-white">Scene {i + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <a href={generatedVideoScript.scene_images[0]} download
+                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+                      <Download className="w-3 h-3" /> Download All Scenes
+                    </a>
+                  </div>
+                </div>
+              )}
+
               {/* Rendered Video */}
               {generatedVideoScript.video_url && (
                 <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
@@ -885,10 +915,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                     <a href={generatedVideoScript.video_url} target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
                       <Download className="w-3 h-3" /> Download Video
-                    </a>
-                    <a href={generatedVideoScript.video_url} download
-                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-secondary text-foreground hover:bg-secondary/80">
-                      <ExternalLink className="w-3 h-3" /> Open in New Tab
                     </a>
                   </div>
                 </div>
