@@ -1,4 +1,4 @@
-// Stripe product/price mapping
+// Stripe product/price mapping — synced with live Stripe catalog
 export const PLANS = {
   monthly: {
     name: "Monthly",
@@ -6,7 +6,7 @@ export const PLANS = {
     product_id: "prod_UDPGYEdFpDRvVC",
     price: "$99",
     period: "/mo",
-    desc: "Full 14-step growth system, AI video production, community, and automation",
+    desc: "Full 14-step growth system, AI video production, community, automation, and BYOLLM support",
   },
   annual: {
     name: "Annual",
@@ -14,7 +14,7 @@ export const PLANS = {
     product_id: "prod_UDPHH5QTYvPRzQ",
     price: "$79",
     period: "/mo",
-    desc: "Billed $948/year — save $240. All features + priority AI",
+    desc: "Billed $948/year — save $240. All features + priority support",
   },
 } as const;
 

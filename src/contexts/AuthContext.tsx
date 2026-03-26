@@ -7,6 +7,8 @@ interface SubscriptionState {
   subscribed: boolean;
   plan: PlanKey | null;
   subscriptionEnd: string | null;
+  trialActive: boolean;
+  trialEndsAt: string | null;
   loading: boolean;
 }
 
@@ -15,6 +17,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   subscription: SubscriptionState;
+  hasAccess: boolean;
   checkSubscription: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -31,7 +34,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     subscribed: false,
     plan: null,
     subscriptionEnd: null,
-    loading: false,
+    trialActive: false,
+    trialEndsAt: null,
+    loading: true,
   });
 
   const checkSubscription = useCallback(async () => {
@@ -43,6 +48,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         subscribed: data.subscribed,
         plan: data.product_id ? getPlanByProductId(data.product_id) : null,
         subscriptionEnd: data.subscription_end,
+        trialActive: data.trial_active ?? false,
+        trialEndsAt: data.trial_ends_at ?? null,
         loading: false,
       });
     } catch (err) {
@@ -51,6 +58,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const hasAccess = subscription.subscribed || subscription.trialActive;
+
   useEffect(() => {
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -58,6 +67,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
       if (session?.user) {
         setTimeout(() => checkSubscription(), 0);
+      } else {
+        setSubscription(prev => ({ ...prev, loading: false }));
       }
     });
 
@@ -67,6 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
       if (session?.user) {
         checkSubscription();
+      } else {
+        setSubscription(prev => ({ ...prev, loading: false }));
       }
     });
 
@@ -99,11 +112,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, loading: false });
+    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, loading: false });
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, checkSubscription, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, hasAccess, checkSubscription, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

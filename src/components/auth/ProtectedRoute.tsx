@@ -1,16 +1,17 @@
 import { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, subscription } = useAuth();
+  const location = useLocation();
 
-  if (loading) {
+  if (loading || subscription.loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-hero animate-pulse" />
-          <span className="text-muted-foreground text-sm"><span className="text-muted-foreground text-sm">Loading RickyAI...</span></span>
+          <span className="text-muted-foreground text-sm">Loading RickyAI...</span>
         </div>
       </div>
     );
