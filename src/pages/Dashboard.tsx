@@ -20,6 +20,7 @@ import CampaignBlueprintStep from "@/components/dashboard/steps/CampaignBlueprin
 import GamificationPanel from "@/components/dashboard/GamificationPanel";
 import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
+import ReadyToPost from "@/pages/ReadyToPost";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { ChevronDown, LogOut, Check } from "lucide-react";
@@ -66,6 +67,7 @@ const Dashboard = () => {
     if (activeSection === "score") return <GamificationPanel />;
     if (activeSection === "community") return <CommunityForum />;
     if (activeSection === "marketplace") return <StrategyMarketplace />;
+    if (activeSection === "ready") return <ReadyToPost />;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;

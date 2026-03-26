@@ -32,6 +32,7 @@ const steps = [
 ];
 
 const extras = [
+  { id: "ready", icon: Check, title: "Ready to Post" },
   { id: "score", icon: Trophy, title: "Growth Score" },
   { id: "community", icon: MessageSquare, title: "Community" },
   { id: "marketplace", icon: ShoppingBag, title: "Marketplace" },
