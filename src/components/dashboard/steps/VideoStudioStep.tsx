@@ -118,11 +118,20 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
   const handleAutoGenerate = async () => {
-    if (!businessId) return;
+    if (!businessId) {
+      console.error("[VideoStudio] handleAutoGenerate: No businessId");
+      toast.error("Please set up your business profile first.");
+      return;
+    }
+    console.log("[VideoStudio] handleAutoGenerate START", { businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule });
     setRenderingVideo(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+      if (!session) {
+        console.error("[VideoStudio] handleAutoGenerate: No active session");
+        throw new Error("Not authenticated — please log in again");
+      }
+      console.log("[VideoStudio] handleAutoGenerate: Calling ai-strategy step 8...");
 
       const response = await supabase.functions.invoke("ai-strategy", {
         body: { 
@@ -136,7 +145,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         },
       });
 
-      if (response.error) throw new Error(response.error.message);
+      console.log("[VideoStudio] handleAutoGenerate: Response received", { error: response.error, hasData: !!response.data });
+
+      if (response.error) {
+        console.error("[VideoStudio] handleAutoGenerate: Function error", response.error);
+        throw new Error(response.error.message);
+      }
       setData(response.data);
       
       if (response.data?.rendered_videos) {
@@ -146,6 +160,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       toast.success("Full video production plan generated!");
       onComplete?.();
     } catch (err: any) {
+      console.error("[VideoStudio] handleAutoGenerate FAILED:", err);
       toast.error(err.message || "Failed to generate. Try again.");
     } finally {
       setRenderingVideo(false);
