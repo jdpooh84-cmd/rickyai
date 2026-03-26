@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Check, AlertCircle, Eye, EyeOff, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import DefaultToolSetup from "@/components/dashboard/DefaultToolSetup";
 
 const providers = [
   { id: "claude", name: "Claude (Anthropic)", desc: "Advanced reasoning and content generation", color: "hsl(25 90% 55%)" },
@@ -192,6 +193,11 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
             </div>
           );
         })}
+      </div>
+
+      {/* Default Tool Stack */}
+      <div className="mb-8">
+        <DefaultToolSetup compact />
       </div>
 
       <div className="flex items-start gap-2 p-4 rounded-lg bg-primary/5 border border-primary/10">

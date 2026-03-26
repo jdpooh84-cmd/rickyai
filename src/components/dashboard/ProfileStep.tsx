@@ -288,15 +288,24 @@ const ProfileStep = ({ onComplete }: ProfileStepProps) => {
           <Field label="Niche" value={business.niche} onChange={(v) => updateBusiness("niche", v)} placeholder="Artisan sourdough, family dentistry..." />
         </div>
 
-        <SectionHeader>🌐 Online Presence</SectionHeader>
+        <SectionHeader>🌐 Website (Optional)</SectionHeader>
+        <p className="text-[10px] text-muted-foreground mb-3">Your business website. This is NOT the same as your social media profiles below.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Website URL" value={business.website_url} onChange={(v) => updateBusiness("website_url", v)} placeholder="https://..." type="url" />
-          <Field label="Google Business Profile" value={business.google_business_profile} onChange={(v) => updateBusiness("google_business_profile", v)} placeholder="https://..." type="url" />
-          <Field label="Facebook URL" value={business.facebook_url} onChange={(v) => updateBusiness("facebook_url", v)} placeholder="https://facebook.com/..." type="url" />
-          <Field label="Instagram URL" value={business.instagram_url} onChange={(v) => updateBusiness("instagram_url", v)} placeholder="https://instagram.com/..." type="url" />
-          <Field label="TikTok URL" value={business.tiktok_url} onChange={(v) => updateBusiness("tiktok_url", v)} placeholder="https://tiktok.com/@..." type="url" />
-          <Field label="YouTube URL" value={business.youtube_url} onChange={(v) => updateBusiness("youtube_url", v)} placeholder="https://youtube.com/..." type="url" />
-          <Field label="LinkedIn URL" value={business.linkedin_url} onChange={(v) => updateBusiness("linkedin_url", v)} placeholder="https://linkedin.com/..." type="url" />
+          <Field label="Website URL" value={business.website_url} onChange={(v) => updateBusiness("website_url", v)} placeholder="https://mybusiness.com" type="url" />
+          <Field label="Google Business Profile" value={business.google_business_profile} onChange={(v) => updateBusiness("google_business_profile", v)} placeholder="https://g.page/..." type="url" />
+        </div>
+
+        <SectionHeader>📱 Social Media Profile URLs</SectionHeader>
+        <p className="text-[10px] text-muted-foreground mb-3">
+          Paste your profile URLs or handles. These are NOT connected accounts — they help RickyAI understand your online presence.
+          To actually connect accounts for posting, use the Connect step.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Facebook URL or @handle" value={business.facebook_url} onChange={(v) => updateBusiness("facebook_url", v)} placeholder="https://facebook.com/mybiz or @mybiz" />
+          <Field label="Instagram URL or @handle" value={business.instagram_url} onChange={(v) => updateBusiness("instagram_url", v)} placeholder="https://instagram.com/mybiz or @mybiz" />
+          <Field label="TikTok URL or @handle" value={business.tiktok_url} onChange={(v) => updateBusiness("tiktok_url", v)} placeholder="https://tiktok.com/@mybiz or @mybiz" />
+          <Field label="YouTube URL" value={business.youtube_url} onChange={(v) => updateBusiness("youtube_url", v)} placeholder="https://youtube.com/@mybiz" />
+          <Field label="LinkedIn URL" value={business.linkedin_url} onChange={(v) => updateBusiness("linkedin_url", v)} placeholder="https://linkedin.com/company/mybiz" />
         </div>
 
         <SectionHeader>🎯 Strategy Inputs</SectionHeader>
