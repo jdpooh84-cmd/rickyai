@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { BarChart3, Film, Cpu, HardDrive } from "lucide-react";
-import { SEAT_ALLOWANCES } from "@/lib/stripe";
+
+// Default allowances per seat per month
+const SEAT_ALLOWANCES = {
+  llm_tokens: 500_000,
+  render_jobs: 50,
+  storage_gb: 10,
+};
 
 const UsageDashboard = () => {
   const { user } = useAuth();
