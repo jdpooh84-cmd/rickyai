@@ -188,20 +188,29 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
   const handleGenerateVideo = async (videoType: string = "promotional") => {
-    if (!businessId) return;
+    if (!businessId) {
+      console.error("[VideoStudio] handleGenerateVideo: No businessId");
+      return;
+    }
+    console.log("[VideoStudio] handleGenerateVideo START", { businessId, videoType, productionMode });
     setGeneratingVideo(true);
     try {
       const response = await supabase.functions.invoke("generate-video", {
         body: { businessId, videoType, productionMode },
       });
-      if (response.error) throw new Error(response.error.message);
+      console.log("[VideoStudio] handleGenerateVideo: Response", { error: response.error, hasData: !!response.data, data: response.data });
+      if (response.error) {
+        console.error("[VideoStudio] handleGenerateVideo: Function error", response.error);
+        throw new Error(response.error.message);
+      }
       setGeneratedVideoScript(response.data);
       if (response.data?.video_url) {
         toast.success("Video generated successfully!");
       } else {
-        toast.success(response.data?.message || "Video generation result received.");
+        toast.success(response.data?.message || "Video brief generated — use it with CapCut, Canva, or any video tool.");
       }
     } catch (err: any) {
+      console.error("[VideoStudio] handleGenerateVideo FAILED:", err);
       toast.error(err.message || "Failed to generate video");
     } finally {
       setGeneratingVideo(false);
@@ -210,7 +219,11 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
 
   const handlePipelineRun = async () => {
-    if (!businessId) return;
+    if (!businessId) {
+      console.error("[VideoStudio] handlePipelineRun: No businessId");
+      return;
+    }
+    console.log("[VideoStudio] handlePipelineRun START", { businessId, pipelineKeyword, productionMode });
     setPipelineRunning(true);
     setPipelineResult(null);
     try {
@@ -223,10 +236,14 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           productionMode: productionMode || "standard",
         },
       });
-      if (response.error) throw new Error(response.error.message);
+      console.log("[VideoStudio] handlePipelineRun: Response", { error: response.error, hasData: !!response.data, data: response.data });
+      if (response.error) {
+        console.error("[VideoStudio] handlePipelineRun: Function error", response.error);
+        throw new Error(response.error.message);
+      }
       if (response.data?.error) {
         if (response.data.upgrade_required || response.data.code === "USAGE_LIMIT_REACHED") {
-          toast.error(response.data.error || "Monthly video limit reached. This run was stopped safely and your setup was preserved.");
+          toast.error(response.data.error || "Monthly video limit reached.");
         } else {
           throw new Error(response.data.error);
         }
@@ -236,6 +253,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       toast.success(response.data?.message || "Pipeline triggered!");
       onComplete?.();
     } catch (err: any) {
+      console.error("[VideoStudio] handlePipelineRun FAILED:", err);
       toast.error(err.message || "Pipeline failed");
     } finally {
       setPipelineRunning(false);
