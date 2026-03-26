@@ -483,6 +483,86 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     );
   }
 
+  // Pipeline mode - automated Make.com workflow
+  if (workflowMode === "pipeline") {
+    return (
+      <StepLayout title="Video Studio" description="Automated video pipeline powered by your Make.com workflows"
+        icon="🎬" loading={pipelineRunning} hasData={!!pipelineResult} onGenerate={handlePipelineRun} needsProfile={!businessId}
+        generateLabel="⚡ Run Pipeline">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <button onClick={() => setWorkflowMode(null)} className="text-xs text-muted-foreground hover:text-foreground">← Back</button>
+            <span className="text-xs text-muted-foreground">
+              {productionMode === "quick" ? "⚡ Quick" : productionMode === "standard" ? "🎬 Standard" : "📹 Long-Form"} • ⚡ Pipeline
+            </span>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <h4 className="text-sm font-bold text-foreground mb-2">How it works</h4>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { step: "1", label: "Keyword", emoji: "🔍" },
+                { step: "2", label: "Research", emoji: "📊" },
+                { step: "3", label: "Script + Voice", emoji: "🎙️" },
+                { step: "4", label: "Video Render", emoji: "🎬" },
+                { step: "5", label: "Post", emoji: "📱" },
+              ].map(s => (
+                <div key={s.step} className="text-center p-2 rounded-lg bg-primary/5">
+                  <div className="text-lg">{s.emoji}</div>
+                  <div className="text-[10px] font-medium text-foreground">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Enter a keyword and the pipeline will research, write a script, generate voiceover with ElevenLabs, 
+              render a video with HeyGen (30+ seconds with captions), and optionally post to YouTube — all automatically.
+            </p>
+          </div>
+
+          <div className="glass rounded-2xl p-6">
+            <h4 className="text-sm font-bold text-foreground mb-3">Start a video run</h4>
+            <input
+              type="text"
+              value={pipelineKeyword}
+              onChange={e => setPipelineKeyword(e.target.value)}
+              placeholder="Enter a keyword (e.g., 'pizza delivery near me')"
+              className="w-full px-3 py-2.5 rounded-lg bg-secondary/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 mb-3"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Your HeyGen and ElevenLabs API keys from the Connect step will be used. Make sure they're connected before running.
+            </p>
+          </div>
+
+          {pipelineResult && (
+            <div className="glass rounded-2xl p-6">
+              <h4 className="text-sm font-bold text-primary mb-2">✅ Pipeline {pipelineResult.source === "make_webhook" ? "Triggered" : "Complete"}</h4>
+              <p className="text-sm text-secondary-foreground">{pipelineResult.message}</p>
+              {pipelineResult.usage && (
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Usage: {pipelineResult.usage.render_jobs_used}/{pipelineResult.usage.limit} renders this month
+                </p>
+              )}
+              {pipelineResult.script && (
+                <div className="mt-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  <h5 className="text-xs font-semibold text-primary mb-1">{pipelineResult.script.title}</h5>
+                  <p className="text-xs text-secondary-foreground">{pipelineResult.script.description}</p>
+                  {pipelineResult.script.script && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">Script:</p>
+                      <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{pipelineResult.script.script}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <ExternalAppConnections />
+        </div>
+      </StepLayout>
+    );
+  }
+
   // Results view (both DIY and Auto)
   return (
     <StepLayout title="Video Studio" description={
