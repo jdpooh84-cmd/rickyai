@@ -55,10 +55,48 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
         if (data.result_payload) {
           setJobResult(data.result_payload);
         }
-        if (data.status === "completed") {
+        if (data.status === "completed" || data.status === "media_ready") {
           clearInterval(interval);
+          // Auto-compose video from scene images
+          const images = (data.result_payload as any)?.scene_images || [];
+          if (images.length > 0 && !composedRef.current) {
+            composedRef.current = true;
+            setComposingVideo(true);
+            setJobStatus("composing_video");
+            try {
+              const blob = await composeVideo({
+                sceneImages: images,
+                voiceoverUrl: (data.result_payload as any)?.voiceover_url || null,
+                businessName: businessName,
+                title: (data.result_payload as any)?.title || businessName,
+                durationPerScene: 4,
+                width: 1080,
+                height: 1920,
+                onProgress: setComposePct,
+              });
+              const url = URL.createObjectURL(blob);
+              setFinalVideoUrl(url);
+
+              // Upload to storage
+              const fileName = `videos/${user?.id}/${jobId}.webm`;
+              const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+              if (!uploadErr) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+                setFinalVideoUrl(urlData.publicUrl);
+                // Update the job with the video URL
+                await supabase.from("video_generation_jobs").update({
+                  video_url: urlData.publicUrl,
+                  updated_at: new Date().toISOString(),
+                }).eq("id", jobId);
+              }
+              toast.success("Your video is ready! 🎬");
+            } catch (err: any) {
+              console.error("Video composition error:", err);
+              toast.error("Video assembly failed, but your images and script are ready");
+            }
+            setComposingVideo(false);
+          }
           setStep("done");
-          toast.success("Your video content is ready! 🎉");
         } else if (data.status === "failed") {
           clearInterval(interval);
           toast.error(data.error_message || "Production failed — try again");
