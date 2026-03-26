@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -54,6 +54,7 @@ const phases = [
 const extras = [
   { id: "watch", icon: Play, title: "Watch Videos" },
   { id: "ready", icon: Check, title: "Ready to Post" },
+  { id: "connect-tools", icon: Key, title: "Connect Tools" },
   { id: "score", icon: Trophy, title: "Growth Score" },
   { id: "community", icon: MessageSquare, title: "Community" },
   { id: "marketplace", icon: ShoppingBag, title: "Marketplace" },
@@ -88,12 +89,12 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarContent className="pt-4">
-        <div className="px-4 mb-6 flex items-center gap-2">
+        <button onClick={() => navigate("/")} className="px-4 mb-6 flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer">
           <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center flex-shrink-0">
             <span className="text-sm font-bold text-primary-foreground">R</span>
           </div>
           {!collapsed && <span className="font-display font-bold text-foreground">RickyAI</span>}
-        </div>
+        </button>
 
         {/* Phases */}
         {phases.map(phase => (
