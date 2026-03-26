@@ -8,11 +8,31 @@ const corsHeaders = {
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-flash";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
+const RUNWAY_API_URL = "https://api.dev.runwayml.com/v1";
+
+async function pollRunwayTask(taskId: string, runwayKey: string, maxAttempts = 60): Promise<any> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const res = await fetch(`${RUNWAY_API_URL}/tasks/${taskId}`, {
+      headers: { "Authorization": `Bearer ${runwayKey}`, "X-Runway-Version": "2024-11-06" },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Runway poll failed [${res.status}]: ${errText}`);
+    }
+    const task = await res.json();
+    console.log(`[generate-video] Runway task ${taskId} status: ${task.status}`);
+    if (task.status === "SUCCEEDED") return task;
+    if (task.status === "FAILED") throw new Error(`Runway task failed: ${task.failure || "unknown"}`);
+    await new Promise(r => setTimeout(r, 5000)); // wait 5s between polls
+  }
+  throw new Error("Runway task timed out");
+}
 
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, productionMode: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+  const runwayKey = Deno.env.get("RUNWAY_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
@@ -25,8 +45,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const { data: userKeys } = await supabase.from("user_api_keys").select("provider, api_key_encrypted").eq("user_id", userId);
     const keyMap: Record<string, string> = {};
     userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
-    const heygenKey = keyMap["heygen"];
     const elevenlabsKey = keyMap["elevenlabs"];
+    // User can also store their own runway key
+    const userRunwayKey = keyMap["runway"] || runwayKey;
 
     const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "Not specified";
 
@@ -188,31 +209,106 @@ Return JSON with:
       }
     }
 
-    // ── Step 4: Video composing happens client-side (no API key needed) ──
-    // HeyGen is optional premium upgrade; the app auto-composes video in-browser from scene images
+    // ── Step 4: Runway Video Generation ──
+    let videoUrl: string | null = null;
+    if (userRunwayKey && sceneImageUrls.length > 0) {
+      try {
+        await supabase.from("video_generation_jobs").update({
+          status: "rendering_video",
+          result_payload: {
+            ...scriptContent,
+            scene_images: sceneImageUrls,
+            voiceover_url: voiceoverUrl,
+            pipeline_steps: { script: "completed", scene_images: "completed", voiceover: voiceoverUrl ? "completed" : "skipped", video: "rendering" },
+            message: "🎬 Rendering your video with Runway AI... This may take 1-3 minutes.",
+          },
+          updated_at: new Date().toISOString(),
+        }).eq("id", jobId);
+
+        // Use the first scene image as the source for Runway image-to-video
+        const firstImageUrl = sceneImageUrls[0];
+        const scenePrompt = scriptContent.scenes?.[0]?.visual_description || `Professional promotional video for ${business.business_name}`;
+
+        console.log(`[generate-video] Starting Runway image-to-video with image: ${firstImageUrl}`);
+
+        const runwayResponse = await fetch(`${RUNWAY_API_URL}/image_to_video`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${userRunwayKey}`,
+            "Content-Type": "application/json",
+            "X-Runway-Version": "2024-11-06",
+          },
+          body: JSON.stringify({
+            model: "gen4_turbo",
+            promptImage: firstImageUrl,
+            promptText: `Cinematic, smooth motion, professional commercial video. ${scenePrompt}. High quality, vibrant colors, professional lighting.`,
+            duration: 5,
+            ratio: productionMode === "quick" ? "768:1344" : "1280:768",
+          }),
+        });
+
+        if (!runwayResponse.ok) {
+          const errText = await runwayResponse.text();
+          console.error(`[generate-video] Runway API error [${runwayResponse.status}]:`, errText);
+          // Don't throw — fall through to client-side compose
+        } else {
+          const runwayTask = await runwayResponse.json();
+          console.log(`[generate-video] Runway task created: ${runwayTask.id}`);
+
+          // Poll for completion
+          const completedTask = await pollRunwayTask(runwayTask.id, userRunwayKey);
+
+          if (completedTask.output && completedTask.output.length > 0) {
+            const runwayVideoUrl = completedTask.output[0];
+            console.log(`[generate-video] Runway video ready: ${runwayVideoUrl}`);
+
+            // Download and upload to our storage
+            const videoResponse = await fetch(runwayVideoUrl);
+            if (videoResponse.ok) {
+              const videoBlob = await videoResponse.blob();
+              const videoFileName = `videos/${userId}/${jobId}/runway-output.mp4`;
+              const { error: uploadError } = await supabase.storage.from("media").upload(videoFileName, videoBlob, { contentType: "video/mp4", upsert: true });
+              if (!uploadError) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoFileName);
+                videoUrl = urlData.publicUrl;
+                console.log(`[generate-video] Video uploaded to storage: ${videoUrl}`);
+              }
+            }
+          }
+        }
+      } catch (runwayErr) {
+        console.error("[generate-video] Runway rendering failed:", runwayErr);
+        // Fall through to client-side compose
+      }
+    } else if (!userRunwayKey) {
+      console.log("[generate-video] No Runway API key — video will be composed client-side");
+    }
 
     // ── Final update ──
     const hasImages = sceneImageUrls.length > 0;
+    const hasVideo = !!videoUrl;
     const resultPayload = {
       ...scriptContent,
       scene_images: sceneImageUrls,
       voiceover_url: voiceoverUrl,
-      video_url: null, // Video is composed client-side
+      video_url: videoUrl,
       pipeline_steps: {
         script: "completed",
         scene_images: hasImages ? "completed" : "failed",
         voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "skipped",
-        video: "client_compose", // Signal to frontend to compose
+        video: hasVideo ? "completed" : "client_compose",
       },
-      message: hasImages
-        ? "🎬 Assembling your video now..."
-        : "📝 Script generated! Scene images couldn't be created.",
+      message: hasVideo
+        ? "🎬 Your video is ready! Watch it below."
+        : hasImages
+          ? "🎬 Assembling your video now..."
+          : "📝 Script generated! Scene images couldn't be created.",
     };
 
     await supabase.from("video_generation_jobs").update({
       status: "completed",
       result_payload: resultPayload,
-      video_url: null,
+      video_url: videoUrl,
       updated_at: new Date().toISOString(),
     }).eq("id", jobId);
 
@@ -225,21 +321,21 @@ Return JSON with:
         title: scriptContent.title,
         caption: scriptContent.caption || scriptContent.description,
         hashtags: scriptContent.hashtags || [],
-        media_url: sceneImageUrls[0] || voiceoverUrl || null,
-        media_type: hasImages ? "image" : "text",
+        media_url: videoUrl || sceneImageUrls[0] || voiceoverUrl || null,
+        media_type: hasVideo ? "video" : hasImages ? "image" : "text",
         platform: scriptContent.target_platform || "instagram",
         video_script: scriptContent.voiceover_script,
         voiceover_script: scriptContent.voiceover_script,
         shot_list: scriptContent.scenes,
         cta: scriptContent.cta,
         status: "media_ready",
-        production_tool: "rickyai",
+        production_tool: hasVideo ? "runway" : "rickyai",
         thumbnail_url: sceneImageUrls[0] || null,
       });
       if (postErr) console.error("[generate-video] content_posts insert error:", postErr);
     }
 
-    console.log(`[generate-video] Job ${jobId} completed successfully`);
+    console.log(`[generate-video] Job ${jobId} completed successfully. Video: ${hasVideo ? "YES" : "no (client-compose)"}`);
   } catch (error) {
     console.error(`[generate-video] Job ${jobId} failed:`, error);
     await supabase.from("video_generation_jobs").update({
@@ -277,7 +373,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         business_id: businessId,
         location_id: null,
-        provider: "built_in_ai",
+        provider: Deno.env.get("RUNWAY_API_KEY") ? "runway" : "built_in_ai",
         status: "queued",
         request_payload: { businessId, videoType, productionMode },
       })
@@ -286,15 +382,13 @@ Deno.serve(async (req) => {
 
     if (jobInsertError) throw new Error(`Failed to create job: ${jobInsertError.message}`);
 
-    // Start async processing — returns immediately to client
+    // Start async processing
     const promise = processVideoJob(job.id, user.id, businessId, videoType || "promotional", productionMode || "standard");
     
-    // Use EdgeRuntime.waitUntil if available, otherwise just let it run
     try {
-      // @ts-ignore — EdgeRuntime.waitUntil is available in Supabase Edge Functions
+      // @ts-ignore
       EdgeRuntime.waitUntil(promise);
     } catch {
-      // Fallback: the promise will still execute
       promise.catch(err => console.error("[generate-video] Background processing error:", err));
     }
 
@@ -302,7 +396,7 @@ Deno.serve(async (req) => {
       success: true,
       job_id: job.id,
       status: "queued",
-      message: "Video production started! We're generating your script and scene images now.",
+      message: "Video production started! Generating script, images, and rendering video now.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
