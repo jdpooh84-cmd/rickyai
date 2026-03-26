@@ -52,7 +52,9 @@ const enterpriseFeatures = [
   "Custom Onboarding & Success",
 ];
 
-const PricingSection = () => {
+import React from "react";
+
+const PricingSection = React.forwardRef<HTMLElement>((_, ref) => {
   const navigate = useNavigate();
 
   const tiers = [

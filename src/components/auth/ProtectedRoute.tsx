@@ -103,7 +103,10 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   }
 
   // Show paywall if trial expired and no active subscription
-  if (!subscription.loading && !hasAccess) {
+  // BUT if we've already rendered children, don't yank them away on a re-check
+  // This prevents the "reset loop" where a momentary subscription check failure
+  // unmounts the entire Dashboard and loses all in-progress state
+  if (!subscription.loading && !hasAccess && !hasRenderedOnce.current) {
     return <SubscriptionPaywall />;
   }
 
