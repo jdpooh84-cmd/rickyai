@@ -20,6 +20,21 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
+// Usage bundled allowances per seat per month
+export const SEAT_ALLOWANCES = {
+  llm_tokens: 500_000,
+  render_jobs: 50,
+  storage_gb: 10,
+} as const;
+
+// Enterprise routing thresholds
+export const ENTERPRISE_THRESHOLDS = {
+  seats: 10,
+  llm_tokens: 5_000_000,
+  render_jobs: 500,
+  storage_gb: 100,
+} as const;
+
 export function getPlanByProductId(productId: string): PlanKey | null {
   for (const [key, plan] of Object.entries(PLANS)) {
     if (plan.product_id === productId) return key as PlanKey;

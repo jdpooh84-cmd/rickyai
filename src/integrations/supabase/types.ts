@@ -820,6 +820,45 @@ export type Database = {
         }
         Relationships: []
       }
+      usage_tracking: {
+        Row: {
+          created_at: string
+          id: string
+          llm_tokens_used: number
+          period_end: string
+          period_start: string
+          render_jobs_used: number
+          seats_used: number
+          storage_bytes_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          llm_tokens_used?: number
+          period_end?: string
+          period_start?: string
+          render_jobs_used?: number
+          seats_used?: number
+          storage_bytes_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          llm_tokens_used?: number
+          period_end?: string
+          period_start?: string
+          render_jobs_used?: number
+          seats_used?: number
+          storage_bytes_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_api_keys: {
         Row: {
           api_key_encrypted: string

@@ -115,6 +115,15 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
         </p>
       </div>
 
+      <div className="p-4 rounded-xl bg-accent/50 border border-accent mb-6">
+        <p className="text-sm text-foreground font-medium mb-1">🔑 Bring Your Own LLM (BYOLLM)</p>
+        <p className="text-xs text-muted-foreground">
+          On Enterprise plans, all AI generation runs through <strong>your own</strong> provider credentials.
+          We do not supply LLM access on your behalf — connect your preferred provider below to enable
+          video scripts, strategy generation, and all AI-powered features.
+        </p>
+      </div>
+
       <div className="space-y-4 mb-8">
         {providers.map((p) => {
           const saved = savedKeys.find(k => k.provider === p.id);

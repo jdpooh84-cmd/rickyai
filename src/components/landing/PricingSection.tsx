@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, Users } from "lucide-react";
+import { Check, Users, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PLANS } from "@/lib/stripe";
 
@@ -86,6 +86,39 @@ const PricingSection = () => {
               </ul>
             </div>
           ))}
+        </div>
+
+        {/* Enterprise Tier */}
+        <div className="mt-6 max-w-3xl mx-auto">
+          <div className="relative p-8 rounded-2xl border border-primary/20 bg-card/80 transition-all hover:border-primary/40">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Building2 className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl text-foreground mb-1">Enterprise</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Custom seat bundles, negotiated usage limits, SSO, dedicated infrastructure, and priority support. BYOLLM — connect your own AI providers.
+                  </p>
+                  <ul className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1">
+                    {["Committed Seat Bundles", "Custom Usage Limits", "SSO & Security", "Priority Support", "Dedicated Infrastructure", "BYOLLM Model"].map(f => (
+                      <li key={f} className="flex items-center gap-1.5 text-xs text-secondary-foreground">
+                        <Check className="w-3 h-3 text-primary flex-shrink-0" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                <span className="text-2xl font-bold text-foreground">Custom</span>
+                <span className="text-xs text-muted-foreground">pricing per account</span>
+                <Button variant="outline" className="mt-1" onClick={() => window.open("mailto:sales@rickyai.com?subject=Enterprise%20Inquiry", "_blank")}>
+                  Contact Sales
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Affiliate / Community Upsell */}
