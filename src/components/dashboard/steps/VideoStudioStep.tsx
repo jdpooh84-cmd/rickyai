@@ -809,7 +809,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               {generatedVideoScript.pipeline_steps && (
                 <div className="p-3 rounded-xl bg-secondary/30 border border-border">
                   <h5 className="text-xs font-semibold text-foreground mb-2">🔄 Pipeline Status</h5>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {Object.entries(generatedVideoScript.pipeline_steps).map(([step, status]: [string, any]) => (
                       <div key={step} className={`text-center p-2 rounded-lg ${
                         status === "completed" ? "bg-green-500/10 text-green-400" : 
