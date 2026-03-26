@@ -21,11 +21,14 @@ import GamificationPanel from "@/components/dashboard/GamificationPanel";
 import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
 import ReadyToPost from "@/pages/ReadyToPost";
+import CreateVideoFlow from "@/components/dashboard/CreateVideoFlow";
+import WatchVideo from "@/components/dashboard/WatchVideo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { ChevronDown, LogOut, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { readLocalStorage, writeLocalStorage } from "@/lib/persistence";
 
 const DASHBOARD_STATE_KEY = "rickyai-dashboard-state";
@@ -38,7 +41,28 @@ const Dashboard = () => {
   const [completedSteps, setCompletedSteps] = useState<number[]>(() => readLocalStorage(DASHBOARD_STATE_KEY, { activeStep: 1, activeSection: "", completedSteps: [] as number[] }).completedSteps);
   const [showBizDropdown, setShowBizDropdown] = useState(false);
   const [showLocDropdown, setShowLocDropdown] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation, refresh: refreshBusinessData } = useBusinessData();
+
+  // Check if first-time user
+  useEffect(() => {
+    if (!user || onboardingChecked) return;
+    const checkOnboarding = async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      // Show onboarding if no profile or not completed, AND no businesses exist
+      if ((!profile || !profile.onboarding_completed) && businesses.length === 0) {
+        setShowOnboarding(true);
+      }
+      setOnboardingChecked(true);
+    };
+    checkOnboarding();
+  }, [user, onboardingChecked, businesses.length]);
 
   useEffect(() => {
     writeLocalStorage(DASHBOARD_STATE_KEY, { activeStep, activeSection, completedSteps });
@@ -63,11 +87,33 @@ const Dashboard = () => {
     setActiveStep(step);
   };
 
+  const handleOnboardingComplete = (businessId: string, locationId: string | null) => {
+    setShowOnboarding(false);
+    refreshBusinessData();
+    // Mark steps 1 and 2 as complete since they filled out business info
+    setCompletedSteps(prev => [...new Set([...prev, 1, 2])]);
+    setActiveStep(8); // Jump to Video Studio
+  };
+
   const renderContent = () => {
+    // Show onboarding for first-time users
+    if (showOnboarding) {
+      return (
+        <CreateVideoFlow
+          onComplete={handleOnboardingComplete}
+          onSkip={() => {
+            setShowOnboarding(false);
+            setActiveStep(1);
+          }}
+        />
+      );
+    }
+
     if (activeSection === "score") return <GamificationPanel />;
     if (activeSection === "community") return <CommunityForum />;
     if (activeSection === "marketplace") return <StrategyMarketplace />;
     if (activeSection === "ready") return <ReadyToPost />;
+    if (activeSection === "watch") return <WatchVideo onBack={() => { setActiveSection(""); setActiveStep(8); }} />;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
@@ -144,7 +190,7 @@ const Dashboard = () => {
             <main className="flex-1 overflow-y-auto p-8" onClick={() => { setShowBizDropdown(false); setShowLocDropdown(false); }}>
               {renderContent()}
             </main>
-            {!activeSection && (
+            {!activeSection && !showOnboarding && (
               <StrategySummary completedSteps={completedSteps} businessName={activeBiz?.business_name}
                 locationName={activeLoc ? `${activeLoc.city}${activeLoc.state ? `, ${activeLoc.state}` : ""}` : undefined} />
             )}
