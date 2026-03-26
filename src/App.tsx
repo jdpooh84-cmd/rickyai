@@ -62,6 +62,7 @@ const App = () => {
                   </ProtectedRoute>
                 }
               />
+              <Route path="/demo/donatos" element={<DemoVideoShowcase />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
