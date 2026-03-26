@@ -22,6 +22,7 @@ import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
 import ReadyToPost from "@/pages/ReadyToPost";
 import CreateVideoFlow from "@/components/dashboard/CreateVideoFlow";
+import ExternalAppConnections from "@/components/dashboard/steps/ExternalAppConnections";
 import WatchVideo from "@/components/dashboard/WatchVideo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
@@ -114,6 +115,7 @@ const Dashboard = () => {
     if (activeSection === "marketplace") return <StrategyMarketplace />;
     if (activeSection === "ready") return <ReadyToPost />;
     if (activeSection === "watch") return <WatchVideo onBack={() => { setActiveSection(""); setActiveStep(8); }} />;
+    if (activeSection === "connect-tools") return <ExternalAppConnections />;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
