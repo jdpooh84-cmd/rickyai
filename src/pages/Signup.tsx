@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowRight, Eye, EyeOff, Check, Mail, Loader2 } from "lucide-react";
 import { PLANS, PlanKey } from "@/lib/stripe";
+import { toast } from "sonner";
 
 const planOptions: { key: PlanKey; label: string }[] = [
   { key: "creator", label: "Creator" },
@@ -61,6 +62,21 @@ const Signup = () => {
       setError(error.message);
       setLoading(false);
     } else {
+      if (trialUsed) {
+        // Redirect to Stripe checkout after signup
+        try {
+          const { data, error: fnError } = await supabase.functions.invoke("create-checkout", {
+            body: { priceId: PLANS[selectedPlan].price_id },
+          });
+          if (fnError) throw fnError;
+          if (data?.url) {
+            window.open(data.url, "_blank");
+            toast.info("Complete payment in the new tab, then return here to log in.");
+          }
+        } catch (err: any) {
+          console.warn("Checkout redirect failed:", err);
+        }
+      }
       setSuccess(true);
       setLoading(false);
     }
