@@ -1,12 +1,15 @@
-import { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { ReactNode, useRef } from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading, subscription } = useAuth();
-  const location = useLocation();
+  const hasRenderedOnce = useRef(false);
 
-  if (loading || subscription.loading) {
+  // Only show spinner on initial load, not on subscription re-checks
+  const isInitialLoad = loading || (!hasRenderedOnce.current && subscription.loading);
+
+  if (isInitialLoad) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex items-center gap-3">
@@ -20,6 +23,9 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  // Mark that we've rendered children at least once
+  hasRenderedOnce.current = true;
 
   return <>{children}</>;
 };
