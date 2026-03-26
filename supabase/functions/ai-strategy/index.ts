@@ -29,6 +29,48 @@ Deno.serve(async (req) => {
 
     const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
 
+    // --- Tier enforcement ---
+    // Check subscription to determine which steps the user can access
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    let allowedSteps: number[] = [1, 2, 6, 7, 8, 9, 10, 13]; // Creator default
+    
+    if (stripeKey && user.email) {
+      try {
+        const { default: Stripe } = await import("https://esm.sh/stripe@18.5.0");
+        const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+        const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+        
+        if (customers.data.length > 0) {
+          const subs = await stripe.subscriptions.list({ customer: customers.data[0].id, status: "active", limit: 1 });
+          if (subs.data.length > 0) {
+            const productId = subs.data[0].items.data[0].price.product;
+            // Map product IDs to allowed steps
+            const tierSteps: Record<string, number[]> = {
+              "prod_UDep9PW3ELRa6K": [1, 2, 6, 7, 8, 9, 10, 13], // Creator
+              "prod_UDepZzB9GKoPnY": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Business
+              "prod_UDepPmrMY3zOEX": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Growth
+              "prod_UDeqmytH227V3p": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Agency
+            };
+            allowedSteps = tierSteps[productId as string] || allowedSteps;
+          }
+        }
+      } catch (e) {
+        console.error("Tier check failed, using default:", e);
+      }
+    }
+
+    // Also allow access during trial
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("trial_ends_at")
+      .eq("user_id", user.id)
+      .single();
+    const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
+
+    if (!trialActive && !allowedSteps.includes(step)) {
+      throw new Error(`Step ${step} is not available on your current plan. Please upgrade to access this feature.`);
+    }
+
     // Fetch business data
     const { data: business } = await supabase
       .from("businesses")
