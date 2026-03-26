@@ -52,7 +52,9 @@ const enterpriseFeatures = [
   "Custom Onboarding & Success",
 ];
 
-const PricingSection = () => {
+import React from "react";
+
+const PricingSection = React.forwardRef<HTMLElement>((_, ref) => {
   const navigate = useNavigate();
 
   const tiers = [
@@ -201,6 +203,8 @@ const PricingSection = () => {
       </div>
     </section>
   );
-};
+});
+
+PricingSection.displayName = "PricingSection";
 
 export default PricingSection;
