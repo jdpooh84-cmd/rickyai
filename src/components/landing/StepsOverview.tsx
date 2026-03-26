@@ -1,7 +1,8 @@
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
-  FileText, Video, LayoutGrid, Upload, Users, DollarSign
+  FileText, Video, LayoutGrid, Upload, Users, DollarSign, Eye, Zap
 } from "lucide-react";
+import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 
 const steps = [
   { num: 1, icon: Link, title: "Connect", desc: "Link your AI provider" },
@@ -16,6 +17,8 @@ const steps = [
   { num: 10, icon: Upload, title: "Export", desc: "Package for production" },
   { num: 11, icon: Users, title: "Lead Scout", desc: "Find referral partners" },
   { num: 12, icon: DollarSign, title: "Grant Search", desc: "Discover funding" },
+  { num: 13, icon: Eye, title: "Search Visibility", desc: "SEO + GEO + AEO + SGE" },
+  { num: 14, icon: Zap, title: "Campaign Blueprint", desc: "Full-funnel strategy" },
 ];
 
 const StepsOverview = () => {
@@ -24,10 +27,10 @@ const StepsOverview = () => {
       <div className="container mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold font-display mb-4">
-            <span className="text-gradient-hero">12 Steps</span> to Local Dominance
+            <span className="text-gradient-hero">14 Steps</span> to Local Dominance
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            A guided system that builds your complete growth strategy—one step at a time.
+            A full business growth engine spanning 10 optimization layers—SEO, GEO, AEO, SGE, LMO, RMO, CRO, DMO, CAO &amp; PAO.
           </p>
         </div>
 
@@ -44,7 +47,16 @@ const StepsOverview = () => {
                 <step.icon className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
               </div>
               <h3 className="font-display font-semibold text-foreground text-sm mb-1">{step.title}</h3>
-              <p className="text-xs text-muted-foreground">{step.desc}</p>
+              <p className="text-xs text-muted-foreground mb-2">{step.desc}</p>
+              {getLayersForStep(step.num).length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {getLayersForStep(step.num).map(layer => (
+                    <span key={layer} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${LAYER_META[layer].color}`}>
+                      {layer}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
