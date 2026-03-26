@@ -361,8 +361,9 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
 
   // step === "done"
   const result = jobResult || {};
+  const result = jobResult || {};
   const sceneImages = result.scene_images || [];
-  const hasVideo = !!result.video_url;
+  const videoSrc = finalVideoUrl || result.video_url;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -370,33 +371,51 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto mb-4">
           <Check className="w-8 h-8 text-white" />
         </div>
-        <h2 className="text-2xl font-bold text-foreground">Your content is ready! 🎉</h2>
+        <h2 className="text-2xl font-bold text-foreground">Your video is ready! 🎬</h2>
         <p className="text-muted-foreground text-sm">{result.message || `Here's what we made for ${businessName}.`}</p>
       </div>
 
-      {/* Video Player */}
-      {result.video_url && (
-        <div className="rounded-2xl border border-border p-6">
-          <h3 className="text-sm font-bold text-foreground mb-3">🎬 Your Video</h3>
-          <video controls className="w-full rounded-xl bg-black max-h-[400px]">
-            <source src={result.video_url} type="video/mp4" />
+      {/* Video Player — always shown first */}
+      {videoSrc && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
+          <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+            <Play className="w-4 h-4 text-primary" /> Your Video
+          </h3>
+          <video controls autoPlay className="w-full rounded-xl bg-black max-h-[500px]">
+            <source src={videoSrc} type={videoSrc.endsWith(".webm") ? "video/webm" : "video/mp4"} />
           </video>
+          <div className="flex gap-2 mt-3">
+            <a href={videoSrc} download={`${businessName}-promo.webm`}
+              className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+              <Download className="w-4 h-4" /> Download Video
+            </a>
+          </div>
         </div>
       )}
 
-      {/* Scene Images */}
-      {sceneImages.length > 0 && (
-        <div className="rounded-2xl border border-border p-6">
-          <h3 className="text-sm font-bold text-foreground mb-3">🖼️ Your Scene Images ({sceneImages.length})</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {sceneImages.map((url: string, i: number) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                <img src={url} alt={`Scene ${i + 1}`} className="w-full rounded-xl object-cover aspect-video hover:opacity-90 transition-opacity cursor-pointer" />
-              </a>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">Click any image to view full size. Download them and import into CapCut or Canva to create your video.</p>
+      {/* Composing in progress */}
+      {composingVideo && !videoSrc && (
+        <div className="rounded-2xl border border-border p-6 text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-sm font-semibold text-foreground">Assembling your video... {composePct}%</p>
+          <p className="text-xs text-muted-foreground mt-1">Combining scene images into a professional video</p>
         </div>
+      )}
+
+      {/* Scene Images (collapsed if video exists) */}
+      {sceneImages.length > 0 && (
+        <details className={videoSrc ? "" : "open"}>
+          <summary className="text-sm font-bold text-foreground cursor-pointer mb-2">🖼️ Scene Images ({sceneImages.length})</summary>
+          <div className="rounded-2xl border border-border p-4">
+            <div className="grid grid-cols-2 gap-3">
+              {sceneImages.map((url: string, i: number) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                  <img src={url} alt={`Scene ${i + 1}`} className="w-full rounded-xl object-cover aspect-video hover:opacity-90 transition-opacity cursor-pointer" />
+                </a>
+              ))}
+            </div>
+          </div>
+        </details>
       )}
 
       {/* Voiceover */}
@@ -411,29 +430,32 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
 
       {/* Script */}
       {result.title && (
-        <div className="rounded-2xl border border-border p-6">
-          <h3 className="text-sm font-bold text-foreground mb-2">{result.title}</h3>
-          <p className="text-xs text-muted-foreground mb-3">{result.description}</p>
-          {result.voiceover_script && (
-            <div className="p-3 rounded-xl bg-secondary/30 mb-3">
-              <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
-              <p className="text-xs text-secondary-foreground">{result.voiceover_script}</p>
-            </div>
-          )}
-          {result.caption && (
-            <div className="p-3 rounded-xl bg-secondary/30 mb-3">
-              <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
-              <p className="text-xs text-secondary-foreground">{result.caption}</p>
-            </div>
-          )}
-          {result.hashtags?.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {result.hashtags.map((h: string, i: number) => (
-                <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">#{h.replace("#", "")}</span>
-              ))}
-            </div>
-          )}
-        </div>
+        <details>
+          <summary className="text-sm font-bold text-foreground cursor-pointer mb-2">📝 Script & Caption</summary>
+          <div className="rounded-2xl border border-border p-6 space-y-3">
+            <h3 className="text-sm font-bold text-foreground">{result.title}</h3>
+            <p className="text-xs text-muted-foreground">{result.description}</p>
+            {result.voiceover_script && (
+              <div className="p-3 rounded-xl bg-secondary/30">
+                <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
+                <p className="text-xs text-secondary-foreground">{result.voiceover_script}</p>
+              </div>
+            )}
+            {result.caption && (
+              <div className="p-3 rounded-xl bg-secondary/30">
+                <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
+                <p className="text-xs text-secondary-foreground">{result.caption}</p>
+              </div>
+            )}
+            {result.hashtags?.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {result.hashtags.map((h: string, i: number) => (
+                  <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">#{h.replace("#", "")}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
       )}
 
       <Button onClick={() => onComplete(createdBusinessId!, createdLocationId)} className="w-full gap-2" size="lg">
