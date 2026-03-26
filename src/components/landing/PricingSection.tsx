@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Check, Users } from "lucide-react";
+import { Check, Users, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PLANS } from "@/lib/stripe";
 
