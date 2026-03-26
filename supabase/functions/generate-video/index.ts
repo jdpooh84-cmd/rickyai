@@ -145,7 +145,7 @@ Return JSON with:
     const scenesToRender = (scriptContent.scenes || []).slice(0, 4);
 
     // Ensure storage bucket exists
-    await supabase.storage.createBucket("media", { public: true }).catch(() => {});
+    try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
     for (let i = 0; i < scenesToRender.length; i++) {
       const scene = scenesToRender[i];
@@ -328,7 +328,7 @@ Return JSON with:
 
     // Save as content post for Ready to Post
     if (scriptContent.title) {
-      await supabase.from("content_posts").insert({
+      const { error: postErr } = await supabase.from("content_posts").insert({
         user_id: user.id,
         business_id: businessId,
         location_id: location?.id ?? null,
@@ -345,7 +345,8 @@ Return JSON with:
         status: videoUrl ? "media_ready" : hasImages ? "media_ready" : "caption_ready",
         production_tool: heygenKey ? "heygen" : "rickyai",
         thumbnail_url: sceneImageUrls[0] || null,
-      }).catch(e => console.error("[generate-video] content_posts insert error:", e));
+      });
+      if (postErr) console.error("[generate-video] content_posts insert error:", postErr);
     }
 
     return new Response(JSON.stringify({
