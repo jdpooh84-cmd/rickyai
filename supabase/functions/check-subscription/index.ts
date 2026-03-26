@@ -39,7 +39,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { email: user.email });
 
-    // Check trial status from profiles
+    // Check trial status
     const { data: profile } = await supabaseClient
       .from("profiles")
       .select("trial_ends_at")
@@ -53,8 +53,8 @@ serve(async (req) => {
 
     if (customers.data.length === 0) {
       logStep("No Stripe customer found");
-      return new Response(JSON.stringify({ 
-        subscribed: false, 
+      return new Response(JSON.stringify({
+        subscribed: false,
         trial_active: !!trialActive,
         trial_ends_at: profile?.trial_ends_at || null,
       }), {
@@ -82,7 +82,7 @@ serve(async (req) => {
       productId = subscription.items.data[0].price.product;
       logStep("Active subscription found", { productId, subscriptionEnd });
 
-      // Upsert usage tracking via service role
+      // Upsert usage tracking
       const now = new Date();
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
