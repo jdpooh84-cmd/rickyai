@@ -26,11 +26,11 @@ await renderMedia({
   composition,
   serveUrl: bundled,
   codec: "h264",
-  outputLocation: "/mnt/documents/donatos-pizza-promo.mp4",
+  outputLocation: "/mnt/documents/rickyai-promo.mp4",
   puppeteerInstance: browser,
   muted: true,
   concurrency: 1,
 });
 
 await browser.close({ silent: false });
-console.log("✅ Video rendered to /mnt/documents/donatos-pizza-promo.mp4");
+console.log("✅ Video rendered to /mnt/documents/rickyai-promo.mp4");
