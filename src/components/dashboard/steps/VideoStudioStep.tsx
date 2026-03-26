@@ -489,9 +489,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                   <span className="text-xs text-muted-foreground">Fully hands-off</span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">Keyword → Research → Script → Voice → Video → Post. Requires your own HeyGen & ElevenLabs API keys.</p>
+              <p className="text-xs text-muted-foreground mb-3">Keyword → Research → Script → Voice → Video → Post. Uses Runway AI for real video rendering.</p>
               <ul className="space-y-1">
-                {["HeyGen + ElevenLabs rendering", "Auto YouTube posting", "Bring your own API keys"].map(item => (
+                {["Runway AI video rendering", "ElevenLabs voiceover (optional)", "Auto YouTube posting", "Real MP4 videos in-app"].map(item => (
                   <li key={item} className="text-[10px] text-secondary-foreground flex items-center gap-1.5">
                     <Check className="w-3 h-3 text-primary" /> {item}
                   </li>
