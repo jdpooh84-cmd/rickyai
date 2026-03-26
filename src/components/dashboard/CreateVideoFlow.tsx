@@ -20,6 +20,10 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("queued");
   const [jobResult, setJobResult] = useState<any>(null);
+  const [composingVideo, setComposingVideo] = useState(false);
+  const [composePct, setComposePct] = useState(0);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const composedRef = useRef(false);
 
   // Business info
   const [businessName, setBusinessName] = useState("");
