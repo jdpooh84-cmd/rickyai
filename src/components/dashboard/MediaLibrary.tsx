@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Upload, Image, Film, Trash2, Tag, Loader2 } from "lucide-react";
+import { Upload, Image, Film, Trash2, Tag, Loader2, Link2, ExternalLink } from "lucide-react";
 
 interface MediaItem {
   id: string;
@@ -31,6 +31,10 @@ const MediaLibrary = ({ businessId }: Props) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [showUrlImport, setShowUrlImport] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [urlShotType, setUrlShotType] = useState<string>("environment");
+  const [importingUrl, setImportingUrl] = useState(false);
 
   const fetchMedia = useCallback(async () => {
     if (!businessId) return;
@@ -94,6 +98,40 @@ const MediaLibrary = ({ businessId }: Props) => {
       fetchMedia();
     }
     setUploading(false);
+  };
+
+  const handleImportUrl = async () => {
+    if (!businessId || !videoUrl.trim()) return;
+    setImportingUrl(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { toast.error("Please sign in"); setImportingUrl(false); return; }
+
+    try {
+      const fileName = `external-${Date.now()}.mp4`;
+      const storagePath = `business/${businessId}/videos/${fileName}`;
+      const source = videoUrl.includes("manus") ? "manus" : "external";
+
+      await supabase.from("business_media").insert({
+        business_id: businessId,
+        user_id: session.user.id,
+        file_type: "video",
+        shot_type: urlShotType,
+        file_name: fileName,
+        storage_path: storagePath,
+        public_url: videoUrl.trim(),
+        file_size_bytes: 0,
+        mime_type: "video/mp4",
+        tags: [source],
+      } as any);
+
+      toast.success("Video added to your Media Library! 🎬");
+      setVideoUrl("");
+      setShowUrlImport(false);
+      fetchMedia();
+    } catch (err: any) {
+      toast.error("Failed to import video URL");
+    }
+    setImportingUrl(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -163,6 +201,45 @@ const MediaLibrary = ({ businessId }: Props) => {
         />
       </div>
 
+      {/* Import from URL (Manus AI, etc.) */}
+      <div>
+        <button
+          onClick={() => setShowUrlImport(!showUrlImport)}
+          className="text-[11px] text-primary hover:text-primary/80 flex items-center gap-1"
+        >
+          <Link2 className="w-3 h-3" /> Import video from URL (Manus AI, etc.)
+        </button>
+        {showUrlImport && (
+          <div className="mt-2 p-3 rounded-xl bg-secondary/30 border border-border space-y-2">
+            <p className="text-[10px] text-muted-foreground">Paste a video URL from Manus AI or any external tool to save it to your Media Library.</p>
+            <input
+              type="url"
+              placeholder="https://..."
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg bg-background border border-border text-xs text-foreground placeholder:text-muted-foreground"
+            />
+            <div className="flex items-center gap-2">
+              <select
+                value={urlShotType}
+                onChange={(e) => setUrlShotType(e.target.value)}
+                className="text-[10px] bg-background border border-border rounded px-2 py-1 text-foreground"
+              >
+                {SHOT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <button
+                onClick={handleImportUrl}
+                disabled={!videoUrl.trim() || importingUrl}
+                className="px-3 py-1 rounded-lg bg-primary text-primary-foreground text-[10px] font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
+              >
+                {importingUrl ? <Loader2 className="w-3 h-3 animate-spin" /> : <ExternalLink className="w-3 h-3" />}
+                Add to Library
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-4">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -173,7 +250,6 @@ const MediaLibrary = ({ businessId }: Props) => {
         </p>
       ) : (
         <div className="space-y-4">
-          {/* Images */}
           {images.length > 0 && (
             <div>
               <h5 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
@@ -207,7 +283,6 @@ const MediaLibrary = ({ businessId }: Props) => {
             </div>
           )}
 
-          {/* Videos */}
           {videos.length > 0 && (
             <div>
               <h5 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1">
