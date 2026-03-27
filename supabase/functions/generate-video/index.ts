@@ -488,50 +488,59 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Runway key: ${userRunwayKey ? "YES" : "NO"}, ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}`);
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 1: SCRIPT (AI if possible, profile-based fallback always works)
+    // STEP 1: SCRIPT — use approved script if provided, else generate
     // ════════════════════════════════════════════════════════════════════
-    await updateJob({ status: "generating_script", result_payload: { pipeline_step: "script", message: "✍️ Writing your script..." } });
+    await updateJob({ status: "generating_script", result_payload: { pipeline_step: "script", message: "✍️ Loading your approved script..." } });
 
     let script: any;
     let usedFallbackScript = false;
 
-    try {
-      const prompt = buildAIPrompt(business, location, preset);
-      const res = await fetch(AI_URL, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: [
-            { role: "system", content: "You are a video production expert. Return valid JSON only." },
-            { role: "user", content: prompt },
-          ],
-          response_format: { type: "json_object" },
-        }),
-      });
-      if (!res.ok) {
-        if (res.status === 402) throw new Error("CREDITS_EXHAUSTED");
-        throw new Error(`AI error: ${res.status}`);
-      }
-      const data = await res.json();
-      script = JSON.parse(data.choices[0].message.content);
-      script.usedFallbackScript = false;
-      console.log(`[pipeline] AI script generated: "${script.title}"`);
-    } catch (e: any) {
-      console.log(`[pipeline] AI unavailable (${e.message}), building script from saved data + profile`);
-      usedFallbackScript = true;
+    // Check if an approved script was passed from the UI
+    const { data: jobRow } = await supabase.from("video_generation_jobs").select("request_payload").eq("id", jobId).single();
+    const passedScript = (jobRow?.request_payload as any)?.approvedScript;
 
-      // Try last saved script first
-      const { data: lastScript } = await supabase.from("strategy_outputs").select("output_data")
-        .eq("business_id", businessId).eq("step_number", 8).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    if (passedScript?.scenes?.length > 0) {
+      console.log(`[pipeline] Using pre-approved script: "${passedScript.title}"`);
+      script = passedScript;
+      usedFallbackScript = !!passedScript.usedFallbackScript;
+    } else {
+      try {
+        const prompt = buildAIPrompt(business, location, preset);
+        const res = await fetch(AI_URL, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: AI_MODEL,
+            messages: [
+              { role: "system", content: "You are a video production expert. Return valid JSON only." },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (!res.ok) {
+          if (res.status === 402) throw new Error("CREDITS_EXHAUSTED");
+          throw new Error(`AI error: ${res.status}`);
+        }
+        const data = await res.json();
+        script = JSON.parse(data.choices[0].message.content);
+        script.usedFallbackScript = false;
+        console.log(`[pipeline] AI script generated: "${script.title}"`);
+      } catch (e: any) {
+        console.log(`[pipeline] AI unavailable (${e.message}), building script from saved data + profile`);
+        usedFallbackScript = true;
 
-      if (lastScript?.output_data?.voiceover_script) {
-        console.log(`[pipeline] Using last saved script from strategy_outputs`);
-        script = lastScript.output_data;
-      } else {
-        script = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+        const { data: lastScript } = await supabase.from("strategy_outputs").select("output_data")
+          .eq("business_id", businessId).eq("step_number", 8).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+
+        if (lastScript?.output_data?.voiceover_script) {
+          console.log(`[pipeline] Using last saved script from strategy_outputs`);
+          script = lastScript.output_data;
+        } else {
+          script = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+        }
+        script.usedFallbackScript = true;
       }
-      script.usedFallbackScript = true;
     }
 
     // Normalize scenes
@@ -832,7 +841,72 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { businessId, videoType, lengthMode, orientation } = await req.json();
+    const { businessId, videoType, lengthMode, orientation, mode, approvedScript } = await req.json();
+
+    // ── SCRIPT-ONLY MODE: generate script and return synchronously ──
+    if (mode === "script_only") {
+      const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", user.id).single();
+      if (!business) throw new Error("Business not found");
+      const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", user.id).limit(1);
+      const location = locations?.[0];
+      const { data: strategyRows } = await supabase.from("strategy_outputs").select("output_data").eq("business_id", businessId).eq("user_id", user.id).order("step_number", { ascending: true }).limit(10);
+      const strategyData = strategyRows?.reduce((acc: any, row: any) => ({ ...acc, ...(row.output_data || {}) }), {}) || {};
+
+      const preset = buildPreset(lengthMode || "standard", orientation || "landscape");
+      let script: any;
+      let usedFallbackScript = false;
+
+      try {
+        const prompt = buildAIPrompt(business, location, preset);
+        const res = await fetch(AI_URL, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: AI_MODEL,
+            messages: [
+              { role: "system", content: "You are a video production expert. Return valid JSON only." },
+              { role: "user", content: prompt },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (!res.ok) {
+          if (res.status === 402) throw new Error("CREDITS_EXHAUSTED");
+          throw new Error(`AI error: ${res.status}`);
+        }
+        const data = await res.json();
+        script = JSON.parse(data.choices[0].message.content);
+        script.usedFallbackScript = false;
+      } catch (e: any) {
+        usedFallbackScript = true;
+        const { data: lastScript } = await supabase.from("strategy_outputs").select("output_data")
+          .eq("business_id", businessId).eq("step_number", 8).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        if (lastScript?.output_data?.voiceover_script) {
+          script = lastScript.output_data;
+        } else {
+          script = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+        }
+        script.usedFallbackScript = true;
+      }
+
+      // Normalize scenes
+      if (!script.scene_captions?.length) {
+        script.scene_captions = (script.scenes || []).map((s: any) => s.voiceover_line || s.text_overlay || "");
+      }
+      while ((script.scenes?.length || 0) < preset.sceneCount) {
+        const extra = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+        script.scenes = [...(script.scenes || []), ...extra.scenes.slice(0, preset.sceneCount - (script.scenes?.length || 0))];
+      }
+      script.scenes = script.scenes.slice(0, preset.sceneCount);
+      script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+      script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+
+      return new Response(JSON.stringify({
+        success: true,
+        script,
+        usedFallbackScript,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const { data: job, error: jobErr } = await supabase
       .from("video_generation_jobs")
@@ -842,7 +916,7 @@ Deno.serve(async (req) => {
         location_id: null,
         provider: Deno.env.get("RUNWAY_API_KEY") ? "runway" : "built_in_ai",
         status: "queued",
-        request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape" },
+        request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape", approvedScript: approvedScript || null },
       })
       .select("id")
       .single();
