@@ -275,6 +275,54 @@ export type Database = {
         }
         Relationships: []
       }
+      business_media: {
+        Row: {
+          business_id: string
+          created_at: string
+          file_name: string
+          file_size_bytes: number | null
+          file_type: string
+          id: string
+          mime_type: string | null
+          public_url: string
+          shot_type: string
+          storage_path: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          file_name: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          mime_type?: string | null
+          public_url: string
+          shot_type?: string
+          storage_path: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          file_name?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          mime_type?: string | null
+          public_url?: string
+          shot_type?: string
+          storage_path?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       businesses: {
         Row: {
           brand_tone: string | null
