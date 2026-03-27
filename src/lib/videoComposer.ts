@@ -350,6 +350,12 @@ async function composeFromImages(
       ctx.textAlign = "center";
       ctx.fillText(businessName, width / 2, height - Math.round(height * 0.05));
 
+      // On-screen caption/subtitle for this scene
+      const caption = sceneCaptions?.[sceneIndex];
+      if (caption) {
+        drawCaption(ctx, caption, width, height);
+      }
+
       // Title overlay
       if (sceneIndex === 0 && frameInScene < fps * 2 && title) {
         const titleAlpha = frameInScene < fps * 0.5 ? frameInScene / (fps * 0.5) : frameInScene > fps * 1.5 ? (fps * 2 - frameInScene) / (fps * 0.5) : 1;
