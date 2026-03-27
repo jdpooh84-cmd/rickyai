@@ -59,6 +59,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   // ── Poll active video generation job ──
   useEffect(() => {
     if (!activeJobId) return;
+    composedRef.current = false; // Reset for new job
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("video_generation_jobs")
@@ -505,7 +506,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               )}
 
-              {generatedVideoScript?.scene_images?.length > 0 && (
+              {(generatedVideoScript?.scene_images?.length ?? 0) > 0 && (
                 <div className="p-3 rounded-xl bg-secondary/30">
                   <p className="text-[10px] font-semibold text-foreground mb-2">🖼️ Scene photos ({generatedVideoScript.scene_images.length})</p>
                   <div className="grid grid-cols-4 gap-1">

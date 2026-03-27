@@ -170,13 +170,13 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
     setJobResult(null);
 
     try {
-      const productionMode = videoType === "youtube" ? "standard" : "quick";
+      const lengthMode = videoType === "youtube" ? "standard" : "short";
 
       const response = await supabase.functions.invoke("generate-video", {
         body: {
           businessId: createdBusinessId,
           videoType: "promotional",
-          productionMode,
+          lengthMode,
         },
       });
 
