@@ -183,6 +183,9 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={handleResetDemo} title="Reset to fresh onboarding" className="text-xs h-7 px-2">
+                Reset &amp; Start Fresh
+              </Button>
               <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
               <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out"><LogOut className="w-4 h-4" /></Button>
             </div>
