@@ -725,6 +725,8 @@ export type Database = {
           email_marketing_opt_in: boolean
           id: string
           onboarding_completed: boolean
+          ricky_limit_reached: boolean
+          ricky_question_count: number
           trial_ends_at: string | null
           trial_started_at: string | null
           updated_at: string
@@ -737,6 +739,8 @@ export type Database = {
           email_marketing_opt_in?: boolean
           id?: string
           onboarding_completed?: boolean
+          ricky_limit_reached?: boolean
+          ricky_question_count?: number
           trial_ends_at?: string | null
           trial_started_at?: string | null
           updated_at?: string
@@ -749,6 +753,8 @@ export type Database = {
           email_marketing_opt_in?: boolean
           id?: string
           onboarding_completed?: boolean
+          ricky_limit_reached?: boolean
+          ricky_question_count?: number
           trial_ends_at?: string | null
           trial_started_at?: string | null
           updated_at?: string
