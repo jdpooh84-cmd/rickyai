@@ -104,7 +104,87 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   }, [businessId, locationId, persistedState.businessId, persistedState.locationId, persistedState.productionMode, persistedState.workflowMode]);
 
-  const handleGenerate = async () => {
+  // ── Poll active video generation job ──
+  useEffect(() => {
+    if (!activeJobId) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("video_generation_jobs")
+        .select("status, result_payload, video_url, error_message")
+        .eq("id", activeJobId)
+        .single();
+
+      if (data) {
+        setJobStatus(data.status);
+        if (data.result_payload) {
+          setGeneratedVideoScript(data.result_payload);
+        }
+        if (data.status === "completed" || data.status === "media_ready") {
+          clearInterval(interval);
+          setGeneratingVideo(false);
+
+          const payload = data.result_payload as any;
+          const clips = payload?.video_clips || [];
+          const images = payload?.scene_images || [];
+
+          // If we have Runway clips or images, compose final video
+          if ((clips.length > 0 || images.length > 0) && !composedRef.current) {
+            composedRef.current = true;
+            setComposingVideo(true);
+            setJobStatus("composing_video");
+            try {
+              const blob = await composeVideo({
+                sceneImages: images,
+                videoClips: clips.length > 0 ? clips : undefined,
+                voiceoverUrl: payload?.voiceover_url || null,
+                businessName: payload?.title || "Video",
+                title: payload?.title,
+                durationPerScene: 5,
+                width: 1080,
+                height: 1920,
+                onProgress: setComposePct,
+              });
+              const url = URL.createObjectURL(blob);
+              setFinalVideoUrl(url);
+
+              // Upload composed video
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session) {
+                const fileName = `videos/${session.user.id}/${activeJobId}/final.webm`;
+                const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+                if (!uploadErr) {
+                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+                  setFinalVideoUrl(urlData.publicUrl);
+                  await supabase.from("video_generation_jobs").update({
+                    video_url: urlData.publicUrl,
+                    updated_at: new Date().toISOString(),
+                  }).eq("id", activeJobId);
+                }
+              }
+              toast.success("Your video is ready! 🎬");
+            } catch (err: any) {
+              console.error("Video composition error:", err);
+              toast.error("Video assembly had issues, but your clips and images are ready");
+            }
+            setComposingVideo(false);
+          } else if (data.video_url) {
+            setFinalVideoUrl(data.video_url);
+            toast.success("Your video is ready! 🎬");
+          } else {
+            toast.success("Production complete!");
+          }
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setGeneratingVideo(false);
+          toast.error(data.error_message || "Production failed — try again");
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeJobId]);
+
+
     if (!businessId) return;
     const r = await generate(businessId, locationId);
     if (r) {
