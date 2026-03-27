@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Film, Download, ExternalLink, Play, ArrowLeft, Loader2 } from "lucide-react";
+import { Film, Download, Play, ArrowLeft, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface VideoJob {
@@ -17,6 +17,66 @@ interface VideoJob {
 interface Props {
   onBack?: () => void;
 }
+
+const VideoPlayer = ({ videoUrl, voiceoverUrl, title }: { videoUrl: string; voiceoverUrl?: string | null; title: string }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioFailed, setAudioFailed] = useState(false);
+
+  // Sync audio playback with video
+  useEffect(() => {
+    const video = videoRef.current;
+    const audio = audioRef.current;
+    if (!video || !audio || !voiceoverUrl) return;
+
+    const syncPlay = () => { audio.currentTime = video.currentTime; audio.play().catch(() => setAudioFailed(true)); };
+    const syncPause = () => { audio.pause(); };
+    const syncSeek = () => { audio.currentTime = video.currentTime; };
+
+    video.addEventListener("play", syncPlay);
+    video.addEventListener("pause", syncPause);
+    video.addEventListener("seeked", syncSeek);
+    video.addEventListener("ended", syncPause);
+
+    return () => {
+      video.removeEventListener("play", syncPlay);
+      video.removeEventListener("pause", syncPause);
+      video.removeEventListener("seeked", syncSeek);
+      video.removeEventListener("ended", syncPause);
+    };
+  }, [voiceoverUrl]);
+
+  return (
+    <div>
+      <video ref={videoRef} controls className="w-full rounded-xl bg-black max-h-[350px]" muted={!!voiceoverUrl && !audioFailed}>
+        <source src={videoUrl} type="video/mp4" />
+      </video>
+      {voiceoverUrl && !audioFailed && (
+        <audio ref={audioRef} src={voiceoverUrl} preload="auto" onError={() => setAudioFailed(true)} />
+      )}
+      <div className="flex items-center gap-2 mt-2">
+        <a href={videoUrl} download className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+          <Download className="w-3 h-3" /> Download
+        </a>
+        {voiceoverUrl && !audioFailed && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-primary">
+            <Volume2 className="w-3 h-3" /> ElevenLabs voiceover
+          </span>
+        )}
+        {voiceoverUrl && audioFailed && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <VolumeX className="w-3 h-3" /> Voiceover unavailable — captions only
+          </span>
+        )}
+        {!voiceoverUrl && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <VolumeX className="w-3 h-3" /> No voiceover — captions only
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const WatchVideo = ({ onBack }: Props) => {
   const { user } = useAuth();
@@ -81,6 +141,7 @@ const WatchVideo = ({ onBack }: Props) => {
           const sceneImages = result?.scene_images || [];
           const hasVideo = !!job.video_url;
           const hasImages = sceneImages.length > 0;
+          const voiceoverUrl = result?.voiceover_url || null;
 
           return (
             <div key={job.id} className="glass rounded-2xl p-6 space-y-4">
@@ -102,21 +163,12 @@ const WatchVideo = ({ onBack }: Props) => {
                 </span>
               </div>
 
-              {/* Video Player */}
+              {/* Video Player with synced voiceover */}
               {hasVideo && (
-                <div>
-                  <video controls className="w-full rounded-xl bg-black max-h-[350px]">
-                    <source src={job.video_url!} type="video/mp4" />
-                  </video>
-                  <div className="flex gap-2 mt-2">
-                    <a href={job.video_url!} download className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                      <Download className="w-3 h-3" /> Download
-                    </a>
-                  </div>
-                </div>
+                <VideoPlayer videoUrl={job.video_url!} voiceoverUrl={voiceoverUrl} title={result?.title || "Video"} />
               )}
 
-              {/* Scene Images */}
+              {/* Scene Images (no video yet) */}
               {!hasVideo && hasImages && (
                 <div>
                   <p className="text-xs text-muted-foreground mb-2">🖼️ {sceneImages.length} AI-generated scene images — import into CapCut or Canva to assemble:</p>
@@ -156,11 +208,11 @@ const WatchVideo = ({ onBack }: Props) => {
                 </div>
               )}
 
-              {/* Voiceover Audio */}
-              {result?.voiceover_url && (
+              {/* Standalone Voiceover Audio (when no video) */}
+              {!hasVideo && voiceoverUrl && (
                 <div className="p-3 rounded-xl bg-accent/5">
                   <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover:</p>
-                  <audio controls className="w-full h-8"><source src={result.voiceover_url} type="audio/mpeg" /></audio>
+                  <audio controls className="w-full h-8"><source src={voiceoverUrl} type="audio/mpeg" /></audio>
                 </div>
               )}
             </div>
