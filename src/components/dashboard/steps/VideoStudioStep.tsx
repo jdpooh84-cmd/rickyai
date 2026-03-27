@@ -884,141 +884,177 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </h4>
               <p className="text-[10px] text-muted-foreground">Generate an AI video based on your business profile</p>
             </div>
-            <button onClick={() => handleGenerateVideo("promotional")} disabled={generatingVideo}
+            <button onClick={() => handleGenerateVideo("promotional")} disabled={generatingVideo || composingVideo}
               className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
-              {generatingVideo ? "Producing..." : "🎬 Produce Video"}
+              {generatingVideo ? <><Loader2 className="w-3 h-3 animate-spin" /> Producing...</> : "🎬 Produce Video"}
             </button>
           </div>
-          {generatedVideoScript && (
-            <div className="space-y-3">
-              {/* Pipeline Status */}
-              {generatedVideoScript.pipeline_steps && (
-                <div className="p-3 rounded-xl bg-secondary/30 border border-border">
-                  <h5 className="text-xs font-semibold text-foreground mb-2">🔄 Pipeline Status</h5>
-                  <div className="grid grid-cols-4 gap-2">
-                    {Object.entries(generatedVideoScript.pipeline_steps).map(([step, status]: [string, any]) => (
+
+          {/* Live production progress */}
+          {generatingVideo && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <Loader2 className="w-6 h-6 animate-spin text-primary flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {jobStatus === "queued" && "Starting up..."}
+                    {jobStatus === "generating_script" && "✍️ Writing your script..."}
+                    {jobStatus === "generating_images" && "🎨 Creating scene images..."}
+                    {jobStatus === "generating_voiceover" && "🎙️ Recording voiceover..."}
+                    {jobStatus === "rendering_video" && "🎬 Rendering video clips with Runway AI..."}
+                    {jobStatus === "composing_video" && `🎬 Assembling final video... ${composePct}%`}
+                    {!["queued", "generating_script", "generating_images", "generating_voiceover", "rendering_video", "composing_video"].includes(jobStatus) && "Processing..."}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {generatedVideoScript?.message || "This may take 2-5 minutes for Runway rendering."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pipeline steps */}
+              {generatedVideoScript?.pipeline_steps && (
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(generatedVideoScript.pipeline_steps).map(([step, status]: [string, any]) => {
+                    const isActive = typeof status === "string" && (status === "processing" || status === "rendering" || status.includes("/"));
+                    const isDone = status === "completed";
+                    const isSkipped = typeof status === "string" && status.startsWith("skipped");
+                    return (
                       <div key={step} className={`text-center p-2 rounded-lg ${
-                        status === "completed" ? "bg-green-500/10 text-green-400" : 
-                        status === "processing" ? "bg-amber-500/10 text-amber-400" :
-                        status?.toString().startsWith("skipped") ? "bg-muted text-muted-foreground" :
+                        isDone ? "bg-primary/10 text-primary" :
+                        isActive ? "bg-accent/10 text-accent-foreground" :
+                        isSkipped ? "bg-muted text-muted-foreground" :
+                        status === "pending" ? "bg-secondary/50 text-muted-foreground" :
                         "bg-destructive/10 text-destructive"
                       }`}>
-                        <div className="text-sm font-bold">{status === "completed" ? "✅" : status === "processing" ? "⏳" : status?.toString().startsWith("skipped") ? "⏭️" : "❌"}</div>
-                        <div className="text-[10px] font-medium capitalize">{step}</div>
+                        <div className="text-sm font-bold">
+                          {isDone ? "✅" : isActive ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isSkipped ? "⏭️" : status === "pending" ? "⏳" : "❌"}
+                        </div>
+                        <div className="text-[10px] font-medium capitalize">{step.replace("_", " ")}</div>
+                        {typeof status === "string" && status.includes("/") && (
+                          <div className="text-[9px] text-muted-foreground">{status}</div>
+                        )}
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Show scene images as they arrive */}
+              {generatedVideoScript?.scene_images?.length > 0 && (
+                <div className="p-3 rounded-xl bg-secondary/30">
+                  <p className="text-[10px] font-semibold text-foreground mb-2">🖼️ Scene images ({generatedVideoScript.scene_images.length})</p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {generatedVideoScript.scene_images.map((url: string, i: number) => (
+                      <img key={i} src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
                     ))}
                   </div>
-                  {!generatedVideoScript.video_url && generatedVideoScript.next_steps?.length > 0 && (
-                    <div className="mt-3 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
-                      <p className="text-[10px] font-semibold text-amber-400 mb-1">To get a finished video:</p>
-                      {generatedVideoScript.next_steps.map((step: string, i: number) => (
-                        <p key={i} className="text-[10px] text-muted-foreground">• {step}</p>
+                </div>
+              )}
+
+              {/* Clip rendering progress */}
+              {generatedVideoScript?.total_clips && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Runway clips</span>
+                    <span>{generatedVideoScript.clips_completed || 0}/{generatedVideoScript.total_clips}</span>
+                  </div>
+                  <Progress value={((generatedVideoScript.clips_completed || 0) / generatedVideoScript.total_clips) * 100} className="h-2" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Composing overlay */}
+          {composingVideo && (
+            <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
+              <p className="text-sm font-semibold text-foreground">Assembling your final video... {composePct}%</p>
+              <Progress value={composePct} className="mt-2 h-2" />
+            </div>
+          )}
+
+          {/* Final video player */}
+          {finalVideoUrl && !generatingVideo && !composingVideo && (
+            <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+              <h5 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                <Play className="w-4 h-4" /> Your Finished Video
+              </h5>
+              <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
+                <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
+              </video>
+              <div className="flex gap-2 mt-3">
+                <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                  <Download className="w-4 h-4" /> Download Video
+                </a>
+              </div>
+              {generatedVideoScript?.total_duration_seconds && (
+                <p className="text-[10px] text-muted-foreground mt-2 text-center">Duration: ~{generatedVideoScript.total_duration_seconds}s</p>
+              )}
+            </div>
+          )}
+
+          {/* Script/metadata (shown after completion, not during production) */}
+          {generatedVideoScript && !generatingVideo && !composingVideo && (
+            <div className="space-y-3 mt-4">
+              {/* Script Info */}
+              {(generatedVideoScript.title || generatedVideoScript.voiceover_script) && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  {generatedVideoScript.title && <h5 className="text-xs font-semibold text-primary mb-1">{generatedVideoScript.title}</h5>}
+                  {generatedVideoScript.description && <p className="text-xs text-secondary-foreground">{generatedVideoScript.description}</p>}
+                  {generatedVideoScript.voiceover_script && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
+                      <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{generatedVideoScript.voiceover_script}</p>
+                      <CopyButton text={generatedVideoScript.voiceover_script} id="voiceover-script" />
+                    </div>
+                  )}
+                  {generatedVideoScript.caption && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
+                      <p className="text-xs text-secondary-foreground">{generatedVideoScript.caption}</p>
+                      <CopyButton text={generatedVideoScript.caption} id="caption-copy" />
+                    </div>
+                  )}
+                  {generatedVideoScript.hashtags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {generatedVideoScript.hashtags.map((h: string, i: number) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">#{h.replace('#','')}</span>
                       ))}
                     </div>
                   )}
-                </div>
-              )}
-              
-              {/* Script Info */}
-              {generatedVideoScript.script && (
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
-                  <h5 className="text-xs font-semibold text-primary mb-1">{generatedVideoScript.script.title}</h5>
-                  <p className="text-xs text-secondary-foreground">{generatedVideoScript.script.description}</p>
-                  {generatedVideoScript.script.voiceover_script && (
-                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
-                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
-                      <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{generatedVideoScript.script.voiceover_script}</p>
-                      <CopyButton text={generatedVideoScript.script.voiceover_script} id="voiceover-script" />
-                    </div>
-                  )}
-                  {generatedVideoScript.script.caption && (
-                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
-                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
-                      <p className="text-xs text-secondary-foreground">{generatedVideoScript.script.caption}</p>
-                      <CopyButton text={generatedVideoScript.script.caption} id="caption-copy" />
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {generatedVideoScript.script.hashtags?.map((h: string, i: number) => (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">#{h.replace('#','')}</span>
-                    ))}
-                  </div>
                 </div>
               )}
 
               {/* Voiceover Audio */}
               {generatedVideoScript.voiceover_url && (
                 <div className="p-3 rounded-xl bg-accent/5 border border-accent/10">
-                  <h5 className="text-xs font-semibold text-accent-foreground mb-2">🎙️ AI Voiceover (ElevenLabs)</h5>
+                  <h5 className="text-xs font-semibold text-accent-foreground mb-2">🎙️ AI Voiceover</h5>
                   <audio controls className="w-full">
                     <source src={generatedVideoScript.voiceover_url} type="audio/mpeg" />
                   </audio>
-                  <a href={generatedVideoScript.voiceover_url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline">
-                    <Download className="w-3 h-3" /> Download voiceover
-                  </a>
                 </div>
               )}
 
-              {/* Scene Images (FREE - no API keys needed) */}
-              {generatedVideoScript.scene_images?.length > 0 && (
+              {/* Scene Images (collapsed) */}
+              {generatedVideoScript.scene_images?.length > 0 && !finalVideoUrl && (
                 <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-                  <h5 className="text-xs font-semibold text-primary mb-2">🖼️ AI-Generated Scene Images ({generatedVideoScript.scene_images.length} scenes)</h5>
-                  <p className="text-[10px] text-muted-foreground mb-3">Professional images generated from your business profile — import into CapCut or Canva to create your video.</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <h5 className="text-xs font-semibold text-primary mb-2">🖼️ Scene Images ({generatedVideoScript.scene_images.length})</h5>
+                  <div className="grid grid-cols-3 gap-1">
                     {generatedVideoScript.scene_images.map((url: string, i: number) => (
-                      <div key={i} className="relative group">
-                        <img src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                          <a href={url} download className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground">
-                            <Download className="w-3 h-3" />
-                          </a>
-                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-1 rounded bg-secondary text-foreground">
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                        <span className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-black/60 text-white">Scene {i + 1}</span>
-                      </div>
+                      <img key={i} src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
                     ))}
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <a href={generatedVideoScript.scene_images[0]} download
-                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                      <Download className="w-3 h-3" /> Download All Scenes
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {/* Rendered Video */}
-              {generatedVideoScript.video_url && (
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-                  <h5 className="text-xs font-semibold text-primary mb-2">🎬 Your Finished Video</h5>
-                  <video controls className="w-full rounded-xl max-h-[300px] bg-black">
-                    <source src={generatedVideoScript.video_url} type="video/mp4" />
-                  </video>
-                  <div className="flex gap-2 mt-2">
-                    <a href={generatedVideoScript.video_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                      <Download className="w-3 h-3" /> Download Video
-                    </a>
                   </div>
                 </div>
               )}
 
               {/* Message */}
-              <div className="p-3 rounded-xl bg-secondary/30">
-                <p className="text-xs text-secondary-foreground">{generatedVideoScript.message}</p>
-              </div>
+              {generatedVideoScript.message && (
+                <div className="p-3 rounded-xl bg-secondary/30">
+                  <p className="text-xs text-secondary-foreground">{generatedVideoScript.message}</p>
+                </div>
+              )}
             </div>
           )}
-          {/* Sample video preview */}
-          <div className="mt-4">
-            <p className="text-[10px] text-muted-foreground mb-2">Sample AI-generated video preview:</p>
-            <video controls className="w-full rounded-xl max-h-[200px] bg-black">
-              <source src={sampleVideoAsset.url} type="video/mp4" />
-            </video>
-          </div>
         </div>
       )}
 
