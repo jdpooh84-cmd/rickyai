@@ -184,7 +184,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     return () => clearInterval(interval);
   }, [activeJobId]);
 
-
+  const handleGenerate = async () => {
     if (!businessId) return;
     const r = await generate(businessId, locationId);
     if (r) {
