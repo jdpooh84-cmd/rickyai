@@ -59,6 +59,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   // ── Poll active video generation job ──
   useEffect(() => {
     if (!activeJobId) return;
+    composedRef.current = false; // Reset for new job
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("video_generation_jobs")
