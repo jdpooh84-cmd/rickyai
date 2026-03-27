@@ -629,13 +629,36 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Images: ${sceneImageUrls.length} total, ${realImageCount} real, ${sceneVideoClipUrls.length} pre-existing video clips`);
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 3: VOICEOVER (ElevenLabs if available, otherwise browser TTS)
+    // STEP 3: VOICEOVER (ElevenLabs if user opted in, otherwise captions only)
     // ════════════════════════════════════════════════════════════════════
     let voiceoverUrl: string | null = null;
-    if (elevenlabsKey && script.voiceover_script) {
+    let voiceoverMessage = "";
+
+    // Check if user explicitly enabled ElevenLabs voiceover
+    const { data: voToolDefault } = await supabase
+      .from("user_tool_defaults")
+      .select("default_provider")
+      .eq("user_id", userId)
+      .eq("tool_type", "voiceover")
+      .maybeSingle();
+    const useElevenLabs = voToolDefault?.default_provider === "elevenlabs";
+
+    // Check if user chose a specific voice ID
+    const { data: voiceDefault } = await supabase
+      .from("user_tool_defaults")
+      .select("default_provider")
+      .eq("user_id", userId)
+      .eq("tool_type", "elevenlabs_voice_id")
+      .maybeSingle();
+    // Default to George (friendly male) if no voice chosen
+    const DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
+    const voiceId = voiceDefault?.default_provider || DEFAULT_VOICE_ID;
+
+    if (useElevenLabs && elevenlabsKey && script.voiceover_script) {
       try {
-        await updateJob({ status: "generating_voiceover", result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "voiceover", message: "🎙️ Recording voiceover..." } });
-        const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb?output_format=mp3_44100_128`, {
+        await updateJob({ status: "generating_voiceover", result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "voiceover", message: "🎙️ Recording voiceover with ElevenLabs..." } });
+        console.log(`[pipeline] Calling ElevenLabs TTS, voice=${voiceId}`);
+        const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
           method: "POST",
           headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -651,14 +674,22 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           if (!error) {
             const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFn);
             voiceoverUrl = urlData.publicUrl;
-            console.log(`[pipeline] ✅ Voiceover ready`);
+            console.log(`[pipeline] ✅ ElevenLabs voiceover ready`);
           }
+        } else {
+          const errBody = await ttsRes.text();
+          console.error(`[pipeline] ElevenLabs TTS failed [${ttsRes.status}]: ${errBody}`);
+          voiceoverMessage = "We couldn't reach ElevenLabs for voiceover this time, so we used captions only. You can retry later without losing your video.";
         }
       } catch (e) {
-        console.error("[pipeline] Voiceover error:", e);
+        console.error("[pipeline] ElevenLabs voiceover error:", e);
+        voiceoverMessage = "We couldn't reach ElevenLabs for voiceover this time, so we used captions only. You can retry later without losing your video.";
       }
+    } else if (useElevenLabs && !elevenlabsKey) {
+      console.log("[pipeline] User wants ElevenLabs but no key found — captions only");
+      voiceoverMessage = "ElevenLabs is enabled but no API key was found. Please reconnect your ElevenLabs account in Settings.";
     } else {
-      console.log("[pipeline] No ElevenLabs key — browser TTS fallback");
+      console.log("[pipeline] Voiceover not enabled — captions only");
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -754,6 +785,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
     if (usedFallbackScript) {
       statusMessage += " ℹ️ This video used your saved strategy data because AI credits were low.";
+    }
+    if (voiceoverMessage) {
+      statusMessage += ` 🎙️ ${voiceoverMessage}`;
     }
 
     const resultPayload = {
