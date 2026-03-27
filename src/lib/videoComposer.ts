@@ -161,6 +161,16 @@ async function stitchVideoClips(
     for (let i = 0; i < clipUrls.length; i++) {
       onProgress?.(Math.round((i / clipUrls.length) * 100));
 
+      // Speak the caption for this clip using browser TTS
+      if (ttsUtteranceQueue[i] && "speechSynthesis" in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(ttsUtteranceQueue[i]);
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          window.speechSynthesis.speak(utterance);
+        } catch { /* ignore TTS errors */ }
+      }
+
       try {
         const video = document.createElement("video");
         video.crossOrigin = "anonymous";
