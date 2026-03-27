@@ -472,73 +472,77 @@ ${businessContext}`
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      // For step 8 (Video Studio), fall back to template when AI credits are exhausted
-      if (aiResponse.status === 402 && step === 8) {
-        console.log("[ai-strategy] AI credits exhausted for step 8, using template fallback");
+      
+      // ═══ FALLBACK FOR ALL STEPS when AI credits exhausted (402) ═══
+      if (aiResponse.status === 402) {
+        console.log(`[ai-strategy] AI credits exhausted for step ${step}, using saved-data fallback`);
+        
+        // Try to load last saved output for this step
+        const { data: lastSaved } = await supabase.from("strategy_outputs").select("output_data")
+          .eq("business_id", businessId).eq("user_id", user.id).eq("step_number", step)
+          .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        
+        if (lastSaved?.output_data && !lastSaved.output_data._fallback) {
+          // Return previously saved real output
+          console.log(`[ai-strategy] Returning last saved output for step ${step}`);
+          return new Response(JSON.stringify({
+            ...lastSaved.output_data,
+            _usedSavedData: true,
+            _savedDataNote: "AI credits were temporarily unavailable. Showing your last saved results — retry later for fresh analysis."
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        
+        // Build a template fallback based on step
         const bName = business.business_name || "Your Business";
         const bCategory = business.business_category || "business";
         const bCity = location?.city || "your city";
         const bServices = business.services || "our products and services";
-        const fallbackOutput = {
-          video_strategy: `Template-based video strategy for ${bName}. AI credits were temporarily unavailable, so this is a starter plan you can refine.`,
-          video_ideas: [
-            {
-              title: `${bName} — Your Local ${bCategory} Promo`,
-              type: "promo",
-              difficulty: "easy",
-              equipment: ["Smartphone", "Tripod", "Good lighting"],
-              estimated_views: "500-2000",
-              script_outline: `Opening: 'Looking for the best ${bCategory} in ${bCity}?' Show the business exterior and interior. Highlight ${bServices}. Close with: 'Visit ${bName} today!' Call to action: website or phone number.`,
-              heygen_prompt: `Create a 60-second promotional video for ${bName}, a ${bCategory} in ${bCity}. Show enthusiasm about ${bServices}. End with a call to action to visit.`,
-              invideo_prompt: `Create a 1-minute promo for ${bName} in ${bCity}. Highlight: ${bServices}. Use upbeat music, text overlays, and end with contact info.`,
-              canva_prompt: `Design a 60-second promo video for ${bName}. Use a business promo template. Overlay text about ${bServices}. Add logo and contact info at the end.`,
-              capcut_prompt: `Project: ${bName} Promo. Import footage of the business. Add upbeat music, text overlays for ${bServices}, and end screen with contact info.`,
-              free_production_guide: {
-                tool: "Phone Camera + CapCut (Free)",
-                step_by_step: [
-                  "Step 1: Film exterior and interior shots of your business",
-                  "Step 2: Capture close-ups of your best products/services",
-                  "Step 3: Record a 30-second introduction as the owner",
-                  "Step 4: Import into CapCut, trim clips, add text overlays",
-                  "Step 5: Add royalty-free music and export at 1080p"
-                ],
-                tips: "Use natural lighting, keep clips under 5 seconds each, smile and be authentic"
-              }
-            }
-          ],
-          equipment_recommendations: [
-            { item: "Smartphone with good camera", price_range: "Already owned", priority: "essential" },
-            { item: "Mini tripod", price_range: "$15-30", priority: "essential" },
-            { item: "Ring light", price_range: "$20-50", priority: "nice-to-have" }
-          ],
-          filming_tips: [
-            "Film during golden hour for the best natural lighting",
-            "Keep your phone horizontal for YouTube, vertical for TikTok/Reels",
-            "Always clean your camera lens before filming"
-          ],
-          editing_workflow: "Import clips → Trim to best moments → Add text overlays → Add music → Export",
-          _fallback: true,
-          _fallback_reason: "AI credits temporarily unavailable. This is a template plan — retry later for a fully customized strategy."
+        
+        const fallbackOutputs: Record<number, any> = {
+          3: { overall_grade: "N/A", overall_score: 0, categories: [], top_priorities: ["Retry when AI credits are available for a full visibility audit"], competitive_edge: `${bName} in ${bCity}`, _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          4: { market_position: "unknown", competitors: [], opportunities: [`Analyze ${bName}'s competitive landscape when credits are available`], threats: [], differentiation_strategy: `${bName} serves ${bServices}`, quick_wins: ["Retry later for personalized insights"], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          5: { content_score: 0, existing_strengths: [], content_gaps: [], content_calendar: [], pillar_topics: [], recommended_formats: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          6: { primary_platform: { name: "Instagram", reason: "Good default for most businesses", posting_frequency: "3-5x/week", content_types: ["Reels", "Stories"] }, secondary_platforms: [], platforms_to_avoid: [], platform_strategy: `Default strategy for ${bName}`, time_investment: "5-10 hours/week", growth_timeline: "3-6 months", _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          7: { scripts: [{ title: `${bName} Promo`, type: "short-form", duration: "60s", hook: `Looking for the best ${bCategory} in ${bCity}?`, body: `${bName} offers ${bServices}. Visit us today!`, cta: `Visit ${bName}`, platform: "Instagram", hashtags: [bName.replace(/\s+/g, "")], music_suggestion: "Upbeat corporate" }], content_tips: ["Be authentic", "Show your team", "Highlight your best work"], brand_voice_guide: `Friendly and ${business.brand_tone || "professional"}`, _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          8: {
+            video_strategy: `Template-based video strategy for ${bName}. AI credits were temporarily unavailable.`,
+            video_ideas: [{ title: `${bName} — Your Local ${bCategory} Promo`, type: "promo", difficulty: "easy", equipment: ["Smartphone", "Tripod", "Good lighting"], estimated_views: "500-2000", script_outline: `Opening: 'Looking for the best ${bCategory} in ${bCity}?' Show the business. Highlight ${bServices}. Close with: 'Visit ${bName} today!'`, heygen_prompt: `Create a 60-second promo for ${bName}, a ${bCategory} in ${bCity}.`, invideo_prompt: `Create a 1-minute promo for ${bName} in ${bCity}. Highlight: ${bServices}.`, canva_prompt: `Design a 60-second promo video for ${bName}.`, capcut_prompt: `Project: ${bName} Promo. Add text overlays for ${bServices}.`, free_production_guide: { tool: "Phone Camera + CapCut (Free)", step_by_step: ["Film exterior/interior shots", "Capture product close-ups", "Record owner intro", "Edit in CapCut", "Export at 1080p"], tips: "Use natural lighting" } }],
+            equipment_recommendations: [{ item: "Smartphone", price_range: "Already owned", priority: "essential" }],
+            filming_tips: ["Film during golden hour", "Keep clips under 5 seconds each"],
+            editing_workflow: "Import → Trim → Text overlays → Music → Export",
+            _fallback: true, _fallback_reason: "AI credits temporarily unavailable."
+          },
+          9: { storyboards: [], visual_brand_guidelines: { fonts: [], colors: [], style: business.brand_tone || "professional", do_list: [], dont_list: [] }, _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          10: { distribution_plan: [], repurposing_ideas: [], scheduling_recommendations: "Post consistently 3-5x/week", tools_recommended: [], kpis_to_track: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          11: { lead_sources: [], referral_partners: [], community_opportunities: [], networking_strategy: "", lead_magnet_ideas: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          12: { grants: [], alternative_funding: [], funding_readiness_score: 0, preparation_steps: [], resources: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          13: { overall_score: 0, overall_summary: "AI credits unavailable — retry later for a full search visibility analysis.", seo: { grade: "N/A", summary: "Unavailable", factors: [], recommendations: [] }, aeo: { grade: "N/A", summary: "Unavailable", ricky_explanation: "", questions_your_business_should_answer: [], optimized_faqs: [] }, geo: { grade: "N/A", summary: "Unavailable", ricky_explanation: "", citation_readiness: {}, optimized_summaries: [] }, ai_overviews: { grade: "N/A", summary: "Unavailable", ricky_explanation: "", visibility_gaps: [], scripts_for_visibility: [] }, action_plan: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
         };
-        // Save fallback and return
+        
+        const fallbackOutput = fallbackOutputs[step] || { _fallback: true, _fallback_reason: "AI credits temporarily unavailable. Please retry later." };
+        
+        // Save fallback
         await supabase.from("strategy_outputs").upsert({
           user_id: user.id, business_id: businessId, location_id: locationId || null,
-          step_number: step, step_name: "Video Studio", output_data: fallbackOutput,
+          step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step] || `Step ${step}`,
+          output_data: fallbackOutput,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,business_id,step_number", ignoreDuplicates: false }).then(async ({ error: ue }) => {
           if (ue) await supabase.from("strategy_outputs").insert({
             user_id: user.id, business_id: businessId, location_id: locationId || null,
-            step_number: step, step_name: "Video Studio", output_data: fallbackOutput,
+            step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step] || `Step ${step}`,
+            output_data: fallbackOutput,
           });
         });
+        
         return new Response(JSON.stringify(fallbackOutput), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const friendlyMessage = aiResponse.status === 402
-        ? "AI credits are unavailable right now. Your step and business selections were preserved, so you can retry without restarting."
-        : `AI error: ${aiResponse.status} ${errText}`;
-      throw new Error(friendlyMessage);
+      
+      throw new Error(`AI error: ${aiResponse.status} ${errText}`);
     }
 
     const aiData = await aiResponse.json();
