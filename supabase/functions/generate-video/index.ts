@@ -163,6 +163,118 @@ function buildScriptFromProfile(biz: any, loc: any, strategyData: any, sceneCoun
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// MANUS VISUAL SCRIPT BUILDER — cinematic shot-by-shot descriptions
+// ═══════════════════════════════════════════════════════════════════════
+const CAMERA_MOVEMENTS: Record<string, string[]> = {
+  food: ["slow push-in", "overhead orbit clockwise", "lateral dolly left-to-right", "rack focus foreground-to-background", "slow tilt down reveal"],
+  people: ["steadicam walk-through", "lateral tracking right-to-left", "gentle push-in", "handheld follow", "dolly around subject"],
+  environment: ["slow push-in towards entrance", "overhead crane descending", "pull-back reveal", "slow pan left-to-right", "ascending drone-style reveal"],
+};
+const LIGHTING_MOODS: Record<string, string[]> = {
+  food: ["warm golden rim light, vibrant colors", "soft diffused overhead, steam catching light", "dramatic side light, rich shadows", "bright natural window light, fresh feel"],
+  people: ["warm ambient candlelight, natural skin tones", "soft backlight with lens flare", "golden hour window light, warm contrast", "bright cheerful daylight, upbeat energy"],
+  environment: ["golden hour exterior, warm glow from inside", "twilight blue hour with warm interior contrast", "bright midday, clean shadows", "moody atmospheric with neon accents"],
+};
+const SHOT_SIZES = { food: ["extreme close-up", "close-up", "medium close-up", "overhead flat-lay"], people: ["medium shot", "medium close-up", "wide shot", "over-the-shoulder"], environment: ["wide establishing shot", "medium wide shot", "low-angle wide shot", "aerial wide shot"] };
+const TRANSITIONS_IN = ["fade in from black", "soft crossfade", "whip pan from previous", "match cut", "smooth morph transition"];
+const TRANSITIONS_OUT = ["soft crossfade to next", "quick cut", "slow fade", "motion blur transition", "match dissolve"];
+
+function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, videoId: string) {
+  const scenes = script.scenes || [];
+  const aspectRatio = preset.orientation === "vertical" ? "9:16" : "16:9";
+  const totalDuration = scenes.reduce((sum: number, s: any) => sum + (s.duration_seconds || preset.clipDuration), 0);
+
+  const shots = scenes.map((scene: any, i: number) => {
+    const shotType = scene.shotType || "environment";
+    const camPool = CAMERA_MOVEMENTS[shotType] || CAMERA_MOVEMENTS.environment;
+    const lightPool = LIGHTING_MOODS[shotType] || LIGHTING_MOODS.environment;
+    const sizePool = SHOT_SIZES[shotType] || SHOT_SIZES.environment;
+
+    const shotSize = sizePool[i % sizePool.length];
+    const cameraMovement = camPool[i % camPool.length];
+    const lighting = lightPool[i % lightPool.length];
+    const transIn = i === 0 ? "fade in from black" : TRANSITIONS_IN[(i) % TRANSITIONS_IN.length];
+    const transOut = i === scenes.length - 1 ? "fade to black" : TRANSITIONS_OUT[(i) % TRANSITIONS_OUT.length];
+
+    const subject = scene.visual_description?.split(".")[0] || `${biz.business_name} ${shotType} scene`;
+    const envDetails = scene.visual_description?.split(".").slice(1).join(".").trim() || "";
+
+    // Build the full cinematic prompt text for Manus
+    const promptText = `${shotSize} of ${subject}, ${scene.camera_direction || cameraMovement}, ${lighting}, ${envDetails}. Style: cinematic, crisp, high-detail, natural motion, no cheesy stock footage look.`;
+
+    return {
+      index: i + 1,
+      label: scene.text_overlay || `Scene ${i + 1}`,
+      voice_lines: scene.voiceover_line || "",
+      estimated_duration_seconds: scene.duration_seconds || preset.clipDuration,
+      shot_type: shotSize,
+      shot_category: shotType,
+      subject,
+      camera_angle: shotType === "food" ? "eye-level" : shotType === "environment" ? "low angle" : "eye-level",
+      camera_movement: scene.camera_direction || cameraMovement,
+      composition: scene.visual_description || "",
+      lighting,
+      color_grade: shotType === "food" ? "rich warm tones, slightly desaturated background" : "natural warm tones, balanced contrast",
+      visual_style: "cinematic, crisp, realistic",
+      environment_details: envDetails,
+      action: scene.visual_description?.match(/\b(walking|smiling|greeting|serving|cooking|eating|laughing)\b/i)?.[0] || "subtle natural movement",
+      transition_in: transIn,
+      transition_out: transOut,
+      on_screen_text: scene.text_overlay || "",
+      brand_elements: i === 0 || i === scenes.length - 1 ? `${biz.business_name} logo/signage` : "",
+      constraints: "no text covering key subjects, no extreme camera shake, maintain brand consistency",
+      prompt_text: promptText,
+      notes_for_ricky: i === 0 ? "Opening hook — keep high energy" : i === scenes.length - 1 ? "Closing CTA — end with brand recall" : "",
+    };
+  });
+
+  return {
+    version: "1.0",
+    video_id: `vid_${videoId}`,
+    business_id: biz.id,
+    business_name: biz.business_name,
+    platform: script.target_platform || "tiktok",
+    aspect_ratio: aspectRatio,
+    style: "cinematic",
+    mood: "warm, inviting, high-energy",
+    primary_product: biz.services?.split(",")[0]?.trim() || biz.business_category || "signature offering",
+    brand_notes: `${biz.brand_tone || "Professional"} tone, ${biz.business_category || "business"} category`,
+    target_audience: biz.target_audience || "local customers",
+    estimated_total_duration_seconds: totalDuration,
+    shots,
+    manus_prompt: buildManusPromptText(script, biz, shots, aspectRatio),
+  };
+}
+
+function buildManusPromptText(script: any, biz: any, shots: any[], aspectRatio: string): string {
+  const shotDescriptions = shots.map((s: any) =>
+    `Shot ${s.index} (${s.estimated_duration_seconds}s): ${s.prompt_text}\nVO: "${s.voice_lines}"\nOn-screen: "${s.on_screen_text}"`
+  ).join("\n\n");
+
+  return `Create a ${aspectRatio} cinematic promotional video for ${biz.business_name}.
+
+BRAND CONTEXT:
+- Business: ${biz.business_name} (${biz.business_category || "local business"})
+- Services: ${biz.services || "various"}
+- Audience: ${biz.target_audience || "local customers"}
+- Tone: ${biz.brand_tone || "friendly and professional"}
+
+APPROVED VOICEOVER SCRIPT:
+"${script.voiceover_script}"
+
+CINEMATIC SHOT LIST (follow this exact scene order):
+${shotDescriptions}
+
+DIRECTION:
+- Follow the scene order exactly as listed above
+- Aim for smooth transitions between shots
+- Match the overall tone: cinematic, high contrast, natural motion, no cheesy stock footage look
+- Use warm, inviting color grading throughout
+- Ensure brand elements (logo, signage) are visible in opening and closing shots
+- Total duration: approximately ${shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0)} seconds`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // AI SCRIPT — only if credits available
 // ═══════════════════════════════════════════════════════════════════════
 function buildAIPrompt(biz: any, loc: any, preset: PipelinePreset) {
@@ -555,7 +667,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
     script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
 
+    // ═══ BUILD MANUS VISUAL SCRIPT (cinematic shot list) ═══
+    const manusVisualScript = buildManusVisualScript(script, business, preset, jobId);
+    script.manus_visual_script = manusVisualScript;
+
     console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words, fallback=${usedFallbackScript}`);
+    console.log(`[pipeline] Manus visual script: ${manusVisualScript.shots.length} shots, style=${manusVisualScript.style}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 2: IMAGES (business media library → old storage → AI → placeholder)
@@ -934,6 +1051,10 @@ Deno.serve(async (req) => {
       script.scenes = script.scenes.slice(0, preset.sceneCount);
       script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
       script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+
+      // Build cinematic visual script for script_only mode too
+      const manusVisualScript = buildManusVisualScript(script, business, preset, "preview");
+      script.manus_visual_script = manusVisualScript;
 
       return new Response(JSON.stringify({
         success: true,
