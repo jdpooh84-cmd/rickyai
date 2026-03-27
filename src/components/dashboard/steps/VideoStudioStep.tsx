@@ -63,6 +63,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persistedState.generatedVideoScript);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>("queued");
+  const [composingVideo, setComposingVideo] = useState(false);
+  const [composePct, setComposePct] = useState(0);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const composedRef = useRef(false);
   const [pipelineKeyword, setPipelineKeyword] = useState(persistedState.pipelineKeyword);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineResult, setPipelineResult] = useState<any>(persistedState.pipelineResult);
