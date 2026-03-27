@@ -202,9 +202,6 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function escapeXml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
-}
 
 // ── Main job processor ──
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, productionMode: string) {
