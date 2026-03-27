@@ -127,24 +127,12 @@ async function generatePlaceholderImage(
   businessName: string,
   overlayText: string,
 ): Promise<string | null> {
-  // Create a simple 1280x720 PNG-like SVG and upload it
-  // Runway accepts image URLs — SVG should work as promptImage since it's a valid image format
-  // But to be safe, we'll try a different approach: use a solid-color data URI that Runway can consume
-  const colors = ["#1a1a2e", "#2d132c", "#0d1b2a", "#212529", "#1b1b2f", "#0b0c10", "#2a0845", "#1c1c3c", "#0a1628", "#1a2639"];
-  const bgColor = colors[sceneIndex % colors.length];
-
-  // Create a minimal valid PNG (1x1 pixel, then Runway will upscale)
-  // Actually, let's create a proper SVG that Runway can render
-  const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
-    <rect width="1280" height="720" fill="${bgColor}"/>
-    <text x="640" y="320" font-family="Arial,sans-serif" font-size="52" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">${escapeXml(businessName)}</text>
-    <text x="640" y="400" font-family="Arial,sans-serif" font-size="28" fill="#aaaaaa" text-anchor="middle" dominant-baseline="middle">${escapeXml(overlayText)}</text>
-  </svg>`;
-
-  // Upload as SVG
-  const bytes = new TextEncoder().encode(svgContent);
-  const fileName = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.svg`;
-  const { error } = await supabase.storage.from("media").upload(fileName, bytes, { contentType: "image/svg+xml", upsert: true });
+  // Create a minimal 1-pixel PNG and upload it. Runway will use this as a seed.
+  // In practice Runway uses the promptText more than the image for generation,
+  // so even a simple colored image works well as a seed.
+  const pngBytes = createMinimalPng(sceneIndex);
+  const fileName = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.png`;
+  const { error } = await supabase.storage.from("media").upload(fileName, pngBytes, { contentType: "image/png", upsert: true });
   if (error) {
     console.error(`[generate-video] Placeholder upload error:`, error);
     return null;
@@ -152,6 +140,66 @@ async function generatePlaceholderImage(
   const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
   console.log(`[generate-video] Placeholder image for scene ${sceneIndex + 1}: ${urlData.publicUrl}`);
   return urlData.publicUrl;
+}
+
+// Creates a valid 1x1 PNG with a dark color (Runway needs a valid image URL to start from)
+function createMinimalPng(colorIndex: number): Uint8Array {
+  const colors = [[26, 26, 46], [45, 19, 44], [13, 27, 42], [33, 37, 41], [27, 27, 47], [11, 12, 16]];
+  const [r, g, b] = colors[colorIndex % colors.length];
+  // Minimal valid PNG: 1x1 pixel, RGBA
+  const header = [137, 80, 78, 71, 13, 10, 26, 10]; // PNG signature
+  const ihdr = createPngChunk("IHDR", [0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]);
+  // Raw pixel data: filter byte (0) + RGB
+  const raw = new Uint8Array([0, r, g, b]);
+  // Deflate the raw data (use a minimal stored block)
+  const deflated = deflateStored(raw);
+  const idat = createPngChunk("IDAT", Array.from(deflated));
+  const iend = createPngChunk("IEND", []);
+  return new Uint8Array([...header, ...ihdr, ...idat, ...iend]);
+}
+
+function createPngChunk(type: string, data: number[]): number[] {
+  const length = data.length;
+  const typeBytes = Array.from(type).map(c => c.charCodeAt(0));
+  const chunk = [...typeBytes, ...data];
+  const crc = crc32(new Uint8Array(chunk));
+  return [
+    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff,
+    ...chunk,
+    (crc >> 24) & 0xff, (crc >> 16) & 0xff, (crc >> 8) & 0xff, crc & 0xff,
+  ];
+}
+
+function deflateStored(data: Uint8Array): Uint8Array {
+  // zlib header (78 01) + stored block + adler32
+  const len = data.length;
+  const result = new Uint8Array(2 + 5 + len + 4);
+  result[0] = 0x78; result[1] = 0x01; // zlib header
+  result[2] = 0x01; // final block, stored
+  result[3] = len & 0xff; result[4] = (len >> 8) & 0xff;
+  result[5] = ~len & 0xff; result[6] = (~len >> 8) & 0xff;
+  result.set(data, 7);
+  const adler = adler32(data);
+  result[7 + len] = (adler >> 24) & 0xff;
+  result[8 + len] = (adler >> 16) & 0xff;
+  result[9 + len] = (adler >> 8) & 0xff;
+  result[10 + len] = adler & 0xff;
+  return result;
+}
+
+function adler32(data: Uint8Array): number {
+  let a = 1, b = 0;
+  for (let i = 0; i < data.length; i++) { a = (a + data[i]) % 65521; b = (b + a) % 65521; }
+  return (b << 16) | a;
+}
+
+function crc32(data: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i++) {
+    crc ^= data[i];
+    for (let j = 0; j < 8; j++) { crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function escapeXml(str: string): string {
