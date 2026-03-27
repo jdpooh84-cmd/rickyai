@@ -139,6 +139,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 voiceoverUrl: payload?.voiceover_url || null,
                 businessName: payload?.title || "Video",
                 title: payload?.title,
+                sceneCaptions: payload?.scene_captions || [],
                 durationPerScene: 5,
                 width: 1080,
                 height: 1920,
