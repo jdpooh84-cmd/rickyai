@@ -2,13 +2,21 @@
  * Video Production Templates — Ricky.AI
  *
  * Reusable, structured templates that every video must follow.
- * These are business-agnostic: plug in any business profile to generate
+ * Business-agnostic: plug in any business profile to generate
  * a marketing script, visual scene plan, and audio brief.
  *
- * ── Configuration ──────────────────────────────────────────────────────
+ * ─── ARCHITECTURE ────────────────────────────────────────────────────
+ *
+ * (a) Marketing Script Template — six-beat structure every promo follows
+ * (b) Visual Scene Template    — per-scene Runway request structure
+ * (c) Audio / VO Template      — TTS alignment with timestamps
+ *
+ * All templates are reusable across any business, not hardcoded for one client.
  */
 
-// ── Runtime & cost controls ──
+// ═══════════════════════════════════════════════════════════════════════
+// CONFIGURATION — change these to tune cost, quality, and runtime
+// ═══════════════════════════════════════════════════════════════════════
 export const VIDEO_CONFIG = {
   /** Minimum allowed video length in seconds */
   MIN_DURATION_SECONDS: 45,
@@ -16,55 +24,52 @@ export const VIDEO_CONFIG = {
   DEFAULT_DURATION_SECONDS: 90,
   /** Maximum scenes per video (controls Runway API call count) */
   MAX_SCENES: 10,
-  /** Runway model identifier */
+
+  // ── Runway ──
   RUNWAY_MODEL: "gen4_turbo",
-  /** Runway aspect ratios */
   RUNWAY_RATIO_LANDSCAPE: "1280:720",
   RUNWAY_RATIO_VERTICAL: "720:1280",
-  /** Clip duration sent to Runway (5 or 10 seconds) */
+  /** Clip duration sent to Runway (5 or 10 seconds per clip) */
   RUNWAY_CLIP_DURATION: 10 as 5 | 10,
-  /** TTS provider — "elevenlabs" when key is present, "browser" as fallback */
+  /** Estimated Runway credits per 10s clip (used for pre-flight cost estimate) */
+  RUNWAY_CREDITS_PER_10S_CLIP: 50,
+
+  // ── TTS / Voiceover ──
   TTS_PROVIDER: "elevenlabs" as "elevenlabs" | "browser",
-  /** Default TTS voice style */
   TTS_VOICE_STYLE: "friendly local owner" as "friendly local owner" | "polished announcer",
   /** ElevenLabs voice ID — "George" warm male voice */
   ELEVENLABS_VOICE_ID: "JBFqnCBsd6RMkjVDRZzb",
-  /** ElevenLabs model */
   ELEVENLABS_MODEL: "eleven_multilingual_v2",
+
+  /** Minimum image file size in bytes to be considered "real" (not placeholder) */
+  MIN_REAL_IMAGE_BYTES: 5000,
 } as const;
 
-// ── Production mode presets ──
+// ═══════════════════════════════════════════════════════════════════════
+// PRODUCTION PRESETS — controls how many Runway calls happen
+// ═══════════════════════════════════════════════════════════════════════
 export interface ProductionPreset {
-  /** Minimum video length in seconds */
   minDuration: number;
-  /** Number of scenes (= number of Runway API calls) */
   sceneCount: number;
-  /** Duration per Runway clip (5 or 10 seconds) */
   clipDuration: 5 | 10;
-  /** Runway aspect ratio string */
   ratio: string;
+  /** Estimated Runway credits this preset will burn */
+  estimatedCredits: number;
 }
 
 export const PRODUCTION_PRESETS: Record<string, ProductionPreset> = {
-  quick:    { minDuration: 45, sceneCount: 5, clipDuration: 10, ratio: "720:1280" },
-  standard: { minDuration: 60, sceneCount: 6, clipDuration: 10, ratio: "1280:720" },
-  longform: { minDuration: 90, sceneCount: 9, clipDuration: 10, ratio: "1280:720" },
+  quick:    { minDuration: 45, sceneCount: 5, clipDuration: 10, ratio: "720:1280",  estimatedCredits: 250 },
+  standard: { minDuration: 60, sceneCount: 6, clipDuration: 10, ratio: "1280:720",  estimatedCredits: 300 },
+  longform: { minDuration: 90, sceneCount: 9, clipDuration: 10, ratio: "1280:720",  estimatedCredits: 450 },
 };
 
-/**
- * ── (a) Marketing Script Template ──────────────────────────────────────
- *
- * Six-beat structure every promotional script must follow.
- * AI or template builder must produce content for each beat.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// (a) MARKETING SCRIPT TEMPLATE — six-beat structure
+// ═══════════════════════════════════════════════════════════════════════
 export interface ScriptBeat {
-  /** Unique beat identifier */
   beatId: "hook" | "problem" | "positioning" | "proof" | "offer" | "signoff";
-  /** Human label */
   label: string;
-  /** How long this beat should last on screen (seconds) */
   targetSeconds: number;
-  /** Guideline for the copywriter (AI or human) */
   guideline: string;
 }
 
@@ -73,7 +78,7 @@ export const MARKETING_SCRIPT_BEATS: ScriptBeat[] = [
     beatId: "hook",
     label: "Intro Hook",
     targetSeconds: 8,
-    guideline: "1–2 punchy sentences that grab attention. Ask a question or make a bold claim. 3–5 seconds of screen time.",
+    guideline: "1–2 punchy sentences that grab attention. Ask a question or make a bold claim.",
   },
   {
     beatId: "problem",
@@ -107,11 +112,9 @@ export const MARKETING_SCRIPT_BEATS: ScriptBeat[] = [
   },
 ];
 
-/**
- * ── (b) Visual Scene Template ──────────────────────────────────────────
- *
- * Each scene sent to Runway follows this structure.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// (b) VISUAL SCENE TEMPLATE — each scene sent to Runway
+// ═══════════════════════════════════════════════════════════════════════
 export interface VisualScene {
   /** Sequential scene ID */
   sceneId: number;
@@ -121,7 +124,7 @@ export interface VisualScene {
   endTime: number;
   /** Vivid description for Runway: setting, people, camera movement, mood, lighting */
   visualPrompt: string;
-  /** Camera style directive */
+  /** Camera style directive (e.g., slow push-in, lateral tracking, overhead, handheld) */
   cameraStyle: string;
   /** Short phrase shown on screen during this scene */
   textOverlay: string;
@@ -133,11 +136,9 @@ export interface VisualScene {
   priorityShot: "product_closeup" | "people" | "environment" | "action" | "branding";
 }
 
-/**
- * ── (c) Audio / Voiceover Template ─────────────────────────────────────
- *
- * Derived from the scene list — maps voiceLine + timestamps for TTS alignment.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// (c) AUDIO / VOICEOVER TEMPLATE — TTS alignment with timestamps
+// ═══════════════════════════════════════════════════════════════════════
 export interface VoiceoverSegment {
   sceneId: number;
   startTime: number;
@@ -160,12 +161,9 @@ export function buildFullVoiceoverScript(scenes: VisualScene[]): string {
   return scenes.map((s) => s.voiceLine).filter(Boolean).join(" ");
 }
 
-/**
- * ── Business-agnostic scene builder ────────────────────────────────────
- *
- * Takes any business profile and returns a complete scene plan
- * following the marketing script beats.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// BUSINESS PROFILE — input for all template builders
+// ═══════════════════════════════════════════════════════════════════════
 export interface BusinessProfile {
   businessName: string;
   category?: string;
@@ -178,42 +176,31 @@ export interface BusinessProfile {
   contentGoals?: string;
 }
 
-/**
- * Camera style options to cycle through for visual variety.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// CAMERA STYLES & SHOT TYPES — cycled for visual variety
+// ═══════════════════════════════════════════════════════════════════════
 const CAMERA_STYLES = [
-  "slow push-in",
-  "lateral tracking shot",
-  "overhead crane shot",
-  "handheld natural movement",
-  "slow pull-back reveal",
-  "dolly-in close-up",
-  "steadicam walk-through",
-  "rack focus transition",
-  "slow pan right",
-  "static wide establishing",
+  "slow push-in towards subject, cinematic depth",
+  "lateral tracking shot, smooth dolly movement left to right",
+  "overhead crane shot looking down at 45-degree angle",
+  "handheld natural movement, intimate documentary feel",
+  "slow pull-back reveal, widening from detail to full scene",
+  "dolly-in extreme close-up with shallow depth of field",
+  "steadicam walk-through following a person",
+  "rack focus transition from foreground to background",
+  "slow pan right across the scene, golden hour lighting",
+  "static wide establishing shot, symmetrical composition",
 ];
 
-/**
- * Priority shot types to cycle through for visual variety.
- */
 const PRIORITY_SHOTS: VisualScene["priorityShot"][] = [
-  "environment",
-  "people",
-  "product_closeup",
-  "action",
-  "product_closeup",
-  "people",
-  "environment",
-  "people",
-  "action",
-  "branding",
+  "environment", "people", "product_closeup", "action",
+  "product_closeup", "people", "environment", "people",
+  "action", "branding",
 ];
 
-/**
- * Builds a complete scene plan from a business profile.
- * Returns exactly `sceneCount` scenes totaling `clipDuration * sceneCount` seconds.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// SCENE PLAN BUILDER — works for ANY business
+// ═══════════════════════════════════════════════════════════════════════
 export function buildScenePlan(
   business: BusinessProfile,
   sceneCount: number,
@@ -223,93 +210,95 @@ export function buildScenePlan(
   const cat = business.category || "business";
   const svc = business.services || "premium services";
   const audience = business.targetAudience || "customers";
-  const city = business.city || "";
+  const city = business.city || "your area";
   const tone = business.brandTone || "professional";
-  const cityLabel = city || "your area";
+  const svcList = svc.split(",").map(s => s.trim()).filter(Boolean);
+  const primarySvc = svcList[0] || "our signature offering";
+  const secondarySvc = svcList.length > 1 ? svcList.slice(0, 2).join(" and ") : primarySvc;
 
-  // Template scenes mapped to marketing beats
+  // 10 template scenes covering all 6 marketing beats
   const allScenes: Omit<VisualScene, "sceneId" | "startTime" | "endTime">[] = [
-    // HOOK (1-2 scenes)
+    // ── HOOK (1 scene) ──
     {
-      visualPrompt: `Stunning golden-hour exterior of ${name} storefront, warm amber lighting glowing through windows, ${city} street life in background, inviting signage`,
-      cameraStyle: "slow push-in",
+      visualPrompt: `Stunning golden-hour exterior of ${name} storefront. Warm amber light glows through clean windows, neon "OPEN" sign visible. ${city} street life bustling softly in background. Inviting signage prominent. Shot feels like discovering a hidden gem.`,
+      cameraStyle: "slow push-in towards subject, cinematic depth",
       textOverlay: name,
-      voiceLine: `Looking for the best ${cat} in ${cityLabel}? Look no further.`,
+      voiceLine: `Looking for the best ${cat} in ${city}? Look no further.`,
       beatId: "hook",
       priorityShot: "environment",
     },
-    // PROBLEM / DESIRE
+    // ── PROBLEM / DESIRE (1 scene) ──
     {
-      visualPrompt: `Close-up of a person looking delighted as they discover ${name}, genuine smile, shallow depth of field, natural warm light`,
-      cameraStyle: "handheld natural movement",
+      visualPrompt: `Close-up of a real person's face lighting up with delight as they experience ${name} for the first time. Genuine warm smile, shallow depth of field, natural soft window light. Authentic candid moment of discovery and satisfaction.`,
+      cameraStyle: "handheld natural movement, intimate documentary feel",
       textOverlay: `The ${cat} You Deserve`,
       voiceLine: `You deserve a ${cat} experience that actually delivers — quality you can see, taste, and feel.`,
       beatId: "problem",
       priorityShot: "people",
     },
-    // POSITIONING (1-2 scenes)
+    // ── POSITIONING (2 scenes) ──
     {
-      visualPrompt: `Owner or team member at ${name} greeting customers with confidence, ${tone} atmosphere, warm interior lighting, authentic candid moment`,
-      cameraStyle: "steadicam walk-through",
+      visualPrompt: `The owner or lead team member at ${name} warmly greeting customers at the entrance. ${tone} atmosphere, polished interior visible behind them. Authentic leadership moment, confident body language, warm interior lighting.`,
+      cameraStyle: "steadicam walk-through following a person",
       textOverlay: `Welcome to ${name}`,
-      voiceLine: `Welcome to ${name}. We've been proudly serving ${cityLabel} with passion and dedication.`,
+      voiceLine: `Welcome to ${name}. We've been proudly serving ${city} with passion and dedication.`,
       beatId: "positioning",
       priorityShot: "people",
     },
     {
-      visualPrompt: `Behind-the-scenes craftsmanship at ${name}, hands working with care, detail-oriented process shot, cinematic shallow focus`,
-      cameraStyle: "dolly-in close-up",
+      visualPrompt: `Behind-the-scenes craftsmanship at ${name}. Skilled hands working with care and precision. Detail-oriented process shot showing real expertise. Cinematic shallow focus with bokeh background. Steam, texture, or motion adding life.`,
+      cameraStyle: "dolly-in extreme close-up with shallow depth of field",
       textOverlay: "Crafted with Care",
       voiceLine: `Every detail is crafted with care, because your experience matters most to us.`,
       beatId: "positioning",
       priorityShot: "action",
     },
-    // PROOF / SPECIFICS (2-3 scenes)
+    // ── PROOF / SPECIFICS (3 scenes) ──
     {
-      visualPrompt: `Hero product shot of ${name}'s signature ${svc.split(",")[0]?.trim() || "offering"}, dramatic lighting, vibrant colors, magazine-quality close-up`,
-      cameraStyle: "slow pan right",
-      textOverlay: svc.split(",")[0]?.trim() || "Our Best",
+      visualPrompt: `Magazine-quality hero shot of ${name}'s signature ${primarySvc}. Dramatic rim lighting, rich vibrant colors, steam or sparkle adding texture. Product fills 70% of frame. Background softly blurred. Appetizing, aspirational, premium.`,
+      cameraStyle: "slow pan right across the scene, golden hour lighting",
+      textOverlay: primarySvc,
       voiceLine: `From ${svc}, we bring you only the best.`,
       beatId: "proof",
       priorityShot: "product_closeup",
     },
     {
-      visualPrompt: `Happy ${audience} enjoying their experience at ${name}, group of friends or family, laughter, natural candid photography style`,
-      cameraStyle: "lateral tracking shot",
+      visualPrompt: `Group of happy ${audience} enjoying their experience at ${name}. Friends or family laughing together. Natural candid moment, warm ambient light. Diverse group, genuine expressions of joy. Lifestyle photography feel.`,
+      cameraStyle: "lateral tracking shot, smooth dolly movement left to right",
       textOverlay: "Happy Customers",
       voiceLine: `Our ${audience} love what we do — and their smiles say it all.`,
       beatId: "proof",
       priorityShot: "people",
     },
     {
-      visualPrompt: `Montage-style detail shots of ${name}'s various offerings, quick-cut between ${svc}, vibrant saturated colors, dynamic angles`,
-      cameraStyle: "rack focus transition",
+      visualPrompt: `Quick montage-style collage of ${name}'s various offerings. Multiple products/services shown in dynamic composition. Vibrant saturated colors, varied angles (top-down, 45-degree, side). Each item beautifully lit and styled.`,
+      cameraStyle: "rack focus transition from foreground to background",
       textOverlay: "Something for Everyone",
-      voiceLine: `Whether it's ${svc.split(",").slice(0, 2).join(" or ").trim()}, there's something for everyone.`,
+      voiceLine: `Whether it's ${secondarySvc}, there's something for everyone.`,
       beatId: "proof",
       priorityShot: "product_closeup",
     },
-    // OFFER + CTA
+    // ── OFFER + CTA (1 scene) ──
     {
-      visualPrompt: `Inviting wide shot of ${name}'s interior or service area, ${tone} atmosphere, warm lighting, seats or counter ready for customers`,
-      cameraStyle: "overhead crane shot",
+      visualPrompt: `Inviting wide shot of ${name}'s interior or main service area. ${tone} atmosphere with warm pendant lighting. Clean, welcoming space ready for customers. Table settings or display areas perfectly arranged. A sense of anticipation.`,
+      cameraStyle: "overhead crane shot looking down at 45-degree angle",
       textOverlay: "Visit Us Today!",
       voiceLine: `Come visit ${name} today and experience the difference for yourself.`,
       beatId: "offer",
       priorityShot: "environment",
     },
-    // SIGN-OFF (1-2 scenes)
+    // ── SIGNOFF (2 scenes) ──
     {
-      visualPrompt: `${name} logo or storefront signage with beautiful bokeh background, elegant branding moment, golden hour, ${city}`,
-      cameraStyle: "slow pull-back reveal",
-      textOverlay: `${name} — ${cityLabel}`,
-      voiceLine: `${name}. Your go-to ${cat} in ${cityLabel}. See you soon!`,
+      visualPrompt: `${name} logo or storefront signage. Beautiful bokeh circles of warm light in background. Elegant branding moment at golden hour. Clean, recognizable, memorable. The sign glows with pride.`,
+      cameraStyle: "slow pull-back reveal, widening from detail to full scene",
+      textOverlay: `${name} — ${city}`,
+      voiceLine: `${name}. Your go-to ${cat} in ${city}. See you soon!`,
       beatId: "signoff",
       priorityShot: "branding",
     },
     {
-      visualPrompt: `Final beauty shot — exterior of ${name} at twilight, lights glowing warmly, the street alive with energy, cinematic wide lens`,
-      cameraStyle: "slow pull-back reveal",
+      visualPrompt: `Final beauty shot: exterior of ${name} at twilight. Warm lights glowing from within, the street alive with soft energy. Cinematic ultra-wide lens with slight lens flare. Feeling of a place you want to return to.`,
+      cameraStyle: "slow pull-back reveal, widening from detail to full scene",
       textOverlay: name,
       voiceLine: `${name} — where every visit is worth it.`,
       beatId: "signoff",
@@ -317,13 +306,12 @@ export function buildScenePlan(
     },
   ];
 
-  // Take exactly sceneCount scenes, cycling if needed
+  // Select exactly sceneCount scenes
   const selected = allScenes.slice(0, sceneCount);
   while (selected.length < sceneCount) {
     selected.push(allScenes[selected.length % allScenes.length]);
   }
 
-  // Assign IDs and timestamps
   return selected.map((s, i) => ({
     ...s,
     sceneId: i + 1,
@@ -334,9 +322,9 @@ export function buildScenePlan(
   }));
 }
 
-/**
- * Builds the AI prompt for script generation, enforcing the marketing beats.
- */
+// ═══════════════════════════════════════════════════════════════════════
+// AI SCRIPT PROMPT BUILDER — enforces six-beat marketing structure
+// ═══════════════════════════════════════════════════════════════════════
 export function buildAIScriptPrompt(
   business: BusinessProfile,
   preset: ProductionPreset,
@@ -366,9 +354,9 @@ Return JSON with:
     {
       "scene_number": 1,
       "duration_seconds": ${preset.clipDuration},
-      "visual_description": "vivid scene description with setting, people, camera movement, mood, lighting",
-      "text_overlay": "short phrase for on-screen text",
-      "camera_direction": "camera style e.g. slow push-in, lateral tracking",
+      "visual_description": "VERY vivid scene description: setting, people, camera movement, mood, lighting, textures, colors. Be specific enough that Runway can generate a compelling video clip.",
+      "text_overlay": "short phrase for on-screen text (3-5 words max)",
+      "camera_direction": "specific camera style e.g. slow push-in, lateral tracking, overhead crane",
       "voiceover_line": "exact narration line for this scene",
       "beat_id": "hook|problem|positioning|proof|offer|signoff",
       "priority_shot": "product_closeup|people|environment|action|branding"
@@ -385,4 +373,42 @@ Return JSON with:
 
 Generate exactly ${preset.sceneCount} scenes. Each scene is ${preset.clipDuration} seconds.
 Every scene MUST have a voiceover_line. The scene_captions array must match voiceover_line from each scene.`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PRE-FLIGHT COST ESTIMATE — show user before burning credits
+// ═══════════════════════════════════════════════════════════════════════
+export interface PreflightEstimate {
+  presetName: string;
+  sceneCount: number;
+  clipDuration: number;
+  totalDuration: number;
+  estimatedRunwayCredits: number;
+  hasRunwayKey: boolean;
+  hasElevenLabsKey: boolean;
+  scenes: VisualScene[];
+  voiceoverScript: string;
+}
+
+export function buildPreflightEstimate(
+  business: BusinessProfile,
+  presetName: string,
+  hasRunwayKey: boolean,
+  hasElevenLabsKey: boolean,
+): PreflightEstimate {
+  const preset = PRODUCTION_PRESETS[presetName] || PRODUCTION_PRESETS.standard;
+  const scenes = buildScenePlan(business, preset.sceneCount, preset.clipDuration);
+  const voiceoverScript = buildFullVoiceoverScript(scenes);
+
+  return {
+    presetName,
+    sceneCount: preset.sceneCount,
+    clipDuration: preset.clipDuration,
+    totalDuration: preset.sceneCount * preset.clipDuration,
+    estimatedRunwayCredits: hasRunwayKey ? preset.estimatedCredits : 0,
+    hasRunwayKey,
+    hasElevenLabsKey,
+    scenes,
+    voiceoverScript,
+  };
 }
