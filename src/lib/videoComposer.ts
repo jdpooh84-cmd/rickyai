@@ -4,6 +4,57 @@
  * Supports both image slideshows (Ken Burns) and Runway clip stitching.
  */
 
+/** Draw a styled on-screen caption/subtitle at the bottom of the canvas */
+function drawCaption(ctx: CanvasRenderingContext2D, text: string, width: number, height: number) {
+  if (!text) return;
+  const fontSize = Math.round(width * 0.038);
+  const padding = Math.round(width * 0.04);
+  const maxWidth = width - padding * 2;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+
+  // Word-wrap
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  const lineHeight = fontSize * 1.4;
+  const blockHeight = lines.length * lineHeight + padding;
+  const yStart = height - blockHeight - Math.round(height * 0.12);
+
+  // Semi-transparent background
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  const bgPad = Math.round(padding * 0.6);
+  ctx.beginPath();
+  const rx = Math.round(width * 0.02);
+  const bgX = padding - bgPad;
+  const bgY = yStart - bgPad;
+  const bgW = maxWidth + bgPad * 2;
+  const bgH = blockHeight + bgPad;
+  ctx.roundRect(bgX, bgY, bgW, bgH, rx);
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 4;
+  for (let l = 0; l < lines.length; l++) {
+    ctx.fillText(lines[l], width / 2, yStart + l * lineHeight + fontSize);
+  }
+  ctx.shadowBlur = 0;
+}
+
 interface ComposeOptions {
   sceneImages: string[];
   videoClips?: string[];
