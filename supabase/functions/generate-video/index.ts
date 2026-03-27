@@ -1052,6 +1052,10 @@ Deno.serve(async (req) => {
       script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
       script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
 
+      // Build cinematic visual script for script_only mode too
+      const manusVisualScript = buildManusVisualScript(script, business, preset, "preview");
+      script.manus_visual_script = manusVisualScript;
+
       return new Response(JSON.stringify({
         success: true,
         script,
