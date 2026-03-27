@@ -79,6 +79,7 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
     durationPerScene = 4,
     totalDurationSeconds,
     width = 1080,
+    height = 1920,
     onProgress,
   } = options;
 
