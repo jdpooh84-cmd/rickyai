@@ -8,6 +8,85 @@ const corsHeaders = {
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_MODEL = "google/gemini-2.5-flash";
 
+// ═══ Template-based rewrite — works with zero AI credits ═══
+const HOOK_VARIANTS = [
+  (name: string, cat: string, city: string) => `Discover why ${city} locals love ${name}.`,
+  (name: string, cat: string, city: string) => `Ready for the best ${cat} experience? Meet ${name}.`,
+  (name: string, cat: string, city: string) => `${name} — where ${city} comes for amazing ${cat}.`,
+  (name: string, cat: string, city: string) => `Your search for great ${cat} in ${city} ends here.`,
+  (name: string, cat: string, city: string) => `${city}'s favorite ${cat} spot? That's ${name}.`,
+  (name: string, cat: string, city: string) => `Step inside ${name} and see what makes us special.`,
+];
+
+const CTA_VARIANTS = [
+  (name: string) => `Visit ${name} today — you won't regret it!`,
+  (name: string) => `Come see us at ${name}. We can't wait to serve you!`,
+  (name: string) => `Follow us and discover more from ${name}.`,
+  (name: string) => `${name} — your next favorite experience is waiting.`,
+  (name: string) => `Book your visit to ${name} now!`,
+];
+
+function templateRewrite(originalScript: any, biz: any, loc: any): any {
+  const name = biz.business_name || "Our Business";
+  const cat = biz.business_category || "business";
+  const city = loc?.city || "your area";
+  const scenes = originalScript?.scenes || [];
+  
+  if (scenes.length === 0) {
+    return { ...originalScript, title: `${name} — Fresh Promo`, usedFallbackScript: true };
+  }
+
+  // Pick random variants different from current text
+  const hookIdx = Math.floor(Math.random() * HOOK_VARIANTS.length);
+  const ctaIdx = Math.floor(Math.random() * CTA_VARIANTS.length);
+
+  const rewrittenScenes = scenes.map((scene: any, i: number) => {
+    const isFirst = i === 0;
+    const isLast = i === scenes.length - 1;
+    
+    let newVoiceover = scene.voiceover_line || "";
+    let newOverlay = scene.text_overlay || "";
+    
+    if (isFirst) {
+      newVoiceover = HOOK_VARIANTS[hookIdx](name, cat, city);
+      newOverlay = name;
+    } else if (isLast) {
+      newVoiceover = CTA_VARIANTS[ctaIdx](name);
+      newOverlay = `Visit ${name}!`;
+    } else {
+      // Middle scenes: rephrase by swapping sentence structure
+      const phrases = [
+        `We take pride in our ${scene.shotType || "craft"}.`,
+        `Quality ${scene.shotType || "service"} is what sets ${name} apart.`,
+        `Experience the ${name} difference — ${scene.shotType || "excellence"} in every detail.`,
+        `At ${name}, every ${scene.shotType || "moment"} is crafted with care.`,
+        `This is what makes ${name} a ${city} favorite.`,
+      ];
+      newVoiceover = phrases[i % phrases.length];
+      if (scene.text_overlay) {
+        newOverlay = scene.text_overlay.split(" ").reverse().join(" ") !== scene.text_overlay
+          ? scene.text_overlay
+          : `${name} — ${scene.shotType || "Quality"}`;
+      }
+    }
+
+    return {
+      ...scene,
+      voiceover_line: newVoiceover,
+      text_overlay: newOverlay,
+    };
+  });
+
+  const fullVoiceover = rewrittenScenes.map((s: any) => s.voiceover_line).join(" ");
+
+  return {
+    title: `${name} — ${cat.charAt(0).toUpperCase() + cat.slice(1)} Promo`,
+    scenes: rewrittenScenes,
+    voiceover_script: fullVoiceover,
+    usedFallbackScript: true,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -112,57 +191,61 @@ Length mode: ${lengthMode || "standard"}`;
 
     let rewrittenScript: any = null;
 
-    if (providerUsed === "anthropic") {
-      // Anthropic Messages API
-      const resp = await fetch(aiUrl, {
-        method: "POST",
-        headers: aiHeaders,
-        body: JSON.stringify({
-          model: aiModel,
-          max_tokens: 2000,
-          system: systemPrompt,
-          messages: [{ role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` }],
-        }),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error("Anthropic error:", resp.status, errText);
-        throw new Error(`Anthropic API error: ${resp.status}`);
-      }
-      const data = await resp.json();
-      const text = data.content?.[0]?.text || "";
-      rewrittenScript = JSON.parse(text);
-    } else {
-      // OpenAI-compatible (OpenAI or Lovable AI)
-      const resp = await fetch(aiUrl, {
-        method: "POST",
-        headers: aiHeaders,
-        body: JSON.stringify({
-          model: aiModel,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` },
-          ],
-          temperature: 0.9,
-        }),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error("AI error:", resp.status, errText);
-        if (resp.status === 402) {
-          throw new Error("AI credits exhausted. Connect your own ChatGPT or Claude key in Settings to continue rewriting.");
+    // ── Try AI rewrite, fall back to template-based rewrite if credits exhausted ──
+    try {
+      if (providerUsed === "anthropic") {
+        const resp = await fetch(aiUrl, {
+          method: "POST",
+          headers: aiHeaders,
+          body: JSON.stringify({
+            model: aiModel,
+            max_tokens: 2000,
+            system: systemPrompt,
+            messages: [{ role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` }],
+          }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error("Anthropic error:", resp.status, errText);
+          throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
         }
-        throw new Error(`AI service error: ${resp.status}`);
+        const data = await resp.json();
+        const text = data.content?.[0]?.text || "";
+        rewrittenScript = JSON.parse(text);
+      } else {
+        const resp = await fetch(aiUrl, {
+          method: "POST",
+          headers: aiHeaders,
+          body: JSON.stringify({
+            model: aiModel,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` },
+            ],
+            temperature: 0.9,
+          }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error("AI error:", resp.status, errText);
+          throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
+        }
+        const data = await resp.json();
+        const raw = data.choices?.[0]?.message?.content || "";
+        const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        rewrittenScript = JSON.parse(cleaned);
       }
-      const data = await resp.json();
-      const raw = data.choices?.[0]?.message?.content || "";
-      // Strip markdown fences if present
-      const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
-      rewrittenScript = JSON.parse(cleaned);
+    } catch (aiErr: any) {
+      console.log("AI rewrite failed, using template fallback:", aiErr.message);
+      // Template-based rewrite — no AI needed
+      rewrittenScript = templateRewrite(currentScript, biz, loc);
+      providerUsed = "template_fallback";
     }
 
     if (!rewrittenScript?.scenes?.length) {
-      throw new Error("AI returned invalid script structure");
+      // Last resort: return shuffled original
+      rewrittenScript = templateRewrite(currentScript, biz, loc);
+      providerUsed = "template_fallback";
     }
 
     return new Response(JSON.stringify({ script: rewrittenScript, providerUsed }), {
