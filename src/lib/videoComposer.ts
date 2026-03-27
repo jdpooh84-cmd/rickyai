@@ -107,6 +107,7 @@ async function stitchVideoClips(
   const stream = canvas.captureStream(30);
 
   // Add voiceover audio track if available
+  let ttsUtteranceQueue: string[] = [];
   if (voiceoverUrl) {
     try {
       const audioEl = new Audio(voiceoverUrl);
@@ -124,6 +125,23 @@ async function stitchVideoClips(
       audioEl.play().catch(() => {});
     } catch {
       console.warn("Could not add voiceover audio");
+    }
+  } else if (sceneCaptions && sceneCaptions.length > 0 && typeof window !== "undefined" && "speechSynthesis" in window) {
+    // Browser TTS fallback — queue captions for speech during playback
+    ttsUtteranceQueue = [...sceneCaptions];
+    try {
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      // Create an oscillator at zero volume just to get an audio track on the stream
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(dest);
+      osc.start();
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch {
+      // silent fallback
     }
   }
 
