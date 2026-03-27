@@ -479,7 +479,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const { data: userKeys } = await supabase.from("user_api_keys").select("provider, api_key_encrypted").eq("user_id", userId);
     const keyMap: Record<string, string> = {};
     userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
-    const elevenlabsKey = keyMap["elevenlabs"];
+    const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
     const userRunwayKey = keyMap["runway"] || runwayKey;
 
     const preset = buildPreset(lengthMode, orientation);
