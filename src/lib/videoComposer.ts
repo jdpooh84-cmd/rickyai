@@ -11,6 +11,7 @@ interface ComposeOptions {
   businessName: string;
   title?: string;
   captionText?: string;
+  sceneCaptions?: string[];
   durationPerScene?: number;
   width?: number;
   height?: number;
@@ -24,6 +25,7 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
     voiceoverUrl,
     businessName,
     title,
+    sceneCaptions,
     durationPerScene = 4,
     width = 1080,
     height = 1920,
@@ -32,11 +34,11 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
 
   // If we have Runway clips, stitch them together
   if (videoClips && videoClips.length > 0) {
-    return stitchVideoClips(videoClips, voiceoverUrl, businessName, width, height, onProgress);
+    return stitchVideoClips(videoClips, voiceoverUrl, businessName, sceneCaptions, width, height, onProgress);
   }
 
   // Otherwise fall back to image slideshow
-  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, durationPerScene, width, height, onProgress);
+  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, sceneCaptions, durationPerScene, width, height, onProgress);
 }
 
 async function stitchVideoClips(
