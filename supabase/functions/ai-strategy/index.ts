@@ -472,6 +472,69 @@ ${businessContext}`
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
+      // For step 8 (Video Studio), fall back to template when AI credits are exhausted
+      if (aiResponse.status === 402 && step === 8) {
+        console.log("[ai-strategy] AI credits exhausted for step 8, using template fallback");
+        const bName = business.business_name || "Your Business";
+        const bCategory = business.business_category || "business";
+        const bCity = location?.city || "your city";
+        const bServices = business.services || "our products and services";
+        const fallbackOutput = {
+          video_strategy: `Template-based video strategy for ${bName}. AI credits were temporarily unavailable, so this is a starter plan you can refine.`,
+          video_ideas: [
+            {
+              title: `${bName} — Your Local ${bCategory} Promo`,
+              type: "promo",
+              difficulty: "easy",
+              equipment: ["Smartphone", "Tripod", "Good lighting"],
+              estimated_views: "500-2000",
+              script_outline: `Opening: 'Looking for the best ${bCategory} in ${bCity}?' Show the business exterior and interior. Highlight ${bServices}. Close with: 'Visit ${bName} today!' Call to action: website or phone number.`,
+              heygen_prompt: `Create a 60-second promotional video for ${bName}, a ${bCategory} in ${bCity}. Show enthusiasm about ${bServices}. End with a call to action to visit.`,
+              invideo_prompt: `Create a 1-minute promo for ${bName} in ${bCity}. Highlight: ${bServices}. Use upbeat music, text overlays, and end with contact info.`,
+              canva_prompt: `Design a 60-second promo video for ${bName}. Use a business promo template. Overlay text about ${bServices}. Add logo and contact info at the end.`,
+              capcut_prompt: `Project: ${bName} Promo. Import footage of the business. Add upbeat music, text overlays for ${bServices}, and end screen with contact info.`,
+              free_production_guide: {
+                tool: "Phone Camera + CapCut (Free)",
+                step_by_step: [
+                  "Step 1: Film exterior and interior shots of your business",
+                  "Step 2: Capture close-ups of your best products/services",
+                  "Step 3: Record a 30-second introduction as the owner",
+                  "Step 4: Import into CapCut, trim clips, add text overlays",
+                  "Step 5: Add royalty-free music and export at 1080p"
+                ],
+                tips: "Use natural lighting, keep clips under 5 seconds each, smile and be authentic"
+              }
+            }
+          ],
+          equipment_recommendations: [
+            { item: "Smartphone with good camera", price_range: "Already owned", priority: "essential" },
+            { item: "Mini tripod", price_range: "$15-30", priority: "essential" },
+            { item: "Ring light", price_range: "$20-50", priority: "nice-to-have" }
+          ],
+          filming_tips: [
+            "Film during golden hour for the best natural lighting",
+            "Keep your phone horizontal for YouTube, vertical for TikTok/Reels",
+            "Always clean your camera lens before filming"
+          ],
+          editing_workflow: "Import clips → Trim to best moments → Add text overlays → Add music → Export",
+          _fallback: true,
+          _fallback_reason: "AI credits temporarily unavailable. This is a template plan — retry later for a fully customized strategy."
+        };
+        // Save fallback and return
+        await supabase.from("strategy_outputs").upsert({
+          user_id: user.id, business_id: businessId, location_id: locationId || null,
+          step_number: step, step_name: "Video Studio", output_data: fallbackOutput,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,business_id,step_number", ignoreDuplicates: false }).then(async ({ error: ue }) => {
+          if (ue) await supabase.from("strategy_outputs").insert({
+            user_id: user.id, business_id: businessId, location_id: locationId || null,
+            step_number: step, step_name: "Video Studio", output_data: fallbackOutput,
+          });
+        });
+        return new Response(JSON.stringify(fallbackOutput), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const friendlyMessage = aiResponse.status === 402
         ? "AI credits are unavailable right now. Your step and business selections were preserved, so you can retry without restarting."
         : `AI error: ${aiResponse.status} ${errText}`;
