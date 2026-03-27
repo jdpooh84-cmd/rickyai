@@ -3,7 +3,7 @@ import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image } from "lucide-react";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
@@ -16,6 +16,7 @@ interface Props { businessId: string | null; locationId: string | null; onComple
 type LengthMode = "short" | "standard" | "long";
 
 const STATE_KEY = "rickyai-video-studio-state";
+const MAX_REWRITES = 3;
 
 const LENGTH_OPTIONS: { key: LengthMode; label: string; duration: string; emoji: string; desc: string }[] = [
   { key: "short", label: "Short", duration: "~30s", emoji: "⚡", desc: "Quick social clips for TikTok, Reels, Shorts" },
@@ -24,7 +25,12 @@ const LENGTH_OPTIONS: { key: LengthMode; label: string; duration: string; emoji:
 ];
 
 const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
-  const persisted = readLocalStorage(STATE_KEY, { lengthMode: "standard" as LengthMode, generatedVideoScript: null as any });
+  const persisted = readLocalStorage(STATE_KEY, {
+    lengthMode: "standard" as LengthMode,
+    generatedVideoScript: null as any,
+    approvedScript: null as any,
+    scriptApproved: false,
+  });
   const [lengthMode, setLengthMode] = useState<LengthMode>(persisted.lengthMode);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persisted.generatedVideoScript);
@@ -36,10 +42,19 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const composedRef = useRef(false);
 
+  // Script approval state
+  const [pendingScript, setPendingScript] = useState<any>(persisted.approvedScript && persisted.scriptApproved ? null : null);
+  const [approvedScript, setApprovedScript] = useState<any>(persisted.approvedScript);
+  const [scriptApproved, setScriptApproved] = useState(persisted.scriptApproved);
+  const [generatingScript, setGeneratingScript] = useState(false);
+  const [rewriteCount, setRewriteCount] = useState(0);
+  const [scriptVersions, setScriptVersions] = useState<any[]>([]);
+  const scriptPanelRef = useRef<HTMLDivElement>(null);
+
   // Persist state
   useEffect(() => {
-    writeLocalStorage(STATE_KEY, { lengthMode, generatedVideoScript });
-  }, [lengthMode, generatedVideoScript]);
+    writeLocalStorage(STATE_KEY, { lengthMode, generatedVideoScript, approvedScript, scriptApproved });
+  }, [lengthMode, generatedVideoScript, approvedScript, scriptApproved]);
 
   // ── Poll active video generation job ──
   useEffect(() => {
@@ -119,9 +134,59 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     return () => clearInterval(interval);
   }, [activeJobId]);
 
+  // ── Generate script for approval ──
+  const handleGenerateScript = async () => {
+    if (!businessId) {
+      toast.error("Please set up your business profile first.");
+      return;
+    }
+    setGeneratingScript(true);
+    try {
+      const response = await supabase.functions.invoke("generate-video", {
+        body: { businessId, videoType: "promotional", lengthMode, mode: "script_only" },
+      });
+      if (response.error) throw new Error(response.error.message);
+      const script = response.data?.script;
+      if (!script) throw new Error("No script returned");
+
+      setPendingScript(script);
+      setScriptApproved(false);
+      setApprovedScript(null);
+      setScriptVersions(prev => [...prev, { script, timestamp: new Date().toISOString(), version: prev.length + 1 }]);
+      toast.success("Script ready for your review! 📝");
+    } catch (err: any) {
+      console.error("[VideoStudio] Script generation failed:", err);
+      toast.error(err.message || "Failed to generate script");
+    } finally {
+      setGeneratingScript(false);
+    }
+  };
+
+  const handleApproveScript = () => {
+    if (!pendingScript) return;
+    setApprovedScript(pendingScript);
+    setScriptApproved(true);
+    setPendingScript(null);
+    toast.success("Script approved! You can now produce your video. ✅");
+  };
+
+  const handleRewriteScript = async () => {
+    if (rewriteCount >= MAX_REWRITES) {
+      toast.error(`You've used all ${MAX_REWRITES} rewrites. Please edit the script manually or approve the current version.`);
+      return;
+    }
+    setRewriteCount(prev => prev + 1);
+    await handleGenerateScript();
+  };
+
   const handleProduceVideo = async () => {
     if (!businessId) {
       toast.error("Please set up your business profile first.");
+      return;
+    }
+    if (!scriptApproved || !approvedScript) {
+      toast.error("Please approve your script before we create the video.");
+      scriptPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setGeneratingVideo(true);
@@ -132,12 +197,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setGeneratedVideoScript(null);
     try {
       const response = await supabase.functions.invoke("generate-video", {
-        body: { businessId, videoType: "promotional", lengthMode },
+        body: { businessId, videoType: "promotional", lengthMode, approvedScript },
       });
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
         setActiveJobId(response.data.job_id);
-        toast.info("🎬 Video production started!");
+        toast.info("🎬 Video production started with your approved script!");
       } else {
         throw new Error("No job ID returned");
       }
@@ -154,6 +219,11 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setActiveJobId(null);
     setJobStatus("queued");
     composedRef.current = false;
+    setPendingScript(null);
+    setApprovedScript(null);
+    setScriptApproved(false);
+    setRewriteCount(0);
+    setScriptVersions([]);
     removeLocalStorage(STATE_KEY);
   };
 
@@ -191,20 +261,23 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     link.click();
   };
 
+  // The script to display in review panel
+  const reviewScript = pendingScript || (scriptApproved ? null : null);
+
   return (
     <StepLayout title="Video Studio" description="Produce a professional video for your business"
       icon="🎬" loading={false} hasData={!!finalVideoUrl || !!generatedVideoScript} onGenerate={() => {}} needsProfile={!businessId}
       hideGenerateButton>
 
-      {/* ═══ STEP 1: Length Selector ═══ */}
       <div className="space-y-6">
+        {/* ═══ STEP 1: Length Selector ═══ */}
         <div className="glass rounded-2xl p-6">
           <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" /> Choose Video Length
           </h4>
           <div className="grid grid-cols-3 gap-3">
             {LENGTH_OPTIONS.map(opt => (
-              <button key={opt.key} onClick={() => setLengthMode(opt.key)}
+              <button key={opt.key} onClick={() => { setLengthMode(opt.key); if (scriptApproved) { setScriptApproved(false); setApprovedScript(null); setPendingScript(null); } }}
                 className={`rounded-2xl p-4 text-center transition-all border ${
                   lengthMode === opt.key
                     ? "border-primary bg-primary/5 ring-2 ring-primary"
@@ -219,7 +292,110 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           </div>
         </div>
 
-        {/* ═══ PRODUCE BUTTON ═══ */}
+        {/* ═══ STEP 2: Generate & Review Script ═══ */}
+        <div ref={scriptPanelRef} className="glass rounded-2xl p-6">
+          <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" /> Review Your Script
+          </h4>
+
+          {/* Script approved badge */}
+          {scriptApproved && approvedScript && !pendingScript && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-primary/10 border border-primary/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold text-primary">Script Approved ✅</span>
+                </div>
+                <p className="text-xs font-semibold text-foreground mb-2">{approvedScript.title}</p>
+                <div className="space-y-2">
+                  {approvedScript.scenes?.map((scene: any, i: number) => (
+                    <div key={i} className="flex gap-2 text-[11px]">
+                      <span className="text-primary font-bold shrink-0">Scene {i + 1}</span>
+                      <span className="text-foreground/80">{scene.voiceover_line || scene.text_overlay}</span>
+                    </div>
+                  ))}
+                </div>
+                {approvedScript.usedFallbackScript && (
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">ℹ️ Script built from your saved strategy data (AI credits were low).</p>
+                )}
+              </div>
+              <button onClick={() => { setScriptApproved(false); setApprovedScript(null); setPendingScript(null); setRewriteCount(0); }}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline">
+                Start over with a new script
+              </button>
+            </div>
+          )}
+
+          {/* Pending script for review */}
+          {pendingScript && !scriptApproved && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-secondary/30 border border-border">
+                <p className="text-xs font-semibold text-foreground mb-3">{pendingScript.title}</p>
+                <div className="space-y-3">
+                  {pendingScript.scenes?.map((scene: any, i: number) => (
+                    <div key={i} className="p-3 rounded-lg bg-background/50 border border-border/50">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-primary">Scene {i + 1} — {scene.shotType || "general"}</span>
+                        <span className="text-[10px] text-muted-foreground">{scene.duration_seconds}s</span>
+                      </div>
+                      <p className="text-xs text-foreground/90 mb-1">{scene.voiceover_line}</p>
+                      {scene.text_overlay && (
+                        <p className="text-[10px] text-muted-foreground italic">On-screen: "{scene.text_overlay}"</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {pendingScript.voiceover_script && (
+                  <div className="mt-3 p-2 rounded-lg bg-secondary/50">
+                    <p className="text-[10px] font-semibold text-muted-foreground mb-1">Full voiceover:</p>
+                    <p className="text-[11px] text-foreground/80">{pendingScript.voiceover_script}</p>
+                    <CopyButton text={pendingScript.voiceover_script} id="pending-vo" />
+                  </div>
+                )}
+                {pendingScript.usedFallbackScript && (
+                  <p className="text-[10px] text-muted-foreground mt-2 italic">ℹ️ Script built from your saved strategy data (AI credits were low).</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={handleApproveScript}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 flex items-center justify-center gap-2">
+                  <ThumbsUp className="w-4 h-4" /> Yes, use this script
+                </button>
+                <button onClick={handleRewriteScript} disabled={generatingScript || rewriteCount >= MAX_REWRITES}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-secondary text-foreground text-sm font-semibold hover:bg-secondary/80 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {generatingScript ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
+                  No, rewrite it
+                </button>
+              </div>
+
+              <p className="text-[10px] text-muted-foreground text-center">
+                {rewriteCount >= MAX_REWRITES
+                  ? "You've used all rewrites. Approve or tweak manually."
+                  : `You can ask for up to ${MAX_REWRITES - rewriteCount} more rewrite${MAX_REWRITES - rewriteCount !== 1 ? "s" : ""}.`}
+              </p>
+            </div>
+          )}
+
+          {/* No script yet — generate button */}
+          {!pendingScript && !scriptApproved && (
+            <div className="text-center py-4">
+              <p className="text-xs text-muted-foreground mb-4">
+                Generate your promo script first. You'll review and approve it before any video is produced.
+              </p>
+              <button onClick={handleGenerateScript} disabled={generatingScript || !businessId}
+                className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2 mx-auto">
+                {generatingScript ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Generating Script...</>
+                ) : (
+                  <><FileText className="w-4 h-4" /> Generate Script</>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ═══ STEP 3: PRODUCE BUTTON (gated by script approval) ═══ */}
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -227,10 +403,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <Film className="w-4 h-4 text-primary" /> Produce Video
               </h4>
               <p className="text-[10px] text-muted-foreground">
-                One click — script, photos, Runway rendering, and final assembly.
+                {scriptApproved
+                  ? "Your script is approved — click to start production."
+                  : "Please generate and approve a script first (Step 2 above)."}
               </p>
             </div>
-            <button onClick={handleProduceVideo} disabled={generatingVideo || composingVideo || !businessId}
+            <button onClick={handleProduceVideo} disabled={generatingVideo || composingVideo || !businessId || !scriptApproved}
               className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
               {generatingVideo || composingVideo ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Producing...</>
@@ -239,6 +417,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               )}
             </button>
           </div>
+
+          {!scriptApproved && !generatingVideo && (
+            <div className="mt-3 p-2 rounded-lg bg-accent/10 border border-accent/20">
+              <p className="text-[10px] text-accent-foreground">📝 Please approve your script above before producing the video.</p>
+            </div>
+          )}
 
           {/* ═══ LIVE PROGRESS ═══ */}
           {generatingVideo && (
@@ -253,7 +437,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               </div>
 
-              {/* Pipeline step indicators */}
               {generatedVideoScript?.pipeline_steps && (
                 <div className="grid grid-cols-4 gap-2">
                   {Object.entries(generatedVideoScript.pipeline_steps).map(([step, status]: [string, any]) => {
@@ -277,7 +460,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               )}
 
-              {/* Scene images preview */}
               {generatedVideoScript?.scene_images?.length > 0 && (
                 <div className="p-3 rounded-xl bg-secondary/30">
                   <p className="text-[10px] font-semibold text-foreground mb-2">🖼️ Scene photos ({generatedVideoScript.scene_images.length})</p>
@@ -289,7 +471,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               )}
 
-              {/* Clip rendering progress */}
               {generatedVideoScript?.total_clips && (
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -302,7 +483,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             </div>
           )}
 
-          {/* Composing overlay */}
           {composingVideo && (
             <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
