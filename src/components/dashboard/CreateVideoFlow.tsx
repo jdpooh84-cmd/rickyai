@@ -71,6 +71,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
                 title: (data.result_payload as any)?.title || businessName,
                 sceneCaptions: (data.result_payload as any)?.scene_captions || [],
                 durationPerScene: 4,
+                totalDurationSeconds: (data.result_payload as any)?.total_duration_seconds,
                 width: 1080,
                 height: 1920,
                 onProgress: setComposePct,

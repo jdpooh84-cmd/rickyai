@@ -188,6 +188,9 @@ async function renderRunwayClip(imageUrl: string, promptText: string, key: strin
   if (!res.ok) {
     const errText = await res.text();
     console.error(`[pipeline] Runway create error [${res.status}]:`, errText);
+    if (errText.toLowerCase().includes("enough credits")) {
+      throw new Error("RUNWAY_CREDITS_EXHAUSTED");
+    }
     return null;
   }
   const task = await res.json();
@@ -435,25 +438,31 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Found ${existingRealImages.length} existing real images to reuse if needed`);
 
     for (let i = 0; i < script.scenes.length; i++) {
-      try {
-        const result = await getSceneImage(supabase, userId, jobId, i, script.scenes[i], business, lovableKey, imageCreditsExhausted);
-        sceneImageUrls.push(result.url);
-        sceneImageIsReal.push(result.isReal);
-      } catch (e: any) {
-        if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
-        // Cycle through existing real images instead of creating placeholders
-        if (existingRealImages.length > 0) {
-          const cycledUrl = existingRealImages[i % existingRealImages.length];
-          sceneImageUrls.push(cycledUrl);
-          sceneImageIsReal.push(true); // These are real images, safe for Runway
-          console.log(`[pipeline] Scene ${i + 1}: reusing existing image (cycled)`);
-        } else {
-          const png = create128Png(i);
-          const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
-          await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
-          const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
-          sceneImageUrls.push(u.publicUrl);
-          sceneImageIsReal.push(false);
+      if (imageCreditsExhausted && existingRealImages.length > 0) {
+        const cycledUrl = existingRealImages[i % existingRealImages.length];
+        sceneImageUrls.push(cycledUrl);
+        sceneImageIsReal.push(true);
+        console.log(`[pipeline] Scene ${i + 1}: reusing existing image (cycled after credits exhausted)`);
+      } else {
+        try {
+          const result = await getSceneImage(supabase, userId, jobId, i, script.scenes[i], business, lovableKey, imageCreditsExhausted);
+          sceneImageUrls.push(result.url);
+          sceneImageIsReal.push(result.isReal);
+        } catch (e: any) {
+          if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
+          if (existingRealImages.length > 0) {
+            const cycledUrl = existingRealImages[i % existingRealImages.length];
+            sceneImageUrls.push(cycledUrl);
+            sceneImageIsReal.push(true);
+            console.log(`[pipeline] Scene ${i + 1}: reusing existing image (cycled)`);
+          } else {
+            const png = create128Png(i);
+            const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
+            await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
+            const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
+            sceneImageUrls.push(u.publicUrl);
+            sceneImageIsReal.push(false);
+          }
         }
       }
 
@@ -556,7 +565,11 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
               }
             }
           }
-        } catch (e) {
+        } catch (e: any) {
+          if (e.message === "RUNWAY_CREDITS_EXHAUSTED") {
+            console.error("[pipeline] ❌ Runway credits exhausted — stopping further clip attempts and falling back to slideshow assembly");
+            break;
+          }
           console.error(`[pipeline] ❌ Clip ${ci + 1} (scene ${sceneIdx + 1}) failed:`, e);
         }
 
@@ -575,9 +588,10 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     // ════════════════════════════════════════════════════════════════════
     const hasClips = videoClips.length > 0;
     const hasImages = sceneImageUrls.length > 0;
+    const plannedDuration = (script.scenes || []).reduce((sum: number, scene: any) => sum + (Number(scene?.duration_seconds) || preset.clipDuration), 0);
     const totalDuration = hasClips
-      ? videoClips.length * preset.clipDuration
-      : hasImages ? sceneImageUrls.length * 4 : 0;
+      ? Math.max(videoClips.length * preset.clipDuration, plannedDuration)
+      : hasImages ? plannedDuration : 0;
 
     const meetsMinimum = totalDuration >= CONFIG.MIN_DURATION_SECONDS;
 
