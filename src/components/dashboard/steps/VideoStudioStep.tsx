@@ -15,8 +15,7 @@ import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/p
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
 type TabType = "free" | "capcut" | "heygen" | "invideo" | "canva" | "pixelbin" | "easemate" | "virbo" | "detail" | "elevenlabs" | "nvidia";
-type ProductionMode = "quick" | "standard" | "longform";
-type WorkflowMode = "diy" | "auto" | "pipeline";
+type LengthMode = "short" | "standard" | "long";
 type PostFrequency = "1x" | "2x" | "3x";
 type PostSchedule = "daily" | "weekly" | "monthly" | "yearly";
 
