@@ -549,7 +549,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words, fallback=${usedFallbackScript}`);
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 2: IMAGES (real photos first, AI backup, never block)
+    // STEP 2: IMAGES (business media library → old storage → AI → placeholder)
     // ════════════════════════════════════════════════════════════════════
     await updateJob({
       status: "generating_images",
@@ -558,30 +558,56 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
+    // Fetch business media library (user-uploaded assets)
+    const businessMedia = await fetchBusinessMedia(supabase, businessId);
+    const businessVideos = businessMedia.filter(m => m.file_type === "video");
+    const businessImages = businessMedia.filter(m => m.file_type === "image");
+    console.log(`[pipeline] Business media library: ${businessImages.length} images, ${businessVideos.length} videos`);
+
     const existingRealImages = await findAllExistingImages(supabase, userId);
-    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in storage`);
+    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in old storage`);
 
     const sceneImageUrls: string[] = [];
     const sceneImageIsReal: boolean[] = [];
+    const sceneMotionPrompts: string[] = [];
+    const sceneVideoClipUrls: string[] = []; // pre-existing video clips from library
     let imageCreditsExhausted = false;
+    const usedMediaIds = new Set<string>();
 
     for (let i = 0; i < script.scenes.length; i++) {
-      try {
-        const result = await getSceneImage(supabase, userId, jobId, i, script.scenes[i], business, lovableKey, imageCreditsExhausted, existingRealImages);
-        sceneImageUrls.push(result.url);
-        sceneImageIsReal.push(result.isReal);
-      } catch (e: any) {
-        if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
-        if (existingRealImages.length > 0) {
-          sceneImageUrls.push(existingRealImages[i % existingRealImages.length]);
-          sceneImageIsReal.push(true);
-        } else {
-          const png = create128Png(i);
-          const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
-          await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
-          const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
-          sceneImageUrls.push(u.publicUrl);
-          sceneImageIsReal.push(false);
+      const scene = script.scenes[i];
+      const shotType = scene?.shotType || "environment";
+
+      // Check for matching video clip in library first
+      const videoMatch = pickMediaForScene(businessVideos, shotType, usedMediaIds);
+      if (videoMatch) {
+        sceneVideoClipUrls.push(videoMatch.public_url);
+        sceneImageUrls.push(videoMatch.public_url); // placeholder for tracking
+        sceneImageIsReal.push(true);
+        sceneMotionPrompts.push(""); // no motion needed for video
+        console.log(`[pipeline] Scene ${i + 1}: using uploaded video clip (${videoMatch.file_name})`);
+      } else {
+        try {
+          const result = await getSceneImage(supabase, userId, jobId, i, scene, business, lovableKey, imageCreditsExhausted, existingRealImages, businessImages, usedMediaIds);
+          sceneImageUrls.push(result.url);
+          sceneImageIsReal.push(result.isReal);
+          sceneMotionPrompts.push(result.motionPrompt);
+        } catch (e: any) {
+          if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
+          const motionPrompt = getMotionPrompt(shotType, i);
+          if (existingRealImages.length > 0) {
+            sceneImageUrls.push(existingRealImages[i % existingRealImages.length]);
+            sceneImageIsReal.push(true);
+            sceneMotionPrompts.push(motionPrompt);
+          } else {
+            const png = create128Png(i);
+            const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
+            await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
+            const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
+            sceneImageUrls.push(u.publicUrl);
+            sceneImageIsReal.push(false);
+            sceneMotionPrompts.push(motionPrompt);
+          }
         }
       }
 
@@ -591,7 +617,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     const realImageCount = sceneImageIsReal.filter(Boolean).length;
-    console.log(`[pipeline] Images: ${sceneImageUrls.length} total, ${realImageCount} real`);
+    console.log(`[pipeline] Images: ${sceneImageUrls.length} total, ${realImageCount} real, ${sceneVideoClipUrls.length} pre-existing video clips`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 3: VOICEOVER (ElevenLabs if available, otherwise browser TTS)
@@ -627,9 +653,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 4: RUNWAY RENDERING (only for real images, using preset config)
+    // STEP 4: RUNWAY RENDERING (with detailed motion prompts per scene)
     // ════════════════════════════════════════════════════════════════════
-    const videoClips: string[] = [];
+    const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
 
     if (!userRunwayKey) {
       console.log("[pipeline] No Runway key — slideshow mode");
@@ -637,28 +663,27 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       console.log("[pipeline] No real images — skipping Runway");
     } else {
       const scenesToRender = sceneImageUrls
-        .map((url, i) => ({ url, index: i, isReal: sceneImageIsReal[i] }))
-        .filter(s => s.isReal);
+        .map((url, i) => ({ url, index: i, isReal: sceneImageIsReal[i], motionPrompt: sceneMotionPrompts[i] }))
+        .filter(s => s.isReal && s.motionPrompt); // only render images, not pre-existing videos
 
       console.log(`[pipeline] 🎬 Rendering ${scenesToRender.length} Runway clips (model=${RUNWAY_CONFIG.DEFAULT_MODEL}, ratio=${preset.ratio}, dur=${preset.clipDuration})`);
       await updateJob({
         status: "rendering_video",
         result_payload: {
-          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
+          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
           pipeline_step: "runway", message: `🎬 Rendering ${scenesToRender.length} clips...`,
           total_clips: scenesToRender.length, clips_completed: 0,
         },
       });
 
-      const variations = ["slow zoom in", "gentle pan left to right", "dolly forward", "slow pull back reveal", "overhead tilt down", "tracking shot right"];
-
       for (let ci = 0; ci < scenesToRender.length; ci++) {
-        const { url: imgUrl, index: sceneIdx } = scenesToRender[ci];
+        const { url: imgUrl, index: sceneIdx, motionPrompt } = scenesToRender[ci];
         const scene = script.scenes[sceneIdx];
-        const prompt = `${scene?.visual_description || `Professional video for ${business.business_name}`}. Camera: ${scene?.camera_direction || "smooth motion"}, ${variations[ci % variations.length]}.`;
+        // Use the detailed motion prompt instead of generic variations
+        const prompt = `${scene?.visual_description || `Professional video for ${business.business_name}`}. ${motionPrompt}`;
 
         try {
-          console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length}...`);
+          console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length} with motion: "${motionPrompt.substring(0, 60)}..."`);
           const clipUrl = await renderRunwayClip(imgUrl, prompt, userRunwayKey, preset);
           if (clipUrl) {
             const vidRes = await fetch(clipUrl);
@@ -683,8 +708,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         await updateJob({
           result_payload: {
             ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
-            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${scenesToRender.length}`,
-            total_clips: scenesToRender.length, clips_completed: videoClips.length,
+            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${scenesToRender.length + sceneVideoClipUrls.length}`,
+            total_clips: scenesToRender.length, clips_completed: videoClips.length - sceneVideoClipUrls.length,
           },
         });
       }
