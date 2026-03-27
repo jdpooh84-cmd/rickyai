@@ -260,6 +260,58 @@ async function isRealImage(url: string): Promise<boolean> {
   } catch { return false; }
 }
 
+// ── Business Media Library (NEW — per-business uploaded assets) ──
+interface BusinessMediaRow {
+  id: string;
+  public_url: string;
+  file_type: string;
+  shot_type: string;
+  file_name: string;
+}
+
+async function fetchBusinessMedia(supabase: any, businessId: string): Promise<BusinessMediaRow[]> {
+  const { data } = await supabase
+    .from("business_media")
+    .select("id, public_url, file_type, shot_type, file_name")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+  return (data || []) as BusinessMediaRow[];
+}
+
+function pickMediaForScene(library: BusinessMediaRow[], shotType: string, usedIds: Set<string>): BusinessMediaRow | null {
+  // Prefer matching shotType not yet used
+  let match = library.find(m => m.shot_type === shotType && !usedIds.has(m.id));
+  if (!match) match = library.find(m => !usedIds.has(m.id)); // any unused
+  if (!match && library.length > 0) match = library[usedIds.size % library.length]; // cycle
+  if (match) usedIds.add(match.id);
+  return match || null;
+}
+
+// ── Motion prompt builder for Runway per-scene animation ──
+const MOTION_PROMPTS: Record<string, string[]> = {
+  food: [
+    "Slow dramatic push-in with shallow depth of field, warm golden lighting, steam gently rising. Camera glides smoothly forward revealing texture and detail.",
+    "Overhead top-down slowly rotating clockwise, warm ambient light, ingredients glistening. Gentle orbit revealing the full composition.",
+    "Low-angle sliding dolly left to right, dramatic rim lighting, background softly blurred bokeh. Cinematic food commercial feel.",
+    "Rack focus from background to foreground hero item, warm color grading, subtle lens flare. Magazine-quality product reveal.",
+  ],
+  people: [
+    "Steadicam walk-through following subjects, natural warm lighting, candid moments, slight handheld energy. Documentary-style intimacy.",
+    "Smooth lateral tracking shot right to left, warm ambient light, genuine smiles and laughter. Lifestyle brand feel.",
+    "Medium close-up with gentle push-in, soft natural backlight, authentic expressions. Warm inviting atmosphere.",
+  ],
+  environment: [
+    "Slow cinematic push-in towards entrance, golden hour lighting, warm glow from windows. Establishing shot with grandeur.",
+    "Wide crane-style overhead descending gently, revealing interior space, warm pendant lighting. Architectural beauty shot.",
+    "Smooth pull-back reveal from detail to wide establishing shot, twilight bokeh, signage prominent. Brand reveal moment.",
+  ],
+};
+
+function getMotionPrompt(shotType: string, index: number): string {
+  const pool = MOTION_PROMPTS[shotType] || MOTION_PROMPTS.environment;
+  return pool[index % pool.length];
+}
+
 async function findAllExistingImages(supabase: any, userId: string): Promise<string[]> {
   const urls: string[] = [];
   const { data: folders } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
@@ -318,14 +370,31 @@ function deflateStored(data: Uint8Array): Uint8Array {
 function adler32(d: Uint8Array): number { let a=1,b=0; for(let i=0;i<d.length;i++){a=(a+d[i])%65521;b=(b+a)%65521;} return(b<<16)|a; }
 function crc32(d: Uint8Array): number { let c=0xffffffff; for(let i=0;i<d.length;i++){c^=d[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xedb88320:0);} return(c^0xffffffff)>>>0; }
 
-async function getSceneImage(supabase: any, userId: string, jobId: string, sceneIndex: number, scene: any, biz: any, lovableKey: string, creditsExhausted: boolean, existingImages: string[]): Promise<{ url: string; isReal: boolean }> {
-  // Priority 1: Real photos from Supabase storage
+async function getSceneImage(
+  supabase: any, userId: string, jobId: string, sceneIndex: number, scene: any, biz: any,
+  lovableKey: string, creditsExhausted: boolean, existingImages: string[],
+  businessMedia: BusinessMediaRow[], usedMediaIds: Set<string>,
+): Promise<{ url: string; isReal: boolean; motionPrompt: string }> {
+  const shotType = scene?.shotType || "environment";
+  const motionPrompt = getMotionPrompt(shotType, sceneIndex);
+
+  // Priority 0: Business media library (user-uploaded assets)
+  const libraryMatch = pickMediaForScene(businessMedia.filter(m => m.file_type === "image"), shotType, usedMediaIds);
+  if (libraryMatch) {
+    const real = await isRealImage(libraryMatch.public_url);
+    if (real) {
+      console.log(`[pipeline] Scene ${sceneIndex + 1}: using business media library (${libraryMatch.shot_type}: ${libraryMatch.file_name})`);
+      return { url: libraryMatch.public_url, isReal: true, motionPrompt };
+    }
+  }
+
+  // Priority 1: Real photos from old Supabase storage paths
   if (existingImages.length > 0) {
     const url = existingImages[sceneIndex % existingImages.length];
     const real = await isRealImage(url);
     if (real) {
       console.log(`[pipeline] Scene ${sceneIndex + 1}: using existing real photo`);
-      return { url, isReal: true };
+      return { url, isReal: true, motionPrompt };
     }
   }
 
@@ -354,7 +423,7 @@ async function getSceneImage(supabase: any, userId: string, jobId: string, scene
               const { error } = await supabase.storage.from("media").upload(fn, bytes, { contentType: "image/png", upsert: true });
               if (!error) {
                 const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-                return { url: urlData.publicUrl, isReal: true };
+                return { url: urlData.publicUrl, isReal: true, motionPrompt };
               }
             }
           }
@@ -368,18 +437,18 @@ async function getSceneImage(supabase: any, userId: string, jobId: string, scene
     }
   }
 
-  // Priority 3: Cycle existing images even if they didn't pass isReal above
+  // Priority 3: Cycle existing images
   if (existingImages.length > 0) {
-    return { url: existingImages[sceneIndex % existingImages.length], isReal: true };
+    return { url: existingImages[sceneIndex % existingImages.length], isReal: true, motionPrompt };
   }
 
   // Last resort: placeholder
   const png = create128Png(sceneIndex);
   const fn = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.png`;
   const { error } = await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
-  if (error) return { url: "", isReal: false };
+  if (error) return { url: "", isReal: false, motionPrompt };
   const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-  return { url: urlData.publicUrl, isReal: false };
+  return { url: urlData.publicUrl, isReal: false, motionPrompt };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -480,7 +549,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words, fallback=${usedFallbackScript}`);
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 2: IMAGES (real photos first, AI backup, never block)
+    // STEP 2: IMAGES (business media library → old storage → AI → placeholder)
     // ════════════════════════════════════════════════════════════════════
     await updateJob({
       status: "generating_images",
@@ -489,30 +558,56 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
+    // Fetch business media library (user-uploaded assets)
+    const businessMedia = await fetchBusinessMedia(supabase, businessId);
+    const businessVideos = businessMedia.filter(m => m.file_type === "video");
+    const businessImages = businessMedia.filter(m => m.file_type === "image");
+    console.log(`[pipeline] Business media library: ${businessImages.length} images, ${businessVideos.length} videos`);
+
     const existingRealImages = await findAllExistingImages(supabase, userId);
-    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in storage`);
+    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in old storage`);
 
     const sceneImageUrls: string[] = [];
     const sceneImageIsReal: boolean[] = [];
+    const sceneMotionPrompts: string[] = [];
+    const sceneVideoClipUrls: string[] = []; // pre-existing video clips from library
     let imageCreditsExhausted = false;
+    const usedMediaIds = new Set<string>();
 
     for (let i = 0; i < script.scenes.length; i++) {
-      try {
-        const result = await getSceneImage(supabase, userId, jobId, i, script.scenes[i], business, lovableKey, imageCreditsExhausted, existingRealImages);
-        sceneImageUrls.push(result.url);
-        sceneImageIsReal.push(result.isReal);
-      } catch (e: any) {
-        if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
-        if (existingRealImages.length > 0) {
-          sceneImageUrls.push(existingRealImages[i % existingRealImages.length]);
-          sceneImageIsReal.push(true);
-        } else {
-          const png = create128Png(i);
-          const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
-          await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
-          const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
-          sceneImageUrls.push(u.publicUrl);
-          sceneImageIsReal.push(false);
+      const scene = script.scenes[i];
+      const shotType = scene?.shotType || "environment";
+
+      // Check for matching video clip in library first
+      const videoMatch = pickMediaForScene(businessVideos, shotType, usedMediaIds);
+      if (videoMatch) {
+        sceneVideoClipUrls.push(videoMatch.public_url);
+        sceneImageUrls.push(videoMatch.public_url); // placeholder for tracking
+        sceneImageIsReal.push(true);
+        sceneMotionPrompts.push(""); // no motion needed for video
+        console.log(`[pipeline] Scene ${i + 1}: using uploaded video clip (${videoMatch.file_name})`);
+      } else {
+        try {
+          const result = await getSceneImage(supabase, userId, jobId, i, scene, business, lovableKey, imageCreditsExhausted, existingRealImages, businessImages, usedMediaIds);
+          sceneImageUrls.push(result.url);
+          sceneImageIsReal.push(result.isReal);
+          sceneMotionPrompts.push(result.motionPrompt);
+        } catch (e: any) {
+          if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
+          const motionPrompt = getMotionPrompt(shotType, i);
+          if (existingRealImages.length > 0) {
+            sceneImageUrls.push(existingRealImages[i % existingRealImages.length]);
+            sceneImageIsReal.push(true);
+            sceneMotionPrompts.push(motionPrompt);
+          } else {
+            const png = create128Png(i);
+            const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
+            await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
+            const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
+            sceneImageUrls.push(u.publicUrl);
+            sceneImageIsReal.push(false);
+            sceneMotionPrompts.push(motionPrompt);
+          }
         }
       }
 
@@ -522,7 +617,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     const realImageCount = sceneImageIsReal.filter(Boolean).length;
-    console.log(`[pipeline] Images: ${sceneImageUrls.length} total, ${realImageCount} real`);
+    console.log(`[pipeline] Images: ${sceneImageUrls.length} total, ${realImageCount} real, ${sceneVideoClipUrls.length} pre-existing video clips`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 3: VOICEOVER (ElevenLabs if available, otherwise browser TTS)
@@ -558,9 +653,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 4: RUNWAY RENDERING (only for real images, using preset config)
+    // STEP 4: RUNWAY RENDERING (with detailed motion prompts per scene)
     // ════════════════════════════════════════════════════════════════════
-    const videoClips: string[] = [];
+    const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
 
     if (!userRunwayKey) {
       console.log("[pipeline] No Runway key — slideshow mode");
@@ -568,28 +663,27 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       console.log("[pipeline] No real images — skipping Runway");
     } else {
       const scenesToRender = sceneImageUrls
-        .map((url, i) => ({ url, index: i, isReal: sceneImageIsReal[i] }))
-        .filter(s => s.isReal);
+        .map((url, i) => ({ url, index: i, isReal: sceneImageIsReal[i], motionPrompt: sceneMotionPrompts[i] }))
+        .filter(s => s.isReal && s.motionPrompt); // only render images, not pre-existing videos
 
       console.log(`[pipeline] 🎬 Rendering ${scenesToRender.length} Runway clips (model=${RUNWAY_CONFIG.DEFAULT_MODEL}, ratio=${preset.ratio}, dur=${preset.clipDuration})`);
       await updateJob({
         status: "rendering_video",
         result_payload: {
-          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
+          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
           pipeline_step: "runway", message: `🎬 Rendering ${scenesToRender.length} clips...`,
           total_clips: scenesToRender.length, clips_completed: 0,
         },
       });
 
-      const variations = ["slow zoom in", "gentle pan left to right", "dolly forward", "slow pull back reveal", "overhead tilt down", "tracking shot right"];
-
       for (let ci = 0; ci < scenesToRender.length; ci++) {
-        const { url: imgUrl, index: sceneIdx } = scenesToRender[ci];
+        const { url: imgUrl, index: sceneIdx, motionPrompt } = scenesToRender[ci];
         const scene = script.scenes[sceneIdx];
-        const prompt = `${scene?.visual_description || `Professional video for ${business.business_name}`}. Camera: ${scene?.camera_direction || "smooth motion"}, ${variations[ci % variations.length]}.`;
+        // Use the detailed motion prompt instead of generic variations
+        const prompt = `${scene?.visual_description || `Professional video for ${business.business_name}`}. ${motionPrompt}`;
 
         try {
-          console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length}...`);
+          console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length} with motion: "${motionPrompt.substring(0, 60)}..."`);
           const clipUrl = await renderRunwayClip(imgUrl, prompt, userRunwayKey, preset);
           if (clipUrl) {
             const vidRes = await fetch(clipUrl);
@@ -614,8 +708,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         await updateJob({
           result_payload: {
             ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
-            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${scenesToRender.length}`,
-            total_clips: scenesToRender.length, clips_completed: videoClips.length,
+            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${scenesToRender.length + sceneVideoClipUrls.length}`,
+            total_clips: scenesToRender.length, clips_completed: videoClips.length - sceneVideoClipUrls.length,
           },
         });
       }
