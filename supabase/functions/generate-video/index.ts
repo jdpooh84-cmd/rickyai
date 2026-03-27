@@ -639,7 +639,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       .from("user_tool_defaults")
       .select("default_provider")
       .eq("user_id", userId)
-      .eq("tool_type", "voiceover")
+      .eq("tool_type", "voice")
       .maybeSingle();
     const useElevenLabs = voToolDefault?.default_provider === "elevenlabs";
 
