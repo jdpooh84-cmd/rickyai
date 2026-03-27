@@ -10,30 +10,124 @@ const AI_MODEL = "google/gemini-2.5-flash";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
 const RUNWAY_API_URL = "https://api.dev.runwayml.com/v1";
 
-async function pollRunwayTask(taskId: string, runwayKey: string, maxAttempts = 60): Promise<any> {
+// Duration targets in seconds
+const DURATION_TARGETS: Record<string, { min: number; scenes: number; perClip: number }> = {
+  quick: { min: 45, scenes: 9, perClip: 5 },
+  standard: { min: 60, scenes: 6, perClip: 10 },
+  longform: { min: 90, scenes: 9, perClip: 10 },
+};
+
+// ── Template-based scene builder (no AI credits needed) ──
+function buildTemplateScenes(business: any, location: any, videoType: string, sceneCount: number) {
+  const name = business.business_name || "Our Business";
+  const category = business.business_category || "business";
+  const services = business.services || "premium services";
+  const audience = business.target_audience || "customers";
+  const city = location?.city || "";
+  const tone = business.brand_tone || "professional";
+
+  const templates = [
+    { visual: `Stunning exterior shot of ${name} storefront at golden hour, warm inviting lighting, ${city}`, text: name, camera: "slow push in" },
+    { visual: `Close-up of ${category} work in progress, hands crafting with care, shallow depth of field`, text: `Quality ${category}`, camera: "slow pan right" },
+    { visual: `Happy ${audience} enjoying ${services} at ${name}, candid smiles, natural light`, text: "Happy Customers", camera: "static wide" },
+    { visual: `Detail shot showcasing the best of ${services}, professional lighting, product photography style`, text: services.split(",")[0]?.trim() || "Our Best", camera: "slow zoom in" },
+    { visual: `Team members at ${name} working together, ${tone} atmosphere, collaborative energy`, text: "Our Team", camera: "dolly left" },
+    { visual: `Behind-the-scenes look at ${category} preparation, organized workspace, attention to detail`, text: "Behind the Scenes", camera: "tracking shot" },
+    { visual: `Wide establishing shot of ${city} skyline or neighborhood where ${name} operates`, text: city || "Our Community", camera: "aerial pan" },
+    { visual: `Customer testimonial moment, genuine reaction to ${services}, warm emotional lighting`, text: "5-Star Experience", camera: "medium close-up" },
+    { visual: `Montage-style quick cuts of ${name}'s signature offerings, vibrant colors, dynamic angles`, text: "What We Offer", camera: "quick cuts" },
+    { visual: `Final beauty shot of ${name}'s signature product or service, dramatic lighting, hero angle`, text: "Visit Us Today", camera: "slow pull back" },
+    { visual: `Interior atmosphere of ${name}, cozy or ${tone} ambiance, inviting spaces`, text: "Step Inside", camera: "steadicam walk" },
+    { visual: `${name} logo or signage with bokeh background, elegant ${tone} branding moment`, text: `${name} — ${city}`, camera: "rack focus" },
+  ];
+
+  return templates.slice(0, sceneCount).map((t, i) => ({
+    scene_number: i + 1,
+    duration_seconds: 5,
+    visual_description: t.visual,
+    text_overlay: t.text,
+    camera_direction: t.camera,
+  }));
+}
+
+function buildTemplateScript(business: any, location: any, videoType: string, scenes: any[]) {
+  const name = business.business_name;
+  const category = business.business_category || "business";
+  const services = business.services || "services";
+  const city = location?.city || "your area";
+
+  return {
+    title: `${name} — Your Local ${category}`,
+    description: `Discover what makes ${name} the go-to ${category} in ${city}.`,
+    voiceover_script: `Welcome to ${name}, your trusted ${category} in ${city}. We specialize in ${services}. Our dedicated team is here to deliver an exceptional experience every time. Visit us today and see why our customers keep coming back.`,
+    scenes,
+    caption: `✨ Discover ${name} in ${city}! ${services} 🔥 #${name.replace(/\s+/g, "")} #${category} #${city.replace(/\s+/g, "")}`,
+    hashtags: [name.replace(/\s+/g, ""), category, city.replace(/\s+/g, ""), "smallbusiness", "local"],
+    target_platform: videoType === "promotional" ? "instagram" : "tiktok",
+    aspect_ratio: "9:16",
+    music_mood: "upbeat",
+    cta: `Visit ${name} today!`,
+  };
+}
+
+// ── Runway helpers ──
+async function pollRunwayTask(taskId: string, runwayKey: string, maxAttempts = 120): Promise<any> {
   for (let i = 0; i < maxAttempts; i++) {
     const res = await fetch(`${RUNWAY_API_URL}/tasks/${taskId}`, {
       headers: { "Authorization": `Bearer ${runwayKey}`, "X-Runway-Version": "2024-11-06" },
     });
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Runway poll failed [${res.status}]: ${errText}`);
-    }
+    if (!res.ok) throw new Error(`Runway poll failed [${res.status}]: ${await res.text()}`);
     const task = await res.json();
     console.log(`[generate-video] Runway task ${taskId} status: ${task.status}`);
     if (task.status === "SUCCEEDED") return task;
     if (task.status === "FAILED") throw new Error(`Runway task failed: ${task.failure || "unknown"}`);
-    await new Promise(r => setTimeout(r, 5000)); // wait 5s between polls
+    await new Promise(r => setTimeout(r, 5000));
   }
   throw new Error("Runway task timed out");
 }
 
+async function renderRunwayClip(
+  imageUrl: string,
+  promptText: string,
+  runwayKey: string,
+  duration: number,
+  ratio: string,
+): Promise<string | null> {
+  const res = await fetch(`${RUNWAY_API_URL}/image_to_video`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${runwayKey}`,
+      "Content-Type": "application/json",
+      "X-Runway-Version": "2024-11-06",
+    },
+    body: JSON.stringify({
+      model: "gen4_turbo",
+      promptImage: imageUrl,
+      promptText: `Cinematic, smooth motion, professional commercial. ${promptText}. High quality, vibrant colors.`,
+      duration,
+      ratio,
+    }),
+  });
+  if (!res.ok) {
+    console.error(`[generate-video] Runway create error [${res.status}]:`, await res.text());
+    return null;
+  }
+  const task = await res.json();
+  console.log(`[generate-video] Runway clip task created: ${task.id}`);
+  const completed = await pollRunwayTask(task.id, runwayKey);
+  return completed.output?.[0] || null;
+}
+
+// ── Main job processor ──
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, productionMode: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
   const runwayKey = Deno.env.get("RUNWAY_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const updateJob = (fields: Record<string, any>) =>
+    supabase.from("video_generation_jobs").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", jobId);
 
   try {
     const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", userId).single();
@@ -46,151 +140,161 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const keyMap: Record<string, string> = {};
     userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
     const elevenlabsKey = keyMap["elevenlabs"];
-    // User can also store their own runway key
     const userRunwayKey = keyMap["runway"] || runwayKey;
 
-    const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "Not specified";
-
-    // Update status: generating script
-    await supabase.from("video_generation_jobs").update({ status: "generating_script", updated_at: new Date().toISOString() }).eq("id", jobId);
+    const config = DURATION_TARGETS[productionMode] || DURATION_TARGETS.standard;
+    const ratio = productionMode === "quick" ? "720:1280" : "1280:720";
+    const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "";
 
     // ── Step 1: Generate script ──
-    const scriptResponse = await fetch(AI_URL, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: "You are a video production expert specializing in short-form social media content. Generate a complete, broadcast-ready video script. Return valid JSON only." },
-          { role: "user", content: `Create a ${productionMode === "quick" ? "15-30 second" : productionMode === "longform" ? "2-3 minute" : "45-90 second"} video script for:
+    await updateJob({ status: "generating_script", result_payload: { pipeline_steps: { script: "processing" }, message: "✍️ Writing your video script..." } });
+
+    let scriptContent: any;
+    let usedTemplate = false;
+
+    try {
+      const scriptResponse = await fetch(AI_URL, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: "You are a video production expert. Generate a complete video script. Return valid JSON only." },
+            { role: "user", content: `Create a ${config.min}-second promotional video script for:
 
 Business: ${business.business_name}
 Category: ${business.business_category || "General"}
-Niche: ${business.niche || "Not specified"}
 Services: ${business.services || "Not specified"}
 Target Audience: ${business.target_audience || "General"}
 Brand Tone: ${business.brand_tone || "Professional"}
 Location: ${locationStr}
-Video Type: ${videoType || "promotional"}
 
 Return JSON with:
 {
   "title": "video title",
-  "description": "short description for social media",
-  "voiceover_script": "The complete word-for-word narration. 30-60 words for quick, 80-150 for standard, 200+ for longform.",
-  "scenes": [
-    {
-      "scene_number": 1,
-      "duration_seconds": 5,
-      "visual_description": "what the camera sees - describe in detail for AI image generation",
-      "text_overlay": "text shown on screen",
-      "camera_direction": "push in / pan left / static / etc"
-    }
-  ],
-  "caption": "social media post caption with emojis",
-  "hashtags": ["relevant", "hashtags"],
-  "target_platform": "tiktok/instagram/youtube",
+  "description": "short description",
+  "voiceover_script": "complete narration, ${config.min >= 60 ? "100-150" : "60-80"} words",
+  "scenes": [${Array.from({ length: config.scenes }, (_, i) => `{"scene_number":${i + 1},"duration_seconds":5,"visual_description":"detailed scene for AI image generation","text_overlay":"overlay text","camera_direction":"camera move"}`).join(",")}],
+  "caption": "social media caption with emojis",
+  "hashtags": ["relevant","hashtags"],
+  "target_platform": "instagram",
   "aspect_ratio": "${productionMode === "quick" ? "9:16" : "16:9"}",
-  "music_mood": "upbeat/calm/dramatic/etc",
-  "cta": "call to action text"
+  "music_mood": "upbeat",
+  "cta": "call to action"
 }` },
-        ],
-        response_format: { type: "json_object" },
-      }),
-    });
+          ],
+          response_format: { type: "json_object" },
+        }),
+      });
 
-    if (!scriptResponse.ok) {
-      const errText = await scriptResponse.text();
-      throw new Error(`AI script generation failed: ${scriptResponse.status} ${errText}`);
-    }
+      if (!scriptResponse.ok) {
+        const status = scriptResponse.status;
+        if (status === 402) {
+          console.log("[generate-video] AI credits exhausted, using template fallback");
+          throw new Error("CREDITS_EXHAUSTED");
+        }
+        throw new Error(`AI script failed: ${status}`);
+      }
 
-    const scriptData = await scriptResponse.json();
-    let scriptContent;
-    try {
+      const scriptData = await scriptResponse.json();
       scriptContent = JSON.parse(scriptData.choices[0].message.content);
-    } catch {
-      throw new Error("Failed to parse AI script response");
+    } catch (err: any) {
+      // Fallback to template-based script
+      console.log("[generate-video] Using template-based script builder");
+      usedTemplate = true;
+      const scenes = buildTemplateScenes(business, location, videoType, config.scenes);
+      scriptContent = buildTemplateScript(business, location, videoType, scenes);
     }
 
-    // Save script immediately so user sees progress
-    await supabase.from("video_generation_jobs").update({
+    // Ensure we have enough scenes
+    while ((scriptContent.scenes?.length || 0) < config.scenes) {
+      const extra = buildTemplateScenes(business, location, videoType, config.scenes);
+      const missing = config.scenes - (scriptContent.scenes?.length || 0);
+      scriptContent.scenes = [...(scriptContent.scenes || []), ...extra.slice(0, missing)];
+    }
+    scriptContent.scenes = scriptContent.scenes.slice(0, config.scenes);
+
+    await updateJob({
       status: "generating_images",
-      result_payload: { ...scriptContent, scene_images: [], pipeline_steps: { script: "completed", scene_images: "processing" } },
-      updated_at: new Date().toISOString(),
-    }).eq("id", jobId);
+      result_payload: {
+        ...scriptContent,
+        scene_images: [],
+        video_clips: [],
+        pipeline_steps: { script: "completed", scene_images: "processing", video_clips: "pending" },
+        message: "🎨 Creating scene images...",
+        used_template: usedTemplate,
+      },
+    });
 
     // ── Step 2: Generate scene images ──
     const sceneImageUrls: string[] = [];
-    const scenesToRender = (scriptContent.scenes || []).slice(0, 4);
-
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
-    for (let i = 0; i < scenesToRender.length; i++) {
-      const scene = scenesToRender[i];
+    for (let i = 0; i < scriptContent.scenes.length; i++) {
+      const scene = scriptContent.scenes[i];
       try {
-        console.log(`[generate-video] Generating scene image ${i + 1}/${scenesToRender.length}...`);
-        const imgResponse = await fetch(AI_URL, {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: IMAGE_MODEL,
-            messages: [{
-              role: "user",
-              content: `Generate a high-quality, professional promotional photograph for "${business.business_name}" (${business.business_category || "business"}). Scene: ${scene.visual_description}. Style: cinematic, vibrant, commercial photography, social media ready. Location: ${locationStr}. Do NOT include any text in the image.`,
-            }],
-            modalities: ["image", "text"],
-          }),
-        });
+        let imgUrl: string | null = null;
 
-        if (imgResponse.ok) {
-          const imgData = await imgResponse.json();
-          const images = imgData.choices?.[0]?.message?.images;
-          if (images && images.length > 0) {
-            let base64Data = images[0]?.image_url?.url || "";
-            if (base64Data.startsWith("data:") && base64Data.includes(";base64,")) {
-              base64Data = base64Data.split(";base64,")[1];
-            }
-            if (base64Data) {
-              const binaryString = atob(base64Data);
-              const bytes = new Uint8Array(binaryString.length);
-              for (let j = 0; j < binaryString.length; j++) {
-                bytes[j] = binaryString.charCodeAt(j);
+        // Try AI image generation
+        if (!usedTemplate) {
+          const imgResponse = await fetch(AI_URL, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: IMAGE_MODEL,
+              messages: [{ role: "user", content: `Generate a high-quality promotional photograph for "${business.business_name}". Scene: ${scene.visual_description}. Style: cinematic, vibrant, commercial photography. No text in image.` }],
+              modalities: ["image", "text"],
+            }),
+          });
+
+          if (imgResponse.ok) {
+            const imgData = await imgResponse.json();
+            const images = imgData.choices?.[0]?.message?.images;
+            if (images?.length > 0) {
+              let base64Data = images[0]?.image_url?.url || "";
+              if (base64Data.startsWith("data:") && base64Data.includes(";base64,")) {
+                base64Data = base64Data.split(";base64,")[1];
               }
-              const fileName = `scenes/${userId}/${jobId}/scene-${i + 1}.png`;
-              const { error: uploadError } = await supabase.storage.from("media").upload(fileName, bytes, { contentType: "image/png", upsert: true });
-              if (!uploadError) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                sceneImageUrls.push(urlData.publicUrl);
-                console.log(`[generate-video] Scene ${i + 1} image uploaded: ${urlData.publicUrl}`);
+              if (base64Data) {
+                const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                const fileName = `scenes/${userId}/${jobId}/scene-${i + 1}.png`;
+                const { error: uploadError } = await supabase.storage.from("media").upload(fileName, bytes, { contentType: "image/png", upsert: true });
+                if (!uploadError) {
+                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+                  imgUrl = urlData.publicUrl;
+                }
               }
             }
+          } else if (imgResponse.status === 402) {
+            console.log("[generate-video] Image credits exhausted, remaining scenes will use Runway text-to-video");
           }
-        } else {
-          const errText = await imgResponse.text();
-          console.error(`[generate-video] Scene ${i + 1} failed: ${imgResponse.status}`, errText);
+        }
+
+        if (imgUrl) {
+          sceneImageUrls.push(imgUrl);
         }
       } catch (imgErr) {
-        console.error(`[generate-video] Scene ${i + 1} error:`, imgErr);
+        console.error(`[generate-video] Scene ${i + 1} image error:`, imgErr);
       }
 
-      // Update progress after each image
-      await supabase.from("video_generation_jobs").update({
+      // Progress update
+      await updateJob({
         result_payload: {
           ...scriptContent,
           scene_images: sceneImageUrls,
-          pipeline_steps: { script: "completed", scene_images: `${i + 1}/${scenesToRender.length}` },
+          video_clips: [],
+          pipeline_steps: { script: "completed", scene_images: `${i + 1}/${scriptContent.scenes.length}`, video_clips: "pending" },
+          message: `🎨 Scene images: ${sceneImageUrls.length}/${scriptContent.scenes.length}`,
         },
-        updated_at: new Date().toISOString(),
-      }).eq("id", jobId);
+      });
     }
 
-    // ── Step 3: Voiceover (if ElevenLabs key) ──
+    // ── Step 3: Voiceover (optional) ──
     let voiceoverUrl: string | null = null;
     if (elevenlabsKey && scriptContent.voiceover_script) {
       try {
-        await supabase.from("video_generation_jobs").update({ status: "generating_voiceover", updated_at: new Date().toISOString() }).eq("id", jobId);
-        const voiceId = "21m00Tcm4TlvDq8ikWAM";
-        const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        await updateJob({ status: "generating_voiceover" });
+        const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM`, {
           method: "POST",
           headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
           body: JSON.stringify({ text: scriptContent.voiceover_script, model_id: "eleven_monolingual_v1", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
@@ -209,143 +313,129 @@ Return JSON with:
       }
     }
 
-    // ── Step 4: Runway Video Generation ──
-    let videoUrl: string | null = null;
+    // ── Step 4: Runway multi-clip rendering ──
+    const videoClips: string[] = [];
     if (userRunwayKey && sceneImageUrls.length > 0) {
-      try {
-        await supabase.from("video_generation_jobs").update({
-          status: "rendering_video",
+      await updateJob({
+        status: "rendering_video",
+        result_payload: {
+          ...scriptContent,
+          scene_images: sceneImageUrls,
+          voiceover_url: voiceoverUrl,
+          video_clips: [],
+          pipeline_steps: { script: "completed", scene_images: "completed", voiceover: voiceoverUrl ? "completed" : "skipped", video_clips: "rendering" },
+          message: `🎬 Rendering ${sceneImageUrls.length} video clips with Runway AI... This takes 2-5 minutes.`,
+          total_clips: sceneImageUrls.length,
+          clips_completed: 0,
+        },
+      });
+
+      for (let i = 0; i < sceneImageUrls.length; i++) {
+        const scene = scriptContent.scenes[i];
+        const prompt = scene?.visual_description || `Professional promotional video for ${business.business_name}`;
+
+        try {
+          console.log(`[generate-video] Rendering Runway clip ${i + 1}/${sceneImageUrls.length}...`);
+          const clipUrl = await renderRunwayClip(sceneImageUrls[i], prompt, userRunwayKey, config.perClip, ratio);
+
+          if (clipUrl) {
+            // Download and upload to our storage
+            const videoResponse = await fetch(clipUrl);
+            if (videoResponse.ok) {
+              const videoBlob = await videoResponse.blob();
+              const videoFileName = `videos/${userId}/${jobId}/clip-${i + 1}.mp4`;
+              const { error: uploadError } = await supabase.storage.from("media").upload(videoFileName, videoBlob, { contentType: "video/mp4", upsert: true });
+              if (!uploadError) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoFileName);
+                videoClips.push(urlData.publicUrl);
+                console.log(`[generate-video] Clip ${i + 1} stored: ${urlData.publicUrl}`);
+              }
+            }
+          }
+        } catch (clipErr) {
+          console.error(`[generate-video] Clip ${i + 1} failed:`, clipErr);
+        }
+
+        // Progress update per clip
+        await updateJob({
           result_payload: {
             ...scriptContent,
             scene_images: sceneImageUrls,
             voiceover_url: voiceoverUrl,
-            pipeline_steps: { script: "completed", scene_images: "completed", voiceover: voiceoverUrl ? "completed" : "skipped", video: "rendering" },
-            message: "🎬 Rendering your video with Runway AI... This may take 1-3 minutes.",
+            video_clips: videoClips,
+            pipeline_steps: { script: "completed", scene_images: "completed", voiceover: voiceoverUrl ? "completed" : "skipped", video_clips: `${videoClips.length}/${sceneImageUrls.length}` },
+            message: `🎬 Rendered ${videoClips.length}/${sceneImageUrls.length} clips...`,
+            total_clips: sceneImageUrls.length,
+            clips_completed: videoClips.length,
           },
-          updated_at: new Date().toISOString(),
-        }).eq("id", jobId);
-
-        // Use the first scene image as the source for Runway image-to-video
-        const firstImageUrl = sceneImageUrls[0];
-        const scenePrompt = scriptContent.scenes?.[0]?.visual_description || `Professional promotional video for ${business.business_name}`;
-
-        console.log(`[generate-video] Starting Runway image-to-video with image: ${firstImageUrl}`);
-
-        const runwayResponse = await fetch(`${RUNWAY_API_URL}/image_to_video`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${userRunwayKey}`,
-            "Content-Type": "application/json",
-            "X-Runway-Version": "2024-11-06",
-          },
-          body: JSON.stringify({
-            model: "gen4_turbo",
-            promptImage: firstImageUrl,
-            promptText: `Cinematic, smooth motion, professional commercial video. ${scenePrompt}. High quality, vibrant colors, professional lighting.`,
-            duration: 5,
-            ratio: productionMode === "quick" ? "720:1280" : "1280:720",
-          }),
         });
-
-        if (!runwayResponse.ok) {
-          const errText = await runwayResponse.text();
-          console.error(`[generate-video] Runway API error [${runwayResponse.status}]:`, errText);
-          // Don't throw — fall through to client-side compose
-        } else {
-          const runwayTask = await runwayResponse.json();
-          console.log(`[generate-video] Runway task created: ${runwayTask.id}`);
-
-          // Poll for completion
-          const completedTask = await pollRunwayTask(runwayTask.id, userRunwayKey);
-
-          if (completedTask.output && completedTask.output.length > 0) {
-            const runwayVideoUrl = completedTask.output[0];
-            console.log(`[generate-video] Runway video ready: ${runwayVideoUrl}`);
-
-            // Download and upload to our storage
-            const videoResponse = await fetch(runwayVideoUrl);
-            if (videoResponse.ok) {
-              const videoBlob = await videoResponse.blob();
-              const videoFileName = `videos/${userId}/${jobId}/runway-output.mp4`;
-              const { error: uploadError } = await supabase.storage.from("media").upload(videoFileName, videoBlob, { contentType: "video/mp4", upsert: true });
-              if (!uploadError) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoFileName);
-                videoUrl = urlData.publicUrl;
-                console.log(`[generate-video] Video uploaded to storage: ${videoUrl}`);
-              }
-            }
-          }
-        }
-      } catch (runwayErr) {
-        console.error("[generate-video] Runway rendering failed:", runwayErr);
-        // Fall through to client-side compose
       }
     } else if (!userRunwayKey) {
-      console.log("[generate-video] No Runway API key — video will be composed client-side");
+      console.log("[generate-video] No Runway API key — will use client-side compose");
     }
 
     // ── Final update ──
+    const hasClips = videoClips.length > 0;
     const hasImages = sceneImageUrls.length > 0;
-    const hasVideo = !!videoUrl;
+    const totalDuration = hasClips ? videoClips.length * config.perClip : hasImages ? sceneImageUrls.length * 4 : 0;
+
     const resultPayload = {
       ...scriptContent,
       scene_images: sceneImageUrls,
       voiceover_url: voiceoverUrl,
-      video_url: videoUrl,
+      video_clips: videoClips,
+      video_url: videoClips[0] || null, // first clip as preview
+      total_duration_seconds: totalDuration,
+      used_template: usedTemplate,
       pipeline_steps: {
         script: "completed",
         scene_images: hasImages ? "completed" : "failed",
         voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "skipped",
-        video: hasVideo ? "completed" : "client_compose",
+        video_clips: hasClips ? "completed" : userRunwayKey ? "failed" : "client_compose",
       },
-      message: hasVideo
-        ? "🎬 Your video is ready! Watch it below."
+      message: hasClips
+        ? `🎬 ${videoClips.length} video clips ready (${totalDuration}s total)! Assembling your final video...`
         : hasImages
-          ? "🎬 Assembling your video now..."
-          : "📝 Script generated! Scene images couldn't be created.",
+          ? "🎬 Scene images ready — assembling your video now..."
+          : "📝 Script ready but images couldn't be generated.",
     };
 
-    await supabase.from("video_generation_jobs").update({
+    await updateJob({
       status: "completed",
       result_payload: resultPayload,
-      video_url: videoUrl,
-      updated_at: new Date().toISOString(),
-    }).eq("id", jobId);
+      video_url: videoClips[0] || null,
+    });
 
     // Save as content post
     if (scriptContent.title) {
-      const { error: postErr } = await supabase.from("content_posts").insert({
+      await supabase.from("content_posts").insert({
         user_id: userId,
         business_id: businessId,
         location_id: locations?.[0]?.id ?? null,
         title: scriptContent.title,
         caption: scriptContent.caption || scriptContent.description,
         hashtags: scriptContent.hashtags || [],
-        media_url: videoUrl || sceneImageUrls[0] || voiceoverUrl || null,
-        media_type: hasVideo ? "video" : hasImages ? "image" : "text",
+        media_url: videoClips[0] || sceneImageUrls[0] || null,
+        media_type: hasClips ? "video" : hasImages ? "image" : "text",
         platform: scriptContent.target_platform || "instagram",
         video_script: scriptContent.voiceover_script,
         voiceover_script: scriptContent.voiceover_script,
         shot_list: scriptContent.scenes,
         cta: scriptContent.cta,
         status: "media_ready",
-        production_tool: hasVideo ? "runway" : "rickyai",
+        production_tool: hasClips ? "runway" : "rickyai",
         thumbnail_url: sceneImageUrls[0] || null,
-      });
-      if (postErr) console.error("[generate-video] content_posts insert error:", postErr);
+      }).then(({ error }) => { if (error) console.error("[generate-video] content_posts insert error:", error); });
     }
 
-    console.log(`[generate-video] Job ${jobId} completed successfully. Video: ${hasVideo ? "YES" : "no (client-compose)"}`);
+    console.log(`[generate-video] Job ${jobId} completed. Clips: ${videoClips.length}, Images: ${sceneImageUrls.length}, Duration: ${totalDuration}s`);
   } catch (error) {
     console.error(`[generate-video] Job ${jobId} failed:`, error);
-    await supabase.from("video_generation_jobs").update({
-      status: "failed",
-      error_message: error.message,
-      updated_at: new Date().toISOString(),
-    }).eq("id", jobId);
+    await updateJob({ status: "failed", error_message: error.message });
   }
 }
 
+// ── HTTP handler ──
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -366,7 +456,6 @@ Deno.serve(async (req) => {
 
     const { businessId, videoType, productionMode } = await req.json();
 
-    // Create job record immediately
     const { data: job, error: jobInsertError } = await supabase
       .from("video_generation_jobs")
       .insert({
@@ -382,25 +471,22 @@ Deno.serve(async (req) => {
 
     if (jobInsertError) throw new Error(`Failed to create job: ${jobInsertError.message}`);
 
-    // Start async processing
     const promise = processVideoJob(job.id, user.id, businessId, videoType || "promotional", productionMode || "standard");
-    
     try {
       // @ts-ignore
       EdgeRuntime.waitUntil(promise);
     } catch {
-      promise.catch(err => console.error("[generate-video] Background processing error:", err));
+      promise.catch(err => console.error("[generate-video] Background error:", err));
     }
 
     return new Response(JSON.stringify({
       success: true,
       job_id: job.id,
       status: "queued",
-      message: "Video production started! Generating script, images, and rendering video now.",
+      message: "Video production started! Script → Images → Runway clips → Final video.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
     console.error("generate-video error:", error);
     return new Response(JSON.stringify({ error: error.message }), {

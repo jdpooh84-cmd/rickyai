@@ -1,16 +1,17 @@
 /**
- * Client-side video composer: takes scene images + optional audio
- * and produces a real MP4 video using Canvas + MediaRecorder.
- * No API keys needed — runs entirely in the browser.
+ * Client-side video composer: takes scene images OR video clips + optional audio
+ * and produces a real video using Canvas + MediaRecorder.
+ * Supports both image slideshows (Ken Burns) and Runway clip stitching.
  */
 
 interface ComposeOptions {
   sceneImages: string[];
+  videoClips?: string[];
   voiceoverUrl?: string | null;
   businessName: string;
   title?: string;
   captionText?: string;
-  durationPerScene?: number; // seconds per scene, default 4
+  durationPerScene?: number;
   width?: number;
   height?: number;
   onProgress?: (pct: number) => void;
@@ -19,42 +20,176 @@ interface ComposeOptions {
 export async function composeVideo(options: ComposeOptions): Promise<Blob> {
   const {
     sceneImages,
+    videoClips,
     voiceoverUrl,
     businessName,
     title,
-    captionText,
     durationPerScene = 4,
     width = 1080,
     height = 1920,
     onProgress,
   } = options;
 
-  if (sceneImages.length === 0) throw new Error("No scene images to compose");
+  // If we have Runway clips, stitch them together
+  if (videoClips && videoClips.length > 0) {
+    return stitchVideoClips(videoClips, voiceoverUrl, businessName, width, height, onProgress);
+  }
 
-  // Load all images first
-  const loadedImages = await Promise.all(
-    sceneImages.map(
-      (url) =>
-        new Promise<HTMLImageElement>((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-          img.src = url;
-        })
-    )
-  );
+  // Otherwise fall back to image slideshow
+  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, durationPerScene, width, height, onProgress);
+}
 
-  // Set up canvas
+async function stitchVideoClips(
+  clipUrls: string[],
+  voiceoverUrl: string | null | undefined,
+  businessName: string,
+  width: number,
+  height: number,
+  onProgress?: (pct: number) => void,
+): Promise<Blob> {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  // Set up MediaRecorder
-  const stream = canvas.captureStream(30); // 30fps
+  const stream = canvas.captureStream(30);
 
-  // If voiceover, add audio track
+  // Add voiceover audio track if available
+  if (voiceoverUrl) {
+    try {
+      const audioEl = new Audio(voiceoverUrl);
+      audioEl.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        audioEl.oncanplaythrough = () => resolve();
+        audioEl.onerror = () => reject();
+        audioEl.load();
+      });
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaElementSource(audioEl);
+      const dest = audioCtx.createMediaStreamDestination();
+      source.connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      audioEl.play().catch(() => {});
+    } catch {
+      console.warn("Could not add voiceover audio");
+    }
+  }
+
+  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+    ? "video/webm;codecs=vp9"
+    : "video/webm";
+
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+  const chunks: Blob[] = [];
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+  return new Promise<Blob>(async (resolve, reject) => {
+    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+    recorder.onerror = e => reject(e);
+    recorder.start();
+
+    for (let i = 0; i < clipUrls.length; i++) {
+      onProgress?.(Math.round((i / clipUrls.length) * 100));
+
+      try {
+        const video = document.createElement("video");
+        video.crossOrigin = "anonymous";
+        video.muted = true; // we use our own audio track
+        video.playsInline = true;
+
+        await new Promise<void>((res, rej) => {
+          video.oncanplay = () => res();
+          video.onerror = () => rej(new Error(`Failed to load clip ${i + 1}`));
+          video.src = clipUrls[i];
+          video.load();
+        });
+
+        video.currentTime = 0;
+        await video.play();
+
+        // Draw frames from this clip until it ends
+        await new Promise<void>((res) => {
+          function drawClipFrame() {
+            if (video.ended || video.paused) {
+              res();
+              return;
+            }
+
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, width, height);
+
+            // Cover-fit the video
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const vRatio = vw / vh;
+            const cRatio = width / height;
+            let dw = width, dh = height, dx = 0, dy = 0;
+            if (vRatio > cRatio) {
+              dw = height * vRatio;
+              dx = (width - dw) / 2;
+            } else {
+              dh = width / vRatio;
+              dy = (height - dh) / 2;
+            }
+            ctx.drawImage(video, dx, dy, dw, dh);
+
+            requestAnimationFrame(drawClipFrame);
+          }
+          video.onended = () => res();
+          requestAnimationFrame(drawClipFrame);
+        });
+
+        video.pause();
+        video.src = "";
+      } catch (err) {
+        console.error(`Clip ${i + 1} playback failed:`, err);
+        // Draw a black frame for this clip duration
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = "#fff";
+        ctx.font = `${Math.round(width * 0.04)}px sans-serif`;
+        ctx.textAlign = "center";
+        ctx.fillText(`Scene ${i + 1}`, width / 2, height / 2);
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+
+    onProgress?.(100);
+    recorder.stop();
+  });
+}
+
+async function composeFromImages(
+  sceneImages: string[],
+  voiceoverUrl: string | null | undefined,
+  businessName: string,
+  title: string | undefined,
+  durationPerScene: number,
+  width: number,
+  height: number,
+  onProgress?: (pct: number) => void,
+): Promise<Blob> {
+  if (sceneImages.length === 0) throw new Error("No scene images to compose");
+
+  const loadedImages = await Promise.all(
+    sceneImages.map(
+      url => new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.src = url;
+      })
+    )
+  );
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  const stream = canvas.captureStream(30);
+
   let audioElement: HTMLAudioElement | null = null;
   if (voiceoverUrl) {
     try {
@@ -62,29 +197,26 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
       audioElement.crossOrigin = "anonymous";
       await new Promise<void>((resolve, reject) => {
         audioElement!.oncanplaythrough = () => resolve();
-        audioElement!.onerror = () => reject(new Error("Audio load failed"));
+        audioElement!.onerror = () => reject();
         audioElement!.load();
       });
       const audioCtx = new AudioContext();
       const source = audioCtx.createMediaElementSource(audioElement);
       const dest = audioCtx.createMediaStreamDestination();
       source.connect(dest);
-      dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
     } catch {
-      console.warn("Could not load voiceover audio, proceeding without it");
       audioElement = null;
     }
   }
 
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
-    : MediaRecorder.isTypeSupported("video/webm")
-    ? "video/webm"
     : "video/webm";
 
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 });
   const chunks: Blob[] = [];
-  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
   const totalDuration = sceneImages.length * durationPerScene;
   const fps = 30;
@@ -93,11 +225,8 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
   const transitionFrames = Math.min(15, Math.floor(framesPerScene / 4));
 
   return new Promise<Blob>((resolve, reject) => {
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: mimeType });
-      resolve(blob);
-    };
-    recorder.onerror = (e) => reject(e);
+    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+    recorder.onerror = e => reject(e);
     recorder.start();
     if (audioElement) audioElement.play().catch(() => {});
 
@@ -110,17 +239,12 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
         return;
       }
 
-      const sceneIndex = Math.min(
-        Math.floor(frame / framesPerScene),
-        loadedImages.length - 1
-      );
+      const sceneIndex = Math.min(Math.floor(frame / framesPerScene), loadedImages.length - 1);
       const frameInScene = frame % framesPerScene;
 
-      // Clear
       ctx.fillStyle = "#000000";
       ctx.fillRect(0, 0, width, height);
 
-      // Draw current scene image (cover fit)
       const img = loadedImages[sceneIndex];
       const imgRatio = img.width / img.height;
       const canvasRatio = width / height;
@@ -133,20 +257,14 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
         sy = (img.height - sh) / 2;
       }
 
-      // Subtle Ken Burns zoom effect
       const zoomProgress = frameInScene / framesPerScene;
       const zoom = 1 + zoomProgress * 0.05;
-      const zw = width * zoom;
-      const zh = height * zoom;
-      const zx = (width - zw) / 2;
-      const zy = (height - zh) / 2;
 
       ctx.save();
       ctx.translate(width / 2, height / 2);
       ctx.scale(zoom, zoom);
       ctx.translate(-width / 2, -height / 2);
 
-      // Fade transition
       let alpha = 1;
       if (frameInScene < transitionFrames && sceneIndex > 0) {
         alpha = frameInScene / transitionFrames;
@@ -158,7 +276,7 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
       ctx.globalAlpha = 1;
       ctx.restore();
 
-      // Bottom gradient overlay for text
+      // Bottom gradient
       const gradient = ctx.createLinearGradient(0, height * 0.7, 0, height);
       gradient.addColorStop(0, "rgba(0,0,0,0)");
       gradient.addColorStop(1, "rgba(0,0,0,0.8)");
@@ -171,7 +289,7 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
       ctx.textAlign = "center";
       ctx.fillText(businessName, width / 2, height - Math.round(height * 0.05));
 
-      // Title/caption overlay (first 2 seconds of first scene)
+      // Title overlay
       if (sceneIndex === 0 && frameInScene < fps * 2 && title) {
         const titleAlpha = frameInScene < fps * 0.5 ? frameInScene / (fps * 0.5) : frameInScene > fps * 1.5 ? (fps * 2 - frameInScene) / (fps * 0.5) : 1;
         ctx.globalAlpha = titleAlpha;
@@ -184,7 +302,6 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
 
       frame++;
       if (frame % 30 === 0) onProgress?.(Math.round((frame / totalFrames) * 100));
-
       requestAnimationFrame(drawFrame);
     }
 

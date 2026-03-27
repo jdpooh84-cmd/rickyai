@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useStrategyStep } from "@/hooks/useStrategyStep";
 import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
-import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker, Zap, Clock, Calendar, BarChart3, Play, Download } from "lucide-react";
+import { Copy, Check, ExternalLink, Film, Sparkles, Smartphone, Palette, Wand2, Video, Bot, Scissors, Monitor, Mic, MonitorSpeaker, Zap, Clock, Calendar, BarChart3, Play, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
+import { composeVideo } from "@/lib/videoComposer";
 import sampleVideoAsset from "@/assets/sample-promo-video.mp4.asset.json";
 import demoVideoAsset from "@/assets/demo-business-promo.mp4.asset.json";
 import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/persistence";
@@ -63,6 +65,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persistedState.generatedVideoScript);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string>("queued");
+  const [composingVideo, setComposingVideo] = useState(false);
+  const [composePct, setComposePct] = useState(0);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const composedRef = useRef(false);
   const [pipelineKeyword, setPipelineKeyword] = useState(persistedState.pipelineKeyword);
   const [pipelineRunning, setPipelineRunning] = useState(false);
   const [pipelineResult, setPipelineResult] = useState<any>(persistedState.pipelineResult);
@@ -95,6 +103,86 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       setProductionMode((current) => current ?? persistedState.productionMode);
     }
   }, [businessId, locationId, persistedState.businessId, persistedState.locationId, persistedState.productionMode, persistedState.workflowMode]);
+
+  // ── Poll active video generation job ──
+  useEffect(() => {
+    if (!activeJobId) return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("video_generation_jobs")
+        .select("status, result_payload, video_url, error_message")
+        .eq("id", activeJobId)
+        .single();
+
+      if (data) {
+        setJobStatus(data.status);
+        if (data.result_payload) {
+          setGeneratedVideoScript(data.result_payload);
+        }
+        if (data.status === "completed" || data.status === "media_ready") {
+          clearInterval(interval);
+          setGeneratingVideo(false);
+
+          const payload = data.result_payload as any;
+          const clips = payload?.video_clips || [];
+          const images = payload?.scene_images || [];
+
+          // If we have Runway clips or images, compose final video
+          if ((clips.length > 0 || images.length > 0) && !composedRef.current) {
+            composedRef.current = true;
+            setComposingVideo(true);
+            setJobStatus("composing_video");
+            try {
+              const blob = await composeVideo({
+                sceneImages: images,
+                videoClips: clips.length > 0 ? clips : undefined,
+                voiceoverUrl: payload?.voiceover_url || null,
+                businessName: payload?.title || "Video",
+                title: payload?.title,
+                durationPerScene: 5,
+                width: 1080,
+                height: 1920,
+                onProgress: setComposePct,
+              });
+              const url = URL.createObjectURL(blob);
+              setFinalVideoUrl(url);
+
+              // Upload composed video
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session) {
+                const fileName = `videos/${session.user.id}/${activeJobId}/final.webm`;
+                const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+                if (!uploadErr) {
+                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+                  setFinalVideoUrl(urlData.publicUrl);
+                  await supabase.from("video_generation_jobs").update({
+                    video_url: urlData.publicUrl,
+                    updated_at: new Date().toISOString(),
+                  }).eq("id", activeJobId);
+                }
+              }
+              toast.success("Your video is ready! 🎬");
+            } catch (err: any) {
+              console.error("Video composition error:", err);
+              toast.error("Video assembly had issues, but your clips and images are ready");
+            }
+            setComposingVideo(false);
+          } else if (data.video_url) {
+            setFinalVideoUrl(data.video_url);
+            toast.success("Your video is ready! 🎬");
+          } else {
+            toast.success("Production complete!");
+          }
+        } else if (data.status === "failed") {
+          clearInterval(interval);
+          setGeneratingVideo(false);
+          toast.error(data.error_message || "Production failed — try again");
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [activeJobId]);
 
   const handleGenerate = async () => {
     if (!businessId) return;
@@ -189,31 +277,29 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
   const handleGenerateVideo = async (videoType: string = "promotional") => {
-    if (!businessId) {
-      console.error("[VideoStudio] handleGenerateVideo: No businessId");
-      return;
-    }
-    console.log("[VideoStudio] handleGenerateVideo START", { businessId, videoType, productionMode });
+    if (!businessId) return;
     setGeneratingVideo(true);
+    setFinalVideoUrl(null);
+    composedRef.current = false;
+    setJobStatus("queued");
+    setComposePct(0);
     try {
       const response = await supabase.functions.invoke("generate-video", {
-        body: { businessId, videoType, productionMode },
+        body: { businessId, videoType, productionMode: productionMode || "standard" },
       });
-      console.log("[VideoStudio] handleGenerateVideo: Response", { error: response.error, hasData: !!response.data, data: response.data });
-      if (response.error) {
-        console.error("[VideoStudio] handleGenerateVideo: Function error", response.error);
-        throw new Error(response.error.message);
-      }
-      setGeneratedVideoScript(response.data);
-      if (response.data?.video_url) {
-        toast.success("Video generated successfully!");
+      if (response.error) throw new Error(response.error.message);
+
+      if (response.data?.job_id) {
+        setActiveJobId(response.data.job_id);
+        toast.info("🎬 Video production started! This may take a few minutes...");
       } else {
-        toast.success(response.data?.message || "Video brief generated — use it with CapCut, Canva, or any video tool.");
+        setGeneratedVideoScript(response.data);
+        setGeneratingVideo(false);
+        toast.success(response.data?.message || "Video brief generated.");
       }
     } catch (err: any) {
       console.error("[VideoStudio] handleGenerateVideo FAILED:", err);
       toast.error(err.message || "Failed to generate video");
-    } finally {
       setGeneratingVideo(false);
     }
   };
@@ -798,141 +884,177 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </h4>
               <p className="text-[10px] text-muted-foreground">Generate an AI video based on your business profile</p>
             </div>
-            <button onClick={() => handleGenerateVideo("promotional")} disabled={generatingVideo}
+            <button onClick={() => handleGenerateVideo("promotional")} disabled={generatingVideo || composingVideo}
               className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
-              {generatingVideo ? "Producing..." : "🎬 Produce Video"}
+              {generatingVideo ? <><Loader2 className="w-3 h-3 animate-spin" /> Producing...</> : "🎬 Produce Video"}
             </button>
           </div>
-          {generatedVideoScript && (
-            <div className="space-y-3">
-              {/* Pipeline Status */}
-              {generatedVideoScript.pipeline_steps && (
-                <div className="p-3 rounded-xl bg-secondary/30 border border-border">
-                  <h5 className="text-xs font-semibold text-foreground mb-2">🔄 Pipeline Status</h5>
-                  <div className="grid grid-cols-4 gap-2">
-                    {Object.entries(generatedVideoScript.pipeline_steps).map(([step, status]: [string, any]) => (
+
+          {/* Live production progress */}
+          {generatingVideo && (
+            <div className="space-y-4 mt-4">
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <Loader2 className="w-6 h-6 animate-spin text-primary flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">
+                    {jobStatus === "queued" && "Starting up..."}
+                    {jobStatus === "generating_script" && "✍️ Writing your script..."}
+                    {jobStatus === "generating_images" && "🎨 Creating scene images..."}
+                    {jobStatus === "generating_voiceover" && "🎙️ Recording voiceover..."}
+                    {jobStatus === "rendering_video" && "🎬 Rendering video clips with Runway AI..."}
+                    {jobStatus === "composing_video" && `🎬 Assembling final video... ${composePct}%`}
+                    {!["queued", "generating_script", "generating_images", "generating_voiceover", "rendering_video", "composing_video"].includes(jobStatus) && "Processing..."}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {generatedVideoScript?.message || "This may take 2-5 minutes for Runway rendering."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pipeline steps */}
+              {generatedVideoScript?.pipeline_steps && (
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(generatedVideoScript.pipeline_steps).map(([step, status]: [string, any]) => {
+                    const isActive = typeof status === "string" && (status === "processing" || status === "rendering" || status.includes("/"));
+                    const isDone = status === "completed";
+                    const isSkipped = typeof status === "string" && status.startsWith("skipped");
+                    return (
                       <div key={step} className={`text-center p-2 rounded-lg ${
-                        status === "completed" ? "bg-green-500/10 text-green-400" : 
-                        status === "processing" ? "bg-amber-500/10 text-amber-400" :
-                        status?.toString().startsWith("skipped") ? "bg-muted text-muted-foreground" :
+                        isDone ? "bg-primary/10 text-primary" :
+                        isActive ? "bg-accent/10 text-accent-foreground" :
+                        isSkipped ? "bg-muted text-muted-foreground" :
+                        status === "pending" ? "bg-secondary/50 text-muted-foreground" :
                         "bg-destructive/10 text-destructive"
                       }`}>
-                        <div className="text-sm font-bold">{status === "completed" ? "✅" : status === "processing" ? "⏳" : status?.toString().startsWith("skipped") ? "⏭️" : "❌"}</div>
-                        <div className="text-[10px] font-medium capitalize">{step}</div>
+                        <div className="text-sm font-bold">
+                          {isDone ? "✅" : isActive ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : isSkipped ? "⏭️" : status === "pending" ? "⏳" : "❌"}
+                        </div>
+                        <div className="text-[10px] font-medium capitalize">{step.replace("_", " ")}</div>
+                        {typeof status === "string" && status.includes("/") && (
+                          <div className="text-[9px] text-muted-foreground">{status}</div>
+                        )}
                       </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Show scene images as they arrive */}
+              {generatedVideoScript?.scene_images?.length > 0 && (
+                <div className="p-3 rounded-xl bg-secondary/30">
+                  <p className="text-[10px] font-semibold text-foreground mb-2">🖼️ Scene images ({generatedVideoScript.scene_images.length})</p>
+                  <div className="grid grid-cols-4 gap-1">
+                    {generatedVideoScript.scene_images.map((url: string, i: number) => (
+                      <img key={i} src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
                     ))}
                   </div>
-                  {!generatedVideoScript.video_url && generatedVideoScript.next_steps?.length > 0 && (
-                    <div className="mt-3 p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
-                      <p className="text-[10px] font-semibold text-amber-400 mb-1">To get a finished video:</p>
-                      {generatedVideoScript.next_steps.map((step: string, i: number) => (
-                        <p key={i} className="text-[10px] text-muted-foreground">• {step}</p>
+                </div>
+              )}
+
+              {/* Clip rendering progress */}
+              {generatedVideoScript?.total_clips && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Runway clips</span>
+                    <span>{generatedVideoScript.clips_completed || 0}/{generatedVideoScript.total_clips}</span>
+                  </div>
+                  <Progress value={((generatedVideoScript.clips_completed || 0) / generatedVideoScript.total_clips) * 100} className="h-2" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Composing overlay */}
+          {composingVideo && (
+            <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
+              <p className="text-sm font-semibold text-foreground">Assembling your final video... {composePct}%</p>
+              <Progress value={composePct} className="mt-2 h-2" />
+            </div>
+          )}
+
+          {/* Final video player */}
+          {finalVideoUrl && !generatingVideo && !composingVideo && (
+            <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20">
+              <h5 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                <Play className="w-4 h-4" /> Your Finished Video
+              </h5>
+              <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
+                <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
+              </video>
+              <div className="flex gap-2 mt-3">
+                <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                  <Download className="w-4 h-4" /> Download Video
+                </a>
+              </div>
+              {generatedVideoScript?.total_duration_seconds && (
+                <p className="text-[10px] text-muted-foreground mt-2 text-center">Duration: ~{generatedVideoScript.total_duration_seconds}s</p>
+              )}
+            </div>
+          )}
+
+          {/* Script/metadata (shown after completion, not during production) */}
+          {generatedVideoScript && !generatingVideo && !composingVideo && (
+            <div className="space-y-3 mt-4">
+              {/* Script Info */}
+              {(generatedVideoScript.title || generatedVideoScript.voiceover_script) && (
+                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
+                  {generatedVideoScript.title && <h5 className="text-xs font-semibold text-primary mb-1">{generatedVideoScript.title}</h5>}
+                  {generatedVideoScript.description && <p className="text-xs text-secondary-foreground">{generatedVideoScript.description}</p>}
+                  {generatedVideoScript.voiceover_script && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
+                      <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{generatedVideoScript.voiceover_script}</p>
+                      <CopyButton text={generatedVideoScript.voiceover_script} id="voiceover-script" />
+                    </div>
+                  )}
+                  {generatedVideoScript.caption && (
+                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
+                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
+                      <p className="text-xs text-secondary-foreground">{generatedVideoScript.caption}</p>
+                      <CopyButton text={generatedVideoScript.caption} id="caption-copy" />
+                    </div>
+                  )}
+                  {generatedVideoScript.hashtags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {generatedVideoScript.hashtags.map((h: string, i: number) => (
+                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">#{h.replace('#','')}</span>
                       ))}
                     </div>
                   )}
-                </div>
-              )}
-              
-              {/* Script Info */}
-              {generatedVideoScript.script && (
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
-                  <h5 className="text-xs font-semibold text-primary mb-1">{generatedVideoScript.script.title}</h5>
-                  <p className="text-xs text-secondary-foreground">{generatedVideoScript.script.description}</p>
-                  {generatedVideoScript.script.voiceover_script && (
-                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
-                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Voiceover Script:</p>
-                      <p className="text-xs text-secondary-foreground whitespace-pre-wrap">{generatedVideoScript.script.voiceover_script}</p>
-                      <CopyButton text={generatedVideoScript.script.voiceover_script} id="voiceover-script" />
-                    </div>
-                  )}
-                  {generatedVideoScript.script.caption && (
-                    <div className="mt-2 p-2 rounded-lg bg-secondary/30">
-                      <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
-                      <p className="text-xs text-secondary-foreground">{generatedVideoScript.script.caption}</p>
-                      <CopyButton text={generatedVideoScript.script.caption} id="caption-copy" />
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {generatedVideoScript.script.hashtags?.map((h: string, i: number) => (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">#{h.replace('#','')}</span>
-                    ))}
-                  </div>
                 </div>
               )}
 
               {/* Voiceover Audio */}
               {generatedVideoScript.voiceover_url && (
                 <div className="p-3 rounded-xl bg-accent/5 border border-accent/10">
-                  <h5 className="text-xs font-semibold text-accent-foreground mb-2">🎙️ AI Voiceover (ElevenLabs)</h5>
+                  <h5 className="text-xs font-semibold text-accent-foreground mb-2">🎙️ AI Voiceover</h5>
                   <audio controls className="w-full">
                     <source src={generatedVideoScript.voiceover_url} type="audio/mpeg" />
                   </audio>
-                  <a href={generatedVideoScript.voiceover_url} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline">
-                    <Download className="w-3 h-3" /> Download voiceover
-                  </a>
                 </div>
               )}
 
-              {/* Scene Images (FREE - no API keys needed) */}
-              {generatedVideoScript.scene_images?.length > 0 && (
+              {/* Scene Images (collapsed) */}
+              {generatedVideoScript.scene_images?.length > 0 && !finalVideoUrl && (
                 <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-                  <h5 className="text-xs font-semibold text-primary mb-2">🖼️ AI-Generated Scene Images ({generatedVideoScript.scene_images.length} scenes)</h5>
-                  <p className="text-[10px] text-muted-foreground mb-3">Professional images generated from your business profile — import into CapCut or Canva to create your video.</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <h5 className="text-xs font-semibold text-primary mb-2">🖼️ Scene Images ({generatedVideoScript.scene_images.length})</h5>
+                  <div className="grid grid-cols-3 gap-1">
                     {generatedVideoScript.scene_images.map((url: string, i: number) => (
-                      <div key={i} className="relative group">
-                        <img src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                          <a href={url} download className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground">
-                            <Download className="w-3 h-3" />
-                          </a>
-                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] px-2 py-1 rounded bg-secondary text-foreground">
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                        <span className="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded bg-black/60 text-white">Scene {i + 1}</span>
-                      </div>
+                      <img key={i} src={url} alt={`Scene ${i + 1}`} className="w-full rounded-lg object-cover aspect-video" />
                     ))}
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <a href={generatedVideoScript.scene_images[0]} download
-                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                      <Download className="w-3 h-3" /> Download All Scenes
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              {/* Rendered Video */}
-              {generatedVideoScript.video_url && (
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
-                  <h5 className="text-xs font-semibold text-primary mb-2">🎬 Your Finished Video</h5>
-                  <video controls className="w-full rounded-xl max-h-[300px] bg-black">
-                    <source src={generatedVideoScript.video_url} type="video/mp4" />
-                  </video>
-                  <div className="flex gap-2 mt-2">
-                    <a href={generatedVideoScript.video_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
-                      <Download className="w-3 h-3" /> Download Video
-                    </a>
                   </div>
                 </div>
               )}
 
               {/* Message */}
-              <div className="p-3 rounded-xl bg-secondary/30">
-                <p className="text-xs text-secondary-foreground">{generatedVideoScript.message}</p>
-              </div>
+              {generatedVideoScript.message && (
+                <div className="p-3 rounded-xl bg-secondary/30">
+                  <p className="text-xs text-secondary-foreground">{generatedVideoScript.message}</p>
+                </div>
+              )}
             </div>
           )}
-          {/* Sample video preview */}
-          <div className="mt-4">
-            <p className="text-[10px] text-muted-foreground mb-2">Sample AI-generated video preview:</p>
-            <video controls className="w-full rounded-xl max-h-[200px] bg-black">
-              <source src={sampleVideoAsset.url} type="video/mp4" />
-            </video>
-          </div>
         </div>
       )}
 
