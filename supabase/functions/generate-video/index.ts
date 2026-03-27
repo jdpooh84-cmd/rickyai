@@ -230,13 +230,15 @@ Return JSON with:
     const sceneImageUrls: string[] = [];
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
+    let imageCreditsExhausted = false;
+
     for (let i = 0; i < scriptContent.scenes.length; i++) {
       const scene = scriptContent.scenes[i];
       try {
         let imgUrl: string | null = null;
 
-        // Try AI image generation
-        if (!usedTemplate) {
+        // Always try AI image generation (even for template scripts)
+        if (!imageCreditsExhausted) {
           const imgResponse = await fetch(AI_URL, {
             method: "POST",
             headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
@@ -266,8 +268,15 @@ Return JSON with:
               }
             }
           } else if (imgResponse.status === 402) {
-            console.log("[generate-video] Image credits exhausted, remaining scenes will use Runway text-to-video");
+            console.log("[generate-video] Image credits exhausted at scene", i + 1);
+            imageCreditsExhausted = true;
           }
+        }
+
+        // Fallback: generate a simple colored placeholder image so Runway still has input
+        if (!imgUrl) {
+          console.log(`[generate-video] Scene ${i + 1}: using generated placeholder image`);
+          imgUrl = await generatePlaceholderImage(supabase, userId, jobId, i, business.business_name, scene.text_overlay || `Scene ${i + 1}`);
         }
 
         if (imgUrl) {
