@@ -916,7 +916,7 @@ Deno.serve(async (req) => {
         location_id: null,
         provider: Deno.env.get("RUNWAY_API_KEY") ? "runway" : "built_in_ai",
         status: "queued",
-        request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape" },
+        request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape", approvedScript: approvedScript || null },
       })
       .select("id")
       .single();
