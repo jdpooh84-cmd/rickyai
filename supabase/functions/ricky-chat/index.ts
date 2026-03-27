@@ -58,32 +58,51 @@ Rules:
 - Use emojis sparingly but naturally
 - If they seem stuck, suggest the next action`;
 
-    const aiResponse = await fetch(AI_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message },
-        ],
-      }),
-    });
+    let reply: string;
 
-    if (!aiResponse.ok) throw new Error("AI service unavailable");
+    try {
+      const aiResponse = await fetch(AI_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${lovableKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message },
+          ],
+        }),
+      });
 
-    const aiData = await aiResponse.json();
-    const reply = aiData.choices[0].message.content;
+      if (!aiResponse.ok) {
+        const status = aiResponse.status;
+        console.error(`[ricky-chat] AI returned ${status}`);
+        throw new Error(`AI_UNAVAILABLE_${status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      reply = aiData.choices[0].message.content;
+    } catch (aiErr: any) {
+      console.error("[ricky-chat] AI fallback triggered:", aiErr.message);
+      const stepName = stepNames[currentStep] || "the dashboard";
+      reply = `Hey! 👋 Ricky is temporarily offline because our AI service is unavailable. But you can still use the rest of the app — keep working through ${stepName} and I'll be back to help soon! If you need guidance, check the help guides in each step.`;
+    }
 
     return new Response(JSON.stringify({ reply }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+    // Only auth errors reach here — still return 200 with error info when possible
+    const msg = error.message;
+    if (msg === "Missing authorization" || msg === "Unauthorized") {
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ reply: "Something went wrong — please try again in a moment." }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
