@@ -427,8 +427,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
     const sceneImageUrls: string[] = [];
-    const sceneImageIsReal: boolean[] = []; // Track which images are real vs placeholder
+    const sceneImageIsReal: boolean[] = [];
     let imageCreditsExhausted = false;
+
+    // Pre-fetch existing real images so we can cycle them when credits are gone
+    const existingRealImages = await findAllExistingImages(supabase, userId);
+    console.log(`[pipeline] Found ${existingRealImages.length} existing real images to reuse if needed`);
 
     for (let i = 0; i < script.scenes.length; i++) {
       try {
@@ -437,11 +441,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         sceneImageIsReal.push(result.isReal);
       } catch (e: any) {
         if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
-        const existing = await findExistingImage(supabase, userId);
-        if (existing) {
-          const real = await isRealImage(existing);
-          sceneImageUrls.push(existing);
-          sceneImageIsReal.push(real);
+        // Cycle through existing real images instead of creating placeholders
+        if (existingRealImages.length > 0) {
+          const cycledUrl = existingRealImages[i % existingRealImages.length];
+          sceneImageUrls.push(cycledUrl);
+          sceneImageIsReal.push(true); // These are real images, safe for Runway
+          console.log(`[pipeline] Scene ${i + 1}: reusing existing image (cycled)`);
         } else {
           const png = create128Png(i);
           const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
