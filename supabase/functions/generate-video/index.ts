@@ -260,6 +260,58 @@ async function isRealImage(url: string): Promise<boolean> {
   } catch { return false; }
 }
 
+// ── Business Media Library (NEW — per-business uploaded assets) ──
+interface BusinessMediaRow {
+  id: string;
+  public_url: string;
+  file_type: string;
+  shot_type: string;
+  file_name: string;
+}
+
+async function fetchBusinessMedia(supabase: any, businessId: string): Promise<BusinessMediaRow[]> {
+  const { data } = await supabase
+    .from("business_media")
+    .select("id, public_url, file_type, shot_type, file_name")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+  return (data || []) as BusinessMediaRow[];
+}
+
+function pickMediaForScene(library: BusinessMediaRow[], shotType: string, usedIds: Set<string>): BusinessMediaRow | null {
+  // Prefer matching shotType not yet used
+  let match = library.find(m => m.shot_type === shotType && !usedIds.has(m.id));
+  if (!match) match = library.find(m => !usedIds.has(m.id)); // any unused
+  if (!match && library.length > 0) match = library[usedIds.size % library.length]; // cycle
+  if (match) usedIds.add(match.id);
+  return match || null;
+}
+
+// ── Motion prompt builder for Runway per-scene animation ──
+const MOTION_PROMPTS: Record<string, string[]> = {
+  food: [
+    "Slow dramatic push-in with shallow depth of field, warm golden lighting, steam gently rising. Camera glides smoothly forward revealing texture and detail.",
+    "Overhead top-down slowly rotating clockwise, warm ambient light, ingredients glistening. Gentle orbit revealing the full composition.",
+    "Low-angle sliding dolly left to right, dramatic rim lighting, background softly blurred bokeh. Cinematic food commercial feel.",
+    "Rack focus from background to foreground hero item, warm color grading, subtle lens flare. Magazine-quality product reveal.",
+  ],
+  people: [
+    "Steadicam walk-through following subjects, natural warm lighting, candid moments, slight handheld energy. Documentary-style intimacy.",
+    "Smooth lateral tracking shot right to left, warm ambient light, genuine smiles and laughter. Lifestyle brand feel.",
+    "Medium close-up with gentle push-in, soft natural backlight, authentic expressions. Warm inviting atmosphere.",
+  ],
+  environment: [
+    "Slow cinematic push-in towards entrance, golden hour lighting, warm glow from windows. Establishing shot with grandeur.",
+    "Wide crane-style overhead descending gently, revealing interior space, warm pendant lighting. Architectural beauty shot.",
+    "Smooth pull-back reveal from detail to wide establishing shot, twilight bokeh, signage prominent. Brand reveal moment.",
+  ],
+};
+
+function getMotionPrompt(shotType: string, index: number): string {
+  const pool = MOTION_PROMPTS[shotType] || MOTION_PROMPTS.environment;
+  return pool[index % pool.length];
+}
+
 async function findAllExistingImages(supabase: any, userId: string): Promise<string[]> {
   const urls: string[] = [];
   const { data: folders } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
@@ -318,14 +370,31 @@ function deflateStored(data: Uint8Array): Uint8Array {
 function adler32(d: Uint8Array): number { let a=1,b=0; for(let i=0;i<d.length;i++){a=(a+d[i])%65521;b=(b+a)%65521;} return(b<<16)|a; }
 function crc32(d: Uint8Array): number { let c=0xffffffff; for(let i=0;i<d.length;i++){c^=d[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xedb88320:0);} return(c^0xffffffff)>>>0; }
 
-async function getSceneImage(supabase: any, userId: string, jobId: string, sceneIndex: number, scene: any, biz: any, lovableKey: string, creditsExhausted: boolean, existingImages: string[]): Promise<{ url: string; isReal: boolean }> {
-  // Priority 1: Real photos from Supabase storage
+async function getSceneImage(
+  supabase: any, userId: string, jobId: string, sceneIndex: number, scene: any, biz: any,
+  lovableKey: string, creditsExhausted: boolean, existingImages: string[],
+  businessMedia: BusinessMediaRow[], usedMediaIds: Set<string>,
+): Promise<{ url: string; isReal: boolean; motionPrompt: string }> {
+  const shotType = scene?.shotType || "environment";
+  const motionPrompt = getMotionPrompt(shotType, sceneIndex);
+
+  // Priority 0: Business media library (user-uploaded assets)
+  const libraryMatch = pickMediaForScene(businessMedia.filter(m => m.file_type === "image"), shotType, usedMediaIds);
+  if (libraryMatch) {
+    const real = await isRealImage(libraryMatch.public_url);
+    if (real) {
+      console.log(`[pipeline] Scene ${sceneIndex + 1}: using business media library (${libraryMatch.shot_type}: ${libraryMatch.file_name})`);
+      return { url: libraryMatch.public_url, isReal: true, motionPrompt };
+    }
+  }
+
+  // Priority 1: Real photos from old Supabase storage paths
   if (existingImages.length > 0) {
     const url = existingImages[sceneIndex % existingImages.length];
     const real = await isRealImage(url);
     if (real) {
       console.log(`[pipeline] Scene ${sceneIndex + 1}: using existing real photo`);
-      return { url, isReal: true };
+      return { url, isReal: true, motionPrompt };
     }
   }
 
@@ -354,7 +423,7 @@ async function getSceneImage(supabase: any, userId: string, jobId: string, scene
               const { error } = await supabase.storage.from("media").upload(fn, bytes, { contentType: "image/png", upsert: true });
               if (!error) {
                 const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-                return { url: urlData.publicUrl, isReal: true };
+                return { url: urlData.publicUrl, isReal: true, motionPrompt };
               }
             }
           }
@@ -368,18 +437,18 @@ async function getSceneImage(supabase: any, userId: string, jobId: string, scene
     }
   }
 
-  // Priority 3: Cycle existing images even if they didn't pass isReal above
+  // Priority 3: Cycle existing images
   if (existingImages.length > 0) {
-    return { url: existingImages[sceneIndex % existingImages.length], isReal: true };
+    return { url: existingImages[sceneIndex % existingImages.length], isReal: true, motionPrompt };
   }
 
   // Last resort: placeholder
   const png = create128Png(sceneIndex);
   const fn = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.png`;
   const { error } = await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
-  if (error) return { url: "", isReal: false };
+  if (error) return { url: "", isReal: false, motionPrompt };
   const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-  return { url: urlData.publicUrl, isReal: false };
+  return { url: urlData.publicUrl, isReal: false, motionPrompt };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
