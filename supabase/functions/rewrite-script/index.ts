@@ -112,57 +112,61 @@ Length mode: ${lengthMode || "standard"}`;
 
     let rewrittenScript: any = null;
 
-    if (providerUsed === "anthropic") {
-      // Anthropic Messages API
-      const resp = await fetch(aiUrl, {
-        method: "POST",
-        headers: aiHeaders,
-        body: JSON.stringify({
-          model: aiModel,
-          max_tokens: 2000,
-          system: systemPrompt,
-          messages: [{ role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` }],
-        }),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error("Anthropic error:", resp.status, errText);
-        throw new Error(`Anthropic API error: ${resp.status}`);
-      }
-      const data = await resp.json();
-      const text = data.content?.[0]?.text || "";
-      rewrittenScript = JSON.parse(text);
-    } else {
-      // OpenAI-compatible (OpenAI or Lovable AI)
-      const resp = await fetch(aiUrl, {
-        method: "POST",
-        headers: aiHeaders,
-        body: JSON.stringify({
-          model: aiModel,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` },
-          ],
-          temperature: 0.9,
-        }),
-      });
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error("AI error:", resp.status, errText);
-        if (resp.status === 402) {
-          throw new Error("AI credits exhausted. Connect your own ChatGPT or Claude key in Settings to continue rewriting.");
+    // ── Try AI rewrite, fall back to template-based rewrite if credits exhausted ──
+    try {
+      if (providerUsed === "anthropic") {
+        const resp = await fetch(aiUrl, {
+          method: "POST",
+          headers: aiHeaders,
+          body: JSON.stringify({
+            model: aiModel,
+            max_tokens: 2000,
+            system: systemPrompt,
+            messages: [{ role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` }],
+          }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error("Anthropic error:", resp.status, errText);
+          throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
         }
-        throw new Error(`AI service error: ${resp.status}`);
+        const data = await resp.json();
+        const text = data.content?.[0]?.text || "";
+        rewrittenScript = JSON.parse(text);
+      } else {
+        const resp = await fetch(aiUrl, {
+          method: "POST",
+          headers: aiHeaders,
+          body: JSON.stringify({
+            model: aiModel,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` },
+            ],
+            temperature: 0.9,
+          }),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text();
+          console.error("AI error:", resp.status, errText);
+          throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
+        }
+        const data = await resp.json();
+        const raw = data.choices?.[0]?.message?.content || "";
+        const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        rewrittenScript = JSON.parse(cleaned);
       }
-      const data = await resp.json();
-      const raw = data.choices?.[0]?.message?.content || "";
-      // Strip markdown fences if present
-      const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
-      rewrittenScript = JSON.parse(cleaned);
+    } catch (aiErr: any) {
+      console.log("AI rewrite failed, using template fallback:", aiErr.message);
+      // Template-based rewrite — no AI needed
+      rewrittenScript = templateRewrite(currentScript, biz, loc);
+      providerUsed = "template_fallback";
     }
 
     if (!rewrittenScript?.scenes?.length) {
-      throw new Error("AI returned invalid script structure");
+      // Last resort: return shuffled original
+      rewrittenScript = templateRewrite(currentScript, biz, loc);
+      providerUsed = "template_fallback";
     }
 
     return new Response(JSON.stringify({ script: rewrittenScript, providerUsed }), {
