@@ -175,8 +175,29 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       toast.error(`You've used all ${MAX_REWRITES} rewrites. Please edit the script manually or approve the current version.`);
       return;
     }
-    setRewriteCount(prev => prev + 1);
-    await handleGenerateScript();
+    if (!pendingScript || !businessId) return;
+    setGeneratingScript(true);
+    try {
+      const response = await supabase.functions.invoke("rewrite-script", {
+        body: { currentScript: pendingScript, businessId, lengthMode },
+      });
+      if (response.error) throw new Error(response.error.message);
+      const newScript = response.data?.script;
+      if (!newScript) throw new Error("No rewritten script returned");
+
+      setRewriteCount(prev => prev + 1);
+      setPendingScript(newScript);
+      setScriptVersions(prev => [...prev, { script: newScript, timestamp: new Date().toISOString(), version: prev.length + 1 }]);
+
+      const provider = response.data?.providerUsed;
+      const providerLabel = provider === "openai" ? "ChatGPT" : provider === "anthropic" ? "Claude" : "AI";
+      toast.success(`Script rewritten by ${providerLabel}! Review the new version. ✏️`);
+    } catch (err: any) {
+      console.error("[VideoStudio] Script rewrite failed:", err);
+      toast.error(err.message || "Failed to rewrite script");
+    } finally {
+      setGeneratingScript(false);
+    }
   };
 
   const handleProduceVideo = async () => {
