@@ -543,6 +543,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <button onClick={resetFlow} className="px-4 py-2 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80">
                 Make Another
               </button>
+              <button onClick={onComplete} className="px-4 py-2 rounded-xl border border-border text-foreground text-sm font-medium hover:bg-secondary/50 flex items-center gap-1">
+                ← Back
+              </button>
             </div>
 
             {generatedVideoScript?.total_duration_seconds && (
