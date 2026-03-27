@@ -11,7 +11,7 @@ const IMAGE_MODEL = "google/gemini-2.5-flash-image";
 const RUNWAY_API_URL = "https://api.dev.runwayml.com/v1";
 
 // Duration targets in seconds
-const DURATION_TARGETS: Record<string, { min: number; scenes: number; perClip: number }> = {
+const DURATION_TARGETS: Record<string, { min: number; scenes: number; perClip: 5 | 10 }> = {
   quick: { min: 45, scenes: 9, perClip: 5 },
   standard: { min: 60, scenes: 6, perClip: 10 },
   longform: { min: 90, scenes: 9, perClip: 10 },
@@ -143,7 +143,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const userRunwayKey = keyMap["runway"] || runwayKey;
 
     const config = DURATION_TARGETS[productionMode] || DURATION_TARGETS.standard;
-    const ratio = productionMode === "quick" ? "720:1280" : "1280:720";
+    const ratio = productionMode === "quick" ? "9:16" : "16:9";
     const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "";
 
     // ── Step 1: Generate script ──
