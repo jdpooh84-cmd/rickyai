@@ -71,6 +71,22 @@ const Dashboard = () => {
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
 
+  const handleResetDemo = async () => {
+    if (!user) return;
+    // Reset onboarding flag
+    await supabase.from("profiles").update({ onboarding_completed: false }).eq("user_id", user.id);
+    // Clear local storage
+    localStorage.removeItem(DASHBOARD_STATE_KEY);
+    localStorage.removeItem("rickyai-business-selection");
+    // Reset state
+    setCompletedSteps([]);
+    setActiveStep(1);
+    setActiveSection("");
+    setOnboardingChecked(false);
+    setShowOnboarding(true);
+    toast.success("Reset complete — starting fresh onboarding!");
+  };
+
   const markComplete = (step: number) => {
     if (!completedSteps.includes(step)) setCompletedSteps(prev => [...prev, step]);
     if (step < 14) setActiveStep(step + 1);
