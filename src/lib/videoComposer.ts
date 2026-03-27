@@ -62,6 +62,7 @@ interface ComposeOptions {
   captionText?: string;
   sceneCaptions?: string[];
   durationPerScene?: number;
+  totalDurationSeconds?: number;
   width?: number;
   height?: number;
   onProgress?: (pct: number) => void;
@@ -76,8 +77,8 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
     title,
     sceneCaptions,
     durationPerScene = 4,
+    totalDurationSeconds,
     width = 1080,
-    height = 1920,
     onProgress,
   } = options;
 
@@ -87,7 +88,7 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
   }
 
   // Otherwise fall back to image slideshow
-  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, sceneCaptions, durationPerScene, width, height, onProgress);
+  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, sceneCaptions, durationPerScene, totalDurationSeconds, width, height, onProgress);
 }
 
 async function stitchVideoClips(
@@ -252,6 +253,7 @@ async function composeFromImages(
   title: string | undefined,
   sceneCaptions: string[] | undefined,
   durationPerScene: number,
+  totalDurationSeconds: number | undefined,
   width: number,
   height: number,
   onProgress?: (pct: number) => void,
@@ -305,10 +307,14 @@ async function composeFromImages(
   const chunks: Blob[] = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-  const totalDuration = sceneImages.length * durationPerScene;
+  const fallbackSceneDuration = durationPerScene;
+  const derivedSceneDuration = totalDurationSeconds && sceneImages.length > 0
+    ? Math.max(fallbackSceneDuration, Math.ceil(totalDurationSeconds / sceneImages.length))
+    : fallbackSceneDuration;
+  const totalDuration = sceneImages.length * derivedSceneDuration;
   const fps = 30;
   const totalFrames = totalDuration * fps;
-  const framesPerScene = durationPerScene * fps;
+  const framesPerScene = derivedSceneDuration * fps;
   const transitionFrames = Math.min(15, Math.floor(framesPerScene / 4));
 
   return new Promise<Blob>((resolve, reject) => {

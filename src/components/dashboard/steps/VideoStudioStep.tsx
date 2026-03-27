@@ -141,6 +141,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 title: payload?.title,
                 sceneCaptions: payload?.scene_captions || [],
                 durationPerScene: 5,
+                totalDurationSeconds: payload?.total_duration_seconds,
                 width: 1080,
                 height: 1920,
                 onProgress: setComposePct,
