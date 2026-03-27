@@ -243,7 +243,7 @@ Return JSON with:
             promptImage: firstImageUrl,
             promptText: `Cinematic, smooth motion, professional commercial video. ${scenePrompt}. High quality, vibrant colors, professional lighting.`,
             duration: 5,
-            ratio: productionMode === "quick" ? "768:1344" : "1280:768",
+            ratio: productionMode === "quick" ? "720:1280" : "1280:720",
           }),
         });
 
