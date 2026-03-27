@@ -536,7 +536,10 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         const voLine = scene?.voiceover_line || script.scene_captions?.[sceneIdx] || "";
         const visPrompt = scene?.visual_description || `Professional video for ${business.business_name}`;
         const camDir = scene?.camera_direction || "smooth cinematic motion";
-        const prompt = `${visPrompt}. Camera: ${camDir}.${voLine ? ` The narrator says: "${voLine}"` : ""}`;
+        // Add variation keywords so reused images produce different motion
+        const variations = ["slow zoom in", "gentle pan left to right", "dolly forward", "slow pull back reveal", "overhead tilt down"];
+        const extraMotion = variations[ci % variations.length];
+        const prompt = `${visPrompt}. Camera: ${camDir}, ${extraMotion}.${voLine ? ` The narrator says: "${voLine}"` : ""}`;
 
         try {
           console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length} (scene ${sceneIdx + 1})...`);
