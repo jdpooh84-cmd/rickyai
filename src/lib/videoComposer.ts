@@ -34,14 +34,12 @@ function drawCaption(ctx: CanvasRenderingContext2D, text: string, width: number,
   // Semi-transparent background
   ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
   const bgPad = Math.round(padding * 0.6);
-  ctx.beginPath();
-  const rx = Math.round(width * 0.02);
   const bgX = padding - bgPad;
   const bgY = yStart - bgPad;
   const bgW = maxWidth + bgPad * 2;
   const bgH = blockHeight + bgPad;
-  ctx.roundRect(bgX, bgY, bgW, bgH, rx);
-  ctx.fill();
+  // Simple rect fallback (roundRect not available everywhere)
+  ctx.fillRect(bgX, bgY, bgW, bgH);
 
   // Text
   ctx.fillStyle = "#ffffff";
