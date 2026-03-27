@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/dashboard/AppSidebar";
 import StrategySummary from "@/components/dashboard/StrategySummary";
@@ -70,6 +71,22 @@ const Dashboard = () => {
   }, [activeStep, activeSection, completedSteps]);
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
+
+  const handleResetDemo = async () => {
+    if (!user) return;
+    // Reset onboarding flag
+    await supabase.from("profiles").update({ onboarding_completed: false }).eq("user_id", user.id);
+    // Clear local storage
+    localStorage.removeItem(DASHBOARD_STATE_KEY);
+    localStorage.removeItem("rickyai-business-selection");
+    // Reset state
+    setCompletedSteps([]);
+    setActiveStep(1);
+    setActiveSection("");
+    setOnboardingChecked(false);
+    setShowOnboarding(true);
+    toast.success("Reset complete — starting fresh onboarding!");
+  };
 
   const markComplete = (step: number) => {
     if (!completedSteps.includes(step)) setCompletedSteps(prev => [...prev, step]);
@@ -183,6 +200,9 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={handleResetDemo} title="Reset to fresh onboarding" className="text-xs h-7 px-2">
+                Reset &amp; Start Fresh
+              </Button>
               <span className="text-xs text-muted-foreground hidden sm:inline">{user?.email}</span>
               <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sign out"><LogOut className="w-4 h-4" /></Button>
             </div>
