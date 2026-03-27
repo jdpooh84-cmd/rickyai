@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock } from "lucide-react";
+import MediaLibrary from "../MediaLibrary";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
@@ -424,6 +425,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             </video>
           </div>
         )}
+
+        {/* ═══ MEDIA LIBRARY ═══ */}
+        <MediaLibrary businessId={businessId} />
 
         {/* Guide + External Connections */}
         <VideoStudioGuide onDownloadGuide={handleDownloadGuide} />
