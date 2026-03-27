@@ -143,7 +143,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const userRunwayKey = keyMap["runway"] || runwayKey;
 
     const config = DURATION_TARGETS[productionMode] || DURATION_TARGETS.standard;
-    const ratio = productionMode === "quick" ? "9:16" : "16:9";
+    const ratio = productionMode === "quick" ? "720:1280" : "1280:720";
     const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "";
 
     // ── Step 1: Generate script ──
