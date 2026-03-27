@@ -324,6 +324,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </div>
             )}
 
+            {generatedVideoScript?.usedFallbackScript && (
+              <div className="mb-3 p-2 rounded-lg bg-secondary/50 border border-border">
+                <p className="text-[10px] text-muted-foreground">ℹ️ This video used your saved strategy data because AI credits were low.</p>
+              </div>
+            )}
+
             <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
               <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
             </video>
@@ -341,7 +347,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <p className="text-[10px] text-muted-foreground mt-2 text-center">
                 Duration: ~{generatedVideoScript.total_duration_seconds}s
                 {generatedVideoScript.real_image_count !== undefined && ` • ${generatedVideoScript.real_image_count} real photos used`}
-                {generatedVideoScript.used_ai_script ? " • AI script" : " • Template script"}
+                {generatedVideoScript.usedFallbackScript ? " • Saved-data script" : " • AI script"}
               </p>
             )}
           </div>
