@@ -5,83 +5,160 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── External service URLs ──
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-flash";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
 const RUNWAY_API_URL = "https://api.dev.runwayml.com/v1";
 
-// Duration targets in seconds
-const DURATION_TARGETS: Record<string, { min: number; scenes: number; perClip: 5 | 10 }> = {
-  quick: { min: 45, scenes: 9, perClip: 5 },
-  standard: { min: 60, scenes: 6, perClip: 10 },
-  longform: { min: 90, scenes: 9, perClip: 10 },
+// ═══════════════════════════════════════════════════════════════════════
+// VIDEO PRODUCTION CONFIG — change these values to tune cost vs quality
+// ═══════════════════════════════════════════════════════════════════════
+const CONFIG = {
+  MIN_DURATION_SECONDS: 45,
+  DEFAULT_DURATION_SECONDS: 90,
+  MAX_SCENES: 10,
+  RUNWAY_MODEL: "gen4_turbo",
+  RUNWAY_CLIP_DURATION: 10 as 5 | 10,
+  ELEVENLABS_VOICE_ID: "JBFqnCBsd6RMkjVDRZzb",   // "George" — warm male
+  ELEVENLABS_MODEL: "eleven_multilingual_v2",
 };
 
-// ── Template-based scene builder (no AI credits needed) ──
-function buildTemplateScenes(business: any, location: any, videoType: string, sceneCount: number) {
-  const name = business.business_name || "Our Business";
-  const category = business.business_category || "business";
-  const services = business.services || "premium services";
-  const audience = business.target_audience || "customers";
-  const city = location?.city || "";
-  const tone = business.brand_tone || "professional";
+// Production presets — controls Runway API call count
+const PRESETS: Record<string, { minDuration: number; sceneCount: number; clipDuration: 5 | 10; ratio: string }> = {
+  quick:    { minDuration: 45,  sceneCount: 5,  clipDuration: 10, ratio: "720:1280" },
+  standard: { minDuration: 60,  sceneCount: 6,  clipDuration: 10, ratio: "1280:720" },
+  longform: { minDuration: 90,  sceneCount: 9,  clipDuration: 10, ratio: "1280:720" },
+};
 
-  const templates = [
-    { visual: `Stunning exterior shot of ${name} storefront at golden hour, warm inviting lighting, ${city}`, text: name, camera: "slow push in", voiceover_line: `Welcome to ${name}, your trusted ${category} in ${city}.` },
-    { visual: `Close-up of ${category} work in progress, hands crafting with care, shallow depth of field`, text: `Quality ${category}`, camera: "slow pan right", voiceover_line: `We take pride in delivering the highest quality ${category} experience.` },
-    { visual: `Happy ${audience} enjoying ${services} at ${name}, candid smiles, natural light`, text: "Happy Customers", camera: "static wide", voiceover_line: `Our ${audience} love what we do, and their smiles say it all.` },
-    { visual: `Detail shot showcasing the best of ${services}, professional lighting, product photography style`, text: services.split(",")[0]?.trim() || "Our Best", camera: "slow zoom in", voiceover_line: `From ${services}, we offer something special for everyone.` },
-    { visual: `Team members at ${name} working together, ${tone} atmosphere, collaborative energy`, text: "Our Team", camera: "dolly left", voiceover_line: `Our dedicated team works hard to make every visit memorable.` },
-    { visual: `Behind-the-scenes look at ${category} preparation, organized workspace, attention to detail`, text: "Behind the Scenes", camera: "tracking shot", voiceover_line: `Behind the scenes, every detail is carefully prepared just for you.` },
-    { visual: `Wide establishing shot of ${city} skyline or neighborhood where ${name} operates`, text: city || "Our Community", camera: "aerial pan", voiceover_line: `Proudly serving the ${city} community and surrounding areas.` },
-    { visual: `Customer testimonial moment, genuine reaction to ${services}, warm emotional lighting`, text: "5-Star Experience", camera: "medium close-up", voiceover_line: `Don't just take our word for it — our five-star reviews speak for themselves.` },
-    { visual: `Montage-style quick cuts of ${name}'s signature offerings, vibrant colors, dynamic angles`, text: "What We Offer", camera: "quick cuts", voiceover_line: `Explore our full range of offerings, designed to delight.` },
-    { visual: `Final beauty shot of ${name}'s signature product or service, dramatic lighting, hero angle`, text: "Visit Us Today", camera: "slow pull back", voiceover_line: `Visit ${name} today and experience the difference for yourself.` },
-    { visual: `Interior atmosphere of ${name}, cozy or ${tone} ambiance, inviting spaces`, text: "Step Inside", camera: "steadicam walk", voiceover_line: `Step inside and feel the warm, welcoming atmosphere.` },
-    { visual: `${name} logo or signage with bokeh background, elegant ${tone} branding moment`, text: `${name} — ${city}`, camera: "rack focus", voiceover_line: `${name} — your go-to ${category} in ${city}. See you soon!` },
+// ═══════════════════════════════════════════════════════════════════════
+// MARKETING SCRIPT TEMPLATE (six-beat structure)
+// ═══════════════════════════════════════════════════════════════════════
+const SCRIPT_BEATS = [
+  { id: "hook",        label: "Intro Hook",         seconds: 8,  guideline: "1–2 punchy sentences, grab attention" },
+  { id: "problem",     label: "Problem / Desire",   seconds: 10, guideline: "Pain point or desire this business solves" },
+  { id: "positioning", label: "Brand Positioning",   seconds: 15, guideline: "Who we are, why trust us" },
+  { id: "proof",       label: "Proof / Specifics",   seconds: 25, guideline: "Menu items, features, social proof" },
+  { id: "offer",       label: "Offer + CTA",         seconds: 15, guideline: "Clear call to action" },
+  { id: "signoff",     label: "Tagline / Sign-off",  seconds: 10, guideline: "Memorable tagline, logo, sign-off" },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+// TEMPLATE SCENE BUILDER — works for ANY business, no AI credits needed
+// ═══════════════════════════════════════════════════════════════════════
+function buildTemplateScenes(biz: any, loc: any, count: number, clipDur: number) {
+  const name = biz.business_name || "Our Business";
+  const cat = biz.business_category || "business";
+  const svc = biz.services || "premium services";
+  const aud = biz.target_audience || "customers";
+  const city = loc?.city || "your area";
+  const tone = biz.brand_tone || "professional";
+
+  const pool = [
+    // HOOK
+    { beat: "hook", visual: `Stunning golden-hour exterior of ${name} storefront, warm amber lighting, ${city} street life in background, cinematic wide lens`, camera: "slow push-in", text: name, voice: `Looking for the best ${cat} in ${city}? Look no further.`, shot: "environment" },
+    // PROBLEM
+    { beat: "problem", visual: `Close-up of a person looking delighted discovering ${name}, genuine smile, shallow depth of field`, camera: "handheld natural", text: `The ${cat} You Deserve`, voice: `You deserve a ${cat} experience that actually delivers — quality you can see and feel.`, shot: "people" },
+    // POSITIONING
+    { beat: "positioning", visual: `Team at ${name} greeting customers with confidence, ${tone} atmosphere, warm interior`, camera: "steadicam walk-through", text: `Welcome to ${name}`, voice: `Welcome to ${name}. We've been proudly serving ${city} with passion and dedication.`, shot: "people" },
+    { beat: "positioning", visual: `Behind-the-scenes craftsmanship at ${name}, hands working with care, cinematic shallow focus`, camera: "dolly-in close-up", text: "Crafted with Care", voice: `Every detail is crafted with care, because your experience matters most to us.`, shot: "action" },
+    // PROOF
+    { beat: "proof", visual: `Hero product shot of ${name}'s signature ${svc.split(",")[0]?.trim() || "offering"}, dramatic lighting, vibrant colors, magazine-quality`, camera: "slow pan right", text: svc.split(",")[0]?.trim() || "Our Best", voice: `From ${svc}, we bring you only the best.`, shot: "product_closeup" },
+    { beat: "proof", visual: `Happy ${aud} enjoying ${name}, friends or family, candid laughter, natural light`, camera: "lateral tracking", text: "Happy Customers", voice: `Our ${aud} love what we do — and their smiles say it all.`, shot: "people" },
+    { beat: "proof", visual: `Montage detail shots of ${name}'s various offerings, vibrant saturated colors, dynamic angles`, camera: "rack focus", text: "Something for Everyone", voice: `Whether it's ${svc.split(",").slice(0, 2).join(" or ").trim()}, there's something for everyone.`, shot: "product_closeup" },
+    // OFFER
+    { beat: "offer", visual: `Inviting wide shot of ${name}'s interior, ${tone} atmosphere, warm lighting, ready for customers`, camera: "overhead crane", text: "Visit Us Today!", voice: `Come visit ${name} today and experience the difference for yourself.`, shot: "environment" },
+    // SIGNOFF
+    { beat: "signoff", visual: `${name} logo or signage with bokeh background, elegant branding moment, golden hour`, camera: "slow pull-back", text: `${name} — ${city}`, voice: `${name}. Your go-to ${cat} in ${city}. See you soon!`, shot: "branding" },
+    { beat: "signoff", visual: `Final beauty shot of ${name} at twilight, lights glowing warmly, cinematic wide lens`, camera: "slow pull-back", text: name, voice: `${name} — where every visit is worth it.`, shot: "environment" },
   ];
 
-  return templates.slice(0, sceneCount).map((t, i) => ({
+  const scenes = pool.slice(0, count);
+  while (scenes.length < count) scenes.push(pool[scenes.length % pool.length]);
+
+  return scenes.map((s, i) => ({
     scene_number: i + 1,
-    duration_seconds: 5,
-    visual_description: t.visual,
-    text_overlay: t.text,
-    camera_direction: t.camera,
-    voiceover_line: t.voiceover_line,
+    duration_seconds: clipDur,
+    visual_description: s.visual,
+    text_overlay: s.text,
+    camera_direction: s.camera,
+    voiceover_line: s.voice,
+    beat_id: s.beat,
+    priority_shot: s.shot,
   }));
 }
 
-function buildTemplateScript(business: any, location: any, videoType: string, scenes: any[]) {
-  const name = business.business_name;
-  const category = business.business_category || "business";
-  const services = business.services || "services";
-  const city = location?.city || "your area";
-
-  const fullVoiceover = scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+function buildTemplateScript(biz: any, loc: any, scenes: any[]) {
+  const name = biz.business_name;
+  const cat = biz.business_category || "business";
+  const svc = biz.services || "services";
+  const city = loc?.city || "your area";
   return {
-    title: `${name} — Your Local ${category}`,
-    description: `Discover what makes ${name} the go-to ${category} in ${city}.`,
-    voiceover_script: fullVoiceover || `Welcome to ${name}, your trusted ${category} in ${city}. We specialize in ${services}. Our dedicated team is here to deliver an exceptional experience every time. Visit us today and see why our customers keep coming back.`,
+    title: `${name} — Your Local ${cat}`,
+    description: `Discover what makes ${name} the go-to ${cat} in ${city}.`,
+    voiceover_script: scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" "),
     scene_captions: scenes.map((s: any) => s.voiceover_line || s.text_overlay || ""),
     scenes,
-    caption: `✨ Discover ${name} in ${city}! ${services} 🔥 #${name.replace(/\s+/g, "")} #${category} #${city.replace(/\s+/g, "")}`,
-    hashtags: [name.replace(/\s+/g, ""), category, city.replace(/\s+/g, ""), "smallbusiness", "local"],
-    target_platform: videoType === "promotional" ? "instagram" : "tiktok",
-    aspect_ratio: "9:16",
+    caption: `✨ Discover ${name} in ${city}! ${svc} 🔥 #${name.replace(/\s+/g, "")} #${cat}`,
+    hashtags: [name.replace(/\s+/g, ""), cat, city.replace(/\s+/g, ""), "smallbusiness"],
+    target_platform: "instagram",
+    aspect_ratio: "16:9",
     music_mood: "upbeat",
     cta: `Visit ${name} today!`,
   };
 }
 
-// ── Runway helpers ──
-async function pollRunwayTask(taskId: string, runwayKey: string, maxAttempts = 120): Promise<any> {
+// ═══════════════════════════════════════════════════════════════════════
+// AI SCRIPT PROMPT — enforces the six-beat marketing structure
+// ═══════════════════════════════════════════════════════════════════════
+function buildAIPrompt(biz: any, loc: any, preset: typeof PRESETS.standard) {
+  const beats = SCRIPT_BEATS.map(b => `- ${b.label} (~${b.seconds}s): ${b.guideline}`).join("\n");
+  const city = loc?.city || "";
+  const state = loc?.state || "";
+  return `Create a ${preset.minDuration}-second promotional video script for:
+
+Business: ${biz.business_name}
+Category: ${biz.business_category || "General"}
+Services: ${biz.services || "Not specified"}
+Target Audience: ${biz.target_audience || "General"}
+Brand Tone: ${biz.brand_tone || "Professional"}
+Location: ${city}${state ? `, ${state}` : ""}
+
+Follow this six-beat marketing structure:
+${beats}
+
+Return JSON:
+{
+  "title": "video title",
+  "description": "short description",
+  "voiceover_script": "complete narration, ${preset.minDuration >= 60 ? "100-150" : "60-80"} words, friendly local owner tone",
+  "scenes": [${Array.from({ length: preset.sceneCount }, (_, i) =>
+    `{"scene_number":${i + 1},"duration_seconds":${preset.clipDuration},"visual_description":"vivid description","text_overlay":"short text","camera_direction":"camera style","voiceover_line":"exact narration","beat_id":"hook|problem|positioning|proof|offer|signoff","priority_shot":"product_closeup|people|environment|action|branding"}`
+  ).join(",")}],
+  "scene_captions": ["line1","line2",...],
+  "caption": "social caption with emojis",
+  "hashtags": ["tag1","tag2"],
+  "target_platform": "instagram",
+  "aspect_ratio": "${preset.ratio.includes("720") ? "9:16" : "16:9"}",
+  "music_mood": "upbeat",
+  "cta": "call to action"
+}
+
+Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each.
+Every scene MUST have voiceover_line. scene_captions must match voiceover_lines in order.`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RUNWAY HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+async function pollRunwayTask(taskId: string, key: string, maxAttempts = 120): Promise<any> {
   for (let i = 0; i < maxAttempts; i++) {
     const res = await fetch(`${RUNWAY_API_URL}/tasks/${taskId}`, {
-      headers: { "Authorization": `Bearer ${runwayKey}`, "X-Runway-Version": "2024-11-06" },
+      headers: { "Authorization": `Bearer ${key}`, "X-Runway-Version": "2024-11-06" },
     });
     if (!res.ok) throw new Error(`Runway poll failed [${res.status}]: ${await res.text()}`);
     const task = await res.json();
-    console.log(`[generate-video] Runway task ${taskId} status: ${task.status}`);
+    console.log(`[pipeline] Runway task ${taskId}: ${task.status}`);
     if (task.status === "SUCCEEDED") return task;
     if (task.status === "FAILED") throw new Error(`Runway task failed: ${task.failure || "unknown"}`);
     await new Promise(r => setTimeout(r, 5000));
@@ -89,55 +166,45 @@ async function pollRunwayTask(taskId: string, runwayKey: string, maxAttempts = 1
   throw new Error("Runway task timed out");
 }
 
-async function renderRunwayClip(
-  imageUrl: string,
-  promptText: string,
-  runwayKey: string,
-  duration: number,
-  ratio: string,
-): Promise<string | null> {
+async function renderRunwayClip(imageUrl: string, promptText: string, key: string, duration: number, ratio: string): Promise<string | null> {
+  const body = {
+    model: CONFIG.RUNWAY_MODEL,
+    promptImage: imageUrl,
+    promptText: `Cinematic, smooth motion, professional commercial. ${promptText}. High quality, vibrant colors.`,
+    duration,
+    ratio,
+  };
+  console.log(`[pipeline] Runway request: duration=${duration}, ratio=${ratio}`);
   const res = await fetch(`${RUNWAY_API_URL}/image_to_video`, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${runwayKey}`,
-      "Content-Type": "application/json",
-      "X-Runway-Version": "2024-11-06",
-    },
-    body: JSON.stringify({
-      model: "gen4_turbo",
-      promptImage: imageUrl,
-      promptText: `Cinematic, smooth motion, professional commercial. ${promptText}. High quality, vibrant colors.`,
-      duration,
-      ratio,
-    }),
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json", "X-Runway-Version": "2024-11-06" },
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
-    console.error(`[generate-video] Runway create error [${res.status}]:`, await res.text());
+    const errText = await res.text();
+    console.error(`[pipeline] Runway create error [${res.status}]:`, errText);
     return null;
   }
   const task = await res.json();
-  console.log(`[generate-video] Runway clip task created: ${task.id}`);
-  const completed = await pollRunwayTask(task.id, runwayKey);
+  console.log(`[pipeline] Runway clip task: ${task.id}`);
+  const completed = await pollRunwayTask(task.id, key);
   return completed.output?.[0] || null;
 }
 
-// ── Find a real image from storage to use as Runway seed ──
-async function findExistingSceneImage(supabase: any, userId: string): Promise<string | null> {
-  // Look for any previously generated scene image for this user (real AI images, not placeholders)
+// ═══════════════════════════════════════════════════════════════════════
+// IMAGE HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+async function findExistingImage(supabase: any, userId: string): Promise<string | null> {
   const { data: files } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
-  if (!files || files.length === 0) return null;
-
-  // List subfolders (job IDs) and find images
+  if (!files?.length) return null;
   for (const folder of files) {
     if (!folder.name) continue;
     const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 10 });
     if (!images) continue;
     for (const img of images) {
-      // Skip placeholder images (they're too small)
       if (img.name?.includes("placeholder")) continue;
       if (img.name?.endsWith(".png") || img.name?.endsWith(".jpg")) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${folder.name}/${img.name}`);
-        console.log(`[generate-video] Found existing scene image: ${urlData.publicUrl}`);
         return urlData.publicUrl;
       }
     }
@@ -145,110 +212,97 @@ async function findExistingSceneImage(supabase: any, userId: string): Promise<st
   return null;
 }
 
-// ── Placeholder image generator — 128x128 solid color PNG (>512 bytes for Runway) ──
-async function generatePlaceholderImage(
-  supabase: any,
-  userId: string,
-  jobId: string,
-  sceneIndex: number,
-  businessName: string,
-  overlayText: string,
-): Promise<string | null> {
-  // First try to find a real existing image from previous jobs
-  const existingImage = await findExistingSceneImage(supabase, userId);
-  if (existingImage) {
-    console.log(`[generate-video] Scene ${sceneIndex + 1}: reusing real image as Runway seed`);
-    return existingImage;
-  }
-
-  // Create a 128x128 PNG (well above Runway's 512-byte minimum)
-  const pngBytes = create128Png(sceneIndex);
-  console.log(`[generate-video] Generated 128x128 placeholder: ${pngBytes.length} bytes`);
-  const fileName = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.png`;
-  const { error } = await supabase.storage.from("media").upload(fileName, pngBytes, { contentType: "image/png", upsert: true });
-  if (error) {
-    console.error(`[generate-video] Placeholder upload error:`, error);
-    return null;
-  }
-  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-  console.log(`[generate-video] Placeholder image for scene ${sceneIndex + 1}: ${urlData.publicUrl}`);
-  return urlData.publicUrl;
-}
-
-// Creates a valid 128x128 PNG with a gradient color (Runway needs >= 512 bytes)
 function create128Png(colorIndex: number): Uint8Array {
   const colors = [[26, 26, 46], [45, 19, 44], [13, 27, 42], [33, 37, 41], [27, 27, 47], [11, 12, 16]];
   const [r, g, b] = colors[colorIndex % colors.length];
   const W = 128, H = 128;
-  // Raw pixel data: filter byte (0) + RGB per pixel, per row
   const rawRows: number[] = [];
   for (let y = 0; y < H; y++) {
-    rawRows.push(0); // filter byte
+    rawRows.push(0);
     for (let x = 0; x < W; x++) {
-      // Slight gradient so the image isn't perfectly uniform
-      const rr = Math.min(255, r + Math.floor((x + y) / 4));
-      const gg = Math.min(255, g + Math.floor((x + y) / 6));
-      const bb = Math.min(255, b + Math.floor((x + y) / 3));
-      rawRows.push(rr, gg, bb);
+      rawRows.push(Math.min(255, r + Math.floor((x + y) / 4)), Math.min(255, g + Math.floor((x + y) / 6)), Math.min(255, b + Math.floor((x + y) / 3)));
     }
   }
   const raw = new Uint8Array(rawRows);
   const header = [137, 80, 78, 71, 13, 10, 26, 10];
-  // IHDR: 128x128, bit depth 8, color type 2 (RGB)
-  const ihdrData = [0,0,0,128, 0,0,0,128, 8, 2, 0, 0, 0];
-  const ihdr = createPngChunk("IHDR", ihdrData);
-  const deflated = deflateStored(raw);
-  const idat = createPngChunk("IDAT", Array.from(deflated));
+  const ihdr = createPngChunk("IHDR", [0,0,0,128, 0,0,0,128, 8, 2, 0, 0, 0]);
+  const idat = createPngChunk("IDAT", Array.from(deflateStored(raw)));
   const iend = createPngChunk("IEND", []);
   return new Uint8Array([...header, ...ihdr, ...idat, ...iend]);
 }
-
 function createPngChunk(type: string, data: number[]): number[] {
-  const length = data.length;
-  const typeBytes = Array.from(type).map(c => c.charCodeAt(0));
-  const chunk = [...typeBytes, ...data];
+  const tb = Array.from(type).map(c => c.charCodeAt(0));
+  const chunk = [...tb, ...data];
   const crc = crc32(new Uint8Array(chunk));
-  return [
-    (length >> 24) & 0xff, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff,
-    ...chunk,
-    (crc >> 24) & 0xff, (crc >> 16) & 0xff, (crc >> 8) & 0xff, crc & 0xff,
-  ];
+  return [(data.length >> 24) & 0xff, (data.length >> 16) & 0xff, (data.length >> 8) & 0xff, data.length & 0xff, ...chunk, (crc >> 24) & 0xff, (crc >> 16) & 0xff, (crc >> 8) & 0xff, crc & 0xff];
 }
-
 function deflateStored(data: Uint8Array): Uint8Array {
-  // zlib header (78 01) + stored block + adler32
   const len = data.length;
-  const result = new Uint8Array(2 + 5 + len + 4);
-  result[0] = 0x78; result[1] = 0x01; // zlib header
-  result[2] = 0x01; // final block, stored
-  result[3] = len & 0xff; result[4] = (len >> 8) & 0xff;
-  result[5] = ~len & 0xff; result[6] = (~len >> 8) & 0xff;
-  result.set(data, 7);
-  const adler = adler32(data);
-  result[7 + len] = (adler >> 24) & 0xff;
-  result[8 + len] = (adler >> 16) & 0xff;
-  result[9 + len] = (adler >> 8) & 0xff;
-  result[10 + len] = adler & 0xff;
-  return result;
+  const r = new Uint8Array(2 + 5 + len + 4);
+  r[0] = 0x78; r[1] = 0x01; r[2] = 0x01;
+  r[3] = len & 0xff; r[4] = (len >> 8) & 0xff;
+  r[5] = ~len & 0xff; r[6] = (~len >> 8) & 0xff;
+  r.set(data, 7);
+  const a = adler32(data);
+  r[7+len]=(a>>24)&0xff; r[8+len]=(a>>16)&0xff; r[9+len]=(a>>8)&0xff; r[10+len]=a&0xff;
+  return r;
 }
+function adler32(d: Uint8Array): number { let a=1,b=0; for(let i=0;i<d.length;i++){a=(a+d[i])%65521;b=(b+a)%65521;} return(b<<16)|a; }
+function crc32(d: Uint8Array): number { let c=0xffffffff; for(let i=0;i<d.length;i++){c^=d[i];for(let j=0;j<8;j++)c=(c>>>1)^(c&1?0xedb88320:0);} return(c^0xffffffff)>>>0; }
 
-function adler32(data: Uint8Array): number {
-  let a = 1, b = 0;
-  for (let i = 0; i < data.length; i++) { a = (a + data[i]) % 65521; b = (b + a) % 65521; }
-  return (b << 16) | a;
-}
-
-function crc32(data: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) {
-    crc ^= data[i];
-    for (let j = 0; j < 8; j++) { crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); }
+async function getSceneImage(supabase: any, userId: string, jobId: string, sceneIndex: number, scene: any, biz: any, lovableKey: string, creditsExhausted: boolean): Promise<string | null> {
+  // Try AI image generation first
+  if (!creditsExhausted) {
+    try {
+      const res = await fetch(AI_URL, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: IMAGE_MODEL,
+          messages: [{ role: "user", content: `Generate a high-quality promotional photograph for "${biz.business_name}". Scene: ${scene.visual_description}. Camera: ${scene.camera_direction}. Style: cinematic, vibrant, commercial photography. No text in image.` }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const images = data.choices?.[0]?.message?.images;
+        if (images?.length > 0) {
+          let b64 = images[0]?.image_url?.url || "";
+          if (b64.startsWith("data:") && b64.includes(";base64,")) b64 = b64.split(";base64,")[1];
+          if (b64) {
+            const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+            const fn = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}.png`;
+            const { error } = await supabase.storage.from("media").upload(fn, bytes, { contentType: "image/png", upsert: true });
+            if (!error) {
+              const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
+              return urlData.publicUrl;
+            }
+          }
+        }
+      } else if (res.status === 402) {
+        throw new Error("CREDITS_EXHAUSTED");
+      }
+    } catch (e: any) {
+      if (e.message === "CREDITS_EXHAUSTED") throw e;
+      console.error(`[pipeline] AI image error scene ${sceneIndex + 1}:`, e);
+    }
   }
-  return (crc ^ 0xffffffff) >>> 0;
+
+  // Fallback: reuse existing image or generate placeholder
+  const existing = await findExistingImage(supabase, userId);
+  if (existing) return existing;
+
+  const png = create128Png(sceneIndex);
+  const fn = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.png`;
+  const { error } = await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
+  if (error) return null;
+  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
+  return urlData.publicUrl;
 }
 
-
-// ── Main job processor ──
+// ═══════════════════════════════════════════════════════════════════════
+// MAIN PIPELINE — one cohesive flow
+// ═══════════════════════════════════════════════════════════════════════
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, productionMode: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -260,334 +314,294 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     supabase.from("video_generation_jobs").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", jobId);
 
   try {
+    // ── Load business data ──
     const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", userId).single();
     if (!business) throw new Error("Business not found");
-
     const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
     const location = locations?.[0];
 
+    // User API keys
     const { data: userKeys } = await supabase.from("user_api_keys").select("provider, api_key_encrypted").eq("user_id", userId);
     const keyMap: Record<string, string> = {};
     userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
     const elevenlabsKey = keyMap["elevenlabs"];
     const userRunwayKey = keyMap["runway"] || runwayKey;
 
-    const config = DURATION_TARGETS[productionMode] || DURATION_TARGETS.standard;
-    const ratio = productionMode === "quick" ? "720:1280" : "1280:720";
-    const locationStr = location ? `${location.city}, ${location.state || ""} ${location.country || "US"}` : "";
+    const preset = PRESETS[productionMode] || PRESETS.standard;
+    console.log(`[pipeline] Starting job ${jobId}: mode=${productionMode}, scenes=${preset.sceneCount}, clip=${preset.clipDuration}s, ratio=${preset.ratio}`);
 
-    // ── Step 1: Generate script ──
-    await updateJob({ status: "generating_script", result_payload: { pipeline_steps: { script: "processing" }, message: "✍️ Writing your video script..." } });
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 1: GENERATE SCRIPT (AI or template fallback)
+    // ════════════════════════════════════════════════════════════════════
+    await updateJob({ status: "generating_script", result_payload: { pipeline_step: "script", message: "✍️ Writing your marketing script..." } });
 
-    let scriptContent: any;
+    let script: any;
     let usedTemplate = false;
 
     try {
-      const scriptResponse = await fetch(AI_URL, {
+      const prompt = buildAIPrompt(business, location, preset);
+      const res = await fetch(AI_URL, {
         method: "POST",
         headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: AI_MODEL,
           messages: [
-            { role: "system", content: "You are a video production expert. Generate a complete video script. Return valid JSON only." },
-            { role: "user", content: `Create a ${config.min}-second promotional video script for:
-
-Business: ${business.business_name}
-Category: ${business.business_category || "General"}
-Services: ${business.services || "Not specified"}
-Target Audience: ${business.target_audience || "General"}
-Brand Tone: ${business.brand_tone || "Professional"}
-Location: ${locationStr}
-
-Return JSON with:
-{
-  "title": "video title",
-  "description": "short description",
-  "voiceover_script": "complete narration, ${config.min >= 60 ? "100-150" : "60-80"} words",
-  "scene_captions": ["voiceover line for scene 1", "voiceover line for scene 2", ...],
-  "scenes": [${Array.from({ length: config.scenes }, (_, i) => `{"scene_number":${i + 1},"duration_seconds":5,"visual_description":"detailed scene for AI image generation","text_overlay":"short overlay text","camera_direction":"camera move","voiceover_line":"the exact line of narration spoken during this scene"}`).join(",")}],
-  "caption": "social media caption with emojis",
-  "hashtags": ["relevant","hashtags"],
-  "target_platform": "instagram",
-  "aspect_ratio": "${productionMode === "quick" ? "9:16" : "16:9"}",
-  "music_mood": "upbeat",
-  "cta": "call to action"
-}
-
-IMPORTANT: Each scene must have a "voiceover_line" that is the exact narration for that scene. The "scene_captions" array must match the voiceover_line from each scene in order.` },
+            { role: "system", content: "You are a video production expert. Return valid JSON only." },
+            { role: "user", content: prompt },
           ],
           response_format: { type: "json_object" },
         }),
       });
-
-      if (!scriptResponse.ok) {
-        const status = scriptResponse.status;
-        if (status === 402) {
-          console.log("[generate-video] AI credits exhausted, using template fallback");
-          throw new Error("CREDITS_EXHAUSTED");
-        }
-        throw new Error(`AI script failed: ${status}`);
+      if (!res.ok) {
+        if (res.status === 402) throw new Error("CREDITS_EXHAUSTED");
+        throw new Error(`AI script failed: ${res.status}`);
       }
-
-      const scriptData = await scriptResponse.json();
-      scriptContent = JSON.parse(scriptData.choices[0].message.content);
-    } catch (err: any) {
-      // Fallback to template-based script
-      console.log("[generate-video] Using template-based script builder");
+      const data = await res.json();
+      script = JSON.parse(data.choices[0].message.content);
+    } catch {
+      console.log("[pipeline] Using template script builder");
       usedTemplate = true;
-      const scenes = buildTemplateScenes(business, location, videoType, config.scenes);
-      scriptContent = buildTemplateScript(business, location, videoType, scenes);
+      const scenes = buildTemplateScenes(business, location, preset.sceneCount, preset.clipDuration);
+      script = buildTemplateScript(business, location, scenes);
     }
 
-    // Ensure scene_captions array exists
-    if (!scriptContent.scene_captions || scriptContent.scene_captions.length === 0) {
-      scriptContent.scene_captions = (scriptContent.scenes || []).map((s: any) => s.voiceover_line || s.text_overlay || "");
+    // Ensure scene_captions
+    if (!script.scene_captions?.length) {
+      script.scene_captions = (script.scenes || []).map((s: any) => s.voiceover_line || s.text_overlay || "");
     }
-
-    // Ensure we have enough scenes
-    while ((scriptContent.scenes?.length || 0) < config.scenes) {
-      const extra = buildTemplateScenes(business, location, videoType, config.scenes);
-      const missing = config.scenes - (scriptContent.scenes?.length || 0);
-      scriptContent.scenes = [...(scriptContent.scenes || []), ...extra.slice(0, missing)];
+    // Pad scenes to preset count
+    while ((script.scenes?.length || 0) < preset.sceneCount) {
+      const extra = buildTemplateScenes(business, location, preset.sceneCount, preset.clipDuration);
+      script.scenes = [...(script.scenes || []), ...extra.slice(0, preset.sceneCount - (script.scenes?.length || 0))];
     }
-    scriptContent.scenes = scriptContent.scenes.slice(0, config.scenes);
+    script.scenes = script.scenes.slice(0, preset.sceneCount);
 
+    // Rebuild voiceover_script from scenes for consistency
+    script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+    script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+
+    console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words`);
+
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 2: GENERATE SCENE IMAGES
+    // ════════════════════════════════════════════════════════════════════
     await updateJob({
       status: "generating_images",
-      result_payload: {
-        ...scriptContent,
-        scene_images: [],
-        video_clips: [],
-        pipeline_steps: { script: "completed", scene_images: "processing", video_clips: "pending" },
-        message: "🎨 Creating scene images...",
-        used_template: usedTemplate,
-      },
+      result_payload: { ...script, scene_images: [], video_clips: [], pipeline_step: "images", message: "🎨 Creating scene images..." },
     });
 
-    // ── Step 2: Generate scene images ──
-    const sceneImageUrls: string[] = [];
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
+    const sceneImageUrls: string[] = [];
     let imageCreditsExhausted = false;
 
-    for (let i = 0; i < scriptContent.scenes.length; i++) {
-      const scene = scriptContent.scenes[i];
+    for (let i = 0; i < script.scenes.length; i++) {
       try {
-        let imgUrl: string | null = null;
-
-        // Always try AI image generation (even for template scripts)
-        if (!imageCreditsExhausted) {
-          const imgResponse = await fetch(AI_URL, {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: IMAGE_MODEL,
-              messages: [{ role: "user", content: `Generate a high-quality promotional photograph for "${business.business_name}". Scene: ${scene.visual_description}. Style: cinematic, vibrant, commercial photography. No text in image.` }],
-              modalities: ["image", "text"],
-            }),
-          });
-
-          if (imgResponse.ok) {
-            const imgData = await imgResponse.json();
-            const images = imgData.choices?.[0]?.message?.images;
-            if (images?.length > 0) {
-              let base64Data = images[0]?.image_url?.url || "";
-              if (base64Data.startsWith("data:") && base64Data.includes(";base64,")) {
-                base64Data = base64Data.split(";base64,")[1];
-              }
-              if (base64Data) {
-                const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-                const fileName = `scenes/${userId}/${jobId}/scene-${i + 1}.png`;
-                const { error: uploadError } = await supabase.storage.from("media").upload(fileName, bytes, { contentType: "image/png", upsert: true });
-                if (!uploadError) {
-                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                  imgUrl = urlData.publicUrl;
-                }
-              }
-            }
-          } else if (imgResponse.status === 402) {
-            console.log("[generate-video] Image credits exhausted at scene", i + 1);
-            imageCreditsExhausted = true;
-          }
+        const url = await getSceneImage(supabase, userId, jobId, i, script.scenes[i], business, lovableKey, imageCreditsExhausted);
+        if (url) sceneImageUrls.push(url);
+      } catch (e: any) {
+        if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
+        // Try placeholder fallback
+        const existing = await findExistingImage(supabase, userId);
+        if (existing) sceneImageUrls.push(existing);
+        else {
+          const png = create128Png(i);
+          const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
+          await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
+          const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
+          sceneImageUrls.push(u.publicUrl);
         }
-
-        // Fallback: generate a simple colored placeholder image so Runway still has input
-        if (!imgUrl) {
-          console.log(`[generate-video] Scene ${i + 1}: using generated placeholder image`);
-          imgUrl = await generatePlaceholderImage(supabase, userId, jobId, i, business.business_name, scene.text_overlay || `Scene ${i + 1}`);
-        }
-
-        if (imgUrl) {
-          sceneImageUrls.push(imgUrl);
-        }
-      } catch (imgErr) {
-        console.error(`[generate-video] Scene ${i + 1} image error:`, imgErr);
       }
 
-      // Progress update
       await updateJob({
-        result_payload: {
-          ...scriptContent,
-          scene_images: sceneImageUrls,
-          video_clips: [],
-          pipeline_steps: { script: "completed", scene_images: `${i + 1}/${scriptContent.scenes.length}`, video_clips: "pending" },
-          message: `🎨 Scene images: ${sceneImageUrls.length}/${scriptContent.scenes.length}`,
-        },
+        result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "images", message: `🎨 Scene images: ${sceneImageUrls.length}/${script.scenes.length}` },
       });
     }
 
-    // ── Step 3: Voiceover (optional) ──
+    console.log(`[pipeline] Images ready: ${sceneImageUrls.length} (credits exhausted: ${imageCreditsExhausted})`);
+
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 3: VOICEOVER (ElevenLabs or skip for browser TTS fallback)
+    // ════════════════════════════════════════════════════════════════════
     let voiceoverUrl: string | null = null;
-    if (elevenlabsKey && scriptContent.voiceover_script) {
+    if (elevenlabsKey && script.voiceover_script) {
       try {
-        await updateJob({ status: "generating_voiceover" });
-        const ttsResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM`, {
+        await updateJob({ status: "generating_voiceover", result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "voiceover", message: "🎙️ Recording voiceover..." } });
+        const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${CONFIG.ELEVENLABS_VOICE_ID}?output_format=mp3_44100_128`, {
           method: "POST",
           headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
-          body: JSON.stringify({ text: scriptContent.voiceover_script, model_id: "eleven_monolingual_v1", voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+          body: JSON.stringify({
+            text: script.voiceover_script,
+            model_id: CONFIG.ELEVENLABS_MODEL,
+            voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true, speed: 1.0 },
+          }),
         });
-        if (ttsResponse.ok) {
-          const audioBlob = await ttsResponse.blob();
-          const audioFileName = `voiceovers/${userId}/${jobId}.mp3`;
-          const { error: uploadError } = await supabase.storage.from("media").upload(audioFileName, audioBlob, { contentType: "audio/mpeg", upsert: true });
-          if (!uploadError) {
-            const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFileName);
+        if (ttsRes.ok) {
+          const audioBlob = await ttsRes.blob();
+          const audioFn = `voiceovers/${userId}/${jobId}.mp3`;
+          const { error } = await supabase.storage.from("media").upload(audioFn, audioBlob, { contentType: "audio/mpeg", upsert: true });
+          if (!error) {
+            const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFn);
             voiceoverUrl = urlData.publicUrl;
+            console.log(`[pipeline] Voiceover ready: ${voiceoverUrl}`);
           }
+        } else {
+          console.error(`[pipeline] ElevenLabs TTS failed [${ttsRes.status}]`);
         }
-      } catch (voiceErr) {
-        console.error("[generate-video] Voiceover failed:", voiceErr);
+      } catch (e) {
+        console.error("[pipeline] Voiceover error:", e);
       }
+    } else {
+      console.log("[pipeline] No ElevenLabs key — browser TTS will be used client-side");
     }
 
-    // ── Step 4: Runway multi-clip rendering ──
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 4: RUNWAY MULTI-CLIP RENDERING
+    // ════════════════════════════════════════════════════════════════════
     const videoClips: string[] = [];
-    if (userRunwayKey && sceneImageUrls.length > 0) {
+
+    if (!userRunwayKey) {
+      console.log("[pipeline] No Runway key — client-side compose will handle video assembly");
+    } else if (sceneImageUrls.length === 0) {
+      console.log("[pipeline] No images available for Runway");
+    } else {
       await updateJob({
         status: "rendering_video",
         result_payload: {
-          ...scriptContent,
-          scene_images: sceneImageUrls,
-          voiceover_url: voiceoverUrl,
-          video_clips: [],
-          pipeline_steps: { script: "completed", scene_images: "completed", voiceover: voiceoverUrl ? "completed" : "skipped", video_clips: "rendering" },
-          message: `🎬 Rendering ${sceneImageUrls.length} video clips with Runway AI... This takes 2-5 minutes.`,
-          total_clips: sceneImageUrls.length,
-          clips_completed: 0,
+          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
+          pipeline_step: "runway", message: `🎬 Rendering ${sceneImageUrls.length} clips with Runway AI (${preset.clipDuration}s each)...`,
+          total_clips: sceneImageUrls.length, clips_completed: 0,
         },
       });
 
       for (let i = 0; i < sceneImageUrls.length; i++) {
-        const scene = scriptContent.scenes[i];
-        const voiceoverLine = scene?.voiceover_line || scriptContent.scene_captions?.[i] || "";
-        const visualPrompt = scene?.visual_description || `Professional promotional video for ${business.business_name}`;
-        // Include both visual direction AND the script line so Runway generates contextual motion
-        const prompt = voiceoverLine
-          ? `${visualPrompt}. The narrator says: "${voiceoverLine}". ${scene?.camera_direction || "smooth cinematic motion"}.`
-          : visualPrompt;
+        const scene = script.scenes[i];
+        const voLine = scene?.voiceover_line || script.scene_captions?.[i] || "";
+        const visPrompt = scene?.visual_description || `Professional video for ${business.business_name}`;
+        const camDir = scene?.camera_direction || "smooth cinematic motion";
+        // Combine visual + narration + camera into one Runway prompt
+        const prompt = `${visPrompt}. Camera: ${camDir}.${voLine ? ` The narrator says: "${voLine}"` : ""}`;
 
         try {
-          console.log(`[generate-video] Rendering Runway clip ${i + 1}/${sceneImageUrls.length} with script line...`);
-          const clipUrl = await renderRunwayClip(sceneImageUrls[i], prompt, userRunwayKey, config.perClip, ratio);
-
+          console.log(`[pipeline] Rendering clip ${i + 1}/${sceneImageUrls.length}...`);
+          const clipUrl = await renderRunwayClip(sceneImageUrls[i], prompt, userRunwayKey, preset.clipDuration, preset.ratio);
           if (clipUrl) {
-            // Download and upload to our storage
-            const videoResponse = await fetch(clipUrl);
-            if (videoResponse.ok) {
-              const videoBlob = await videoResponse.blob();
-              const videoFileName = `videos/${userId}/${jobId}/clip-${i + 1}.mp4`;
-              const { error: uploadError } = await supabase.storage.from("media").upload(videoFileName, videoBlob, { contentType: "video/mp4", upsert: true });
-              if (!uploadError) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(videoFileName);
+            // Download and store in our bucket
+            const vidRes = await fetch(clipUrl);
+            if (vidRes.ok) {
+              const blob = await vidRes.blob();
+              const fn = `videos/${userId}/${jobId}/clip-${i + 1}.mp4`;
+              const { error } = await supabase.storage.from("media").upload(fn, blob, { contentType: "video/mp4", upsert: true });
+              if (!error) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
                 videoClips.push(urlData.publicUrl);
-                console.log(`[generate-video] Clip ${i + 1} stored: ${urlData.publicUrl}`);
               }
             }
           }
-        } catch (clipErr) {
-          console.error(`[generate-video] Clip ${i + 1} failed:`, clipErr);
+        } catch (e) {
+          console.error(`[pipeline] Clip ${i + 1} failed:`, e);
         }
 
-        // Progress update per clip
         await updateJob({
           result_payload: {
-            ...scriptContent,
-            scene_images: sceneImageUrls,
-            voiceover_url: voiceoverUrl,
-            video_clips: videoClips,
-            pipeline_steps: { script: "completed", scene_images: "completed", voiceover: voiceoverUrl ? "completed" : "skipped", video_clips: `${videoClips.length}/${sceneImageUrls.length}` },
-            message: `🎬 Rendered ${videoClips.length}/${sceneImageUrls.length} clips...`,
-            total_clips: sceneImageUrls.length,
-            clips_completed: videoClips.length,
+            ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
+            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${sceneImageUrls.length} clips...`,
+            total_clips: sceneImageUrls.length, clips_completed: videoClips.length,
           },
         });
       }
-    } else if (!userRunwayKey) {
-      console.log("[generate-video] No Runway API key — will use client-side compose");
     }
 
-    // ── Final update ──
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 5: FINAL RESULT
+    // ════════════════════════════════════════════════════════════════════
     const hasClips = videoClips.length > 0;
     const hasImages = sceneImageUrls.length > 0;
-    const totalDuration = hasClips ? videoClips.length * config.perClip : hasImages ? sceneImageUrls.length * 4 : 0;
+    const totalDuration = hasClips
+      ? videoClips.length * preset.clipDuration
+      : hasImages ? sceneImageUrls.length * 4 : 0;
+
+    // Enforce minimum duration — if we didn't meet it, report clearly
+    const meetsMinimum = totalDuration >= CONFIG.MIN_DURATION_SECONDS;
+
+    let statusMessage: string;
+    let finalStatus: string;
+
+    if (hasClips && meetsMinimum) {
+      statusMessage = `🎬 ${videoClips.length} video clips ready (${totalDuration}s total)! Assembling your final video...`;
+      finalStatus = "completed";
+    } else if (hasClips && !meetsMinimum) {
+      statusMessage = `⚠️ Only ${videoClips.length} clips rendered (${totalDuration}s) — below ${CONFIG.MIN_DURATION_SECONDS}s minimum. Some Runway renders may have failed. Your video will still be assembled from available clips.`;
+      finalStatus = "completed";
+    } else if (hasImages && !userRunwayKey) {
+      statusMessage = `🎬 ${sceneImageUrls.length} scene images ready — assembling slideshow video with captions and voiceover. Connect Runway for AI motion video.`;
+      finalStatus = "completed";
+    } else if (hasImages && userRunwayKey) {
+      statusMessage = `⚠️ Runway rendering failed for all clips. Assembling slideshow video from ${sceneImageUrls.length} images with captions.`;
+      finalStatus = "completed";
+    } else {
+      statusMessage = "❌ Pipeline failed: no images or clips could be generated. Please check your API credits and try again.";
+      finalStatus = "failed";
+    }
 
     const resultPayload = {
-      ...scriptContent,
+      ...script,
       scene_images: sceneImageUrls,
       voiceover_url: voiceoverUrl,
       video_clips: videoClips,
-      video_url: videoClips[0] || null, // first clip as preview
+      video_url: videoClips[0] || null,
       total_duration_seconds: totalDuration,
+      meets_minimum_duration: meetsMinimum,
       used_template: usedTemplate,
+      production_mode: productionMode,
       pipeline_steps: {
         script: "completed",
         scene_images: hasImages ? "completed" : "failed",
-        voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "skipped",
+        voiceover: voiceoverUrl ? "completed" : elevenlabsKey ? "failed" : "browser_tts_fallback",
         video_clips: hasClips ? "completed" : userRunwayKey ? "failed" : "client_compose",
       },
-      message: hasClips
-        ? `🎬 ${videoClips.length} video clips ready (${totalDuration}s total)! Assembling your final video...`
-        : hasImages
-          ? "🎬 Scene images ready — assembling your video now..."
-          : "📝 Script ready but images couldn't be generated.",
+      message: statusMessage,
     };
 
     await updateJob({
-      status: "completed",
+      status: finalStatus,
       result_payload: resultPayload,
       video_url: videoClips[0] || null,
+      ...(finalStatus === "failed" ? { error_message: statusMessage } : {}),
     });
 
     // Save as content post
-    if (scriptContent.title) {
+    if (script.title && finalStatus !== "failed") {
       await supabase.from("content_posts").insert({
         user_id: userId,
         business_id: businessId,
         location_id: locations?.[0]?.id ?? null,
-        title: scriptContent.title,
-        caption: scriptContent.caption || scriptContent.description,
-        hashtags: scriptContent.hashtags || [],
+        title: script.title,
+        caption: script.caption || script.description,
+        hashtags: script.hashtags || [],
         media_url: videoClips[0] || sceneImageUrls[0] || null,
         media_type: hasClips ? "video" : hasImages ? "image" : "text",
-        platform: scriptContent.target_platform || "instagram",
-        video_script: scriptContent.voiceover_script,
-        voiceover_script: scriptContent.voiceover_script,
-        shot_list: scriptContent.scenes,
-        cta: scriptContent.cta,
+        platform: script.target_platform || "instagram",
+        video_script: script.voiceover_script,
+        voiceover_script: script.voiceover_script,
+        shot_list: script.scenes,
+        cta: script.cta,
         status: "media_ready",
         production_tool: hasClips ? "runway" : "rickyai",
         thumbnail_url: sceneImageUrls[0] || null,
-      }).then(({ error }) => { if (error) console.error("[generate-video] content_posts insert error:", error); });
+      }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
     }
 
-    console.log(`[generate-video] Job ${jobId} completed. Clips: ${videoClips.length}, Images: ${sceneImageUrls.length}, Duration: ${totalDuration}s`);
+    console.log(`[pipeline] Job ${jobId} ${finalStatus}. Clips: ${videoClips.length}, Images: ${sceneImageUrls.length}, Duration: ${totalDuration}s, MinMet: ${meetsMinimum}`);
   } catch (error) {
-    console.error(`[generate-video] Job ${jobId} failed:`, error);
+    console.error(`[pipeline] Job ${jobId} failed:`, error);
     await updateJob({ status: "failed", error_message: error.message });
   }
 }
 
-// ── HTTP handler ──
+// ═══════════════════════════════════════════════════════════════════════
+// HTTP HANDLER
+// ═══════════════════════════════════════════════════════════════════════
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -608,7 +622,7 @@ Deno.serve(async (req) => {
 
     const { businessId, videoType, productionMode } = await req.json();
 
-    const { data: job, error: jobInsertError } = await supabase
+    const { data: job, error: jobErr } = await supabase
       .from("video_generation_jobs")
       .insert({
         user_id: user.id,
@@ -621,26 +635,26 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
-    if (jobInsertError) throw new Error(`Failed to create job: ${jobInsertError.message}`);
+    if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`);
 
     const promise = processVideoJob(job.id, user.id, businessId, videoType || "promotional", productionMode || "standard");
     try {
       // @ts-ignore
       EdgeRuntime.waitUntil(promise);
     } catch {
-      promise.catch(err => console.error("[generate-video] Background error:", err));
+      promise.catch(err => console.error("[pipeline] Background error:", err));
     }
 
     return new Response(JSON.stringify({
       success: true,
       job_id: job.id,
       status: "queued",
-      message: "Video production started! Script → Images → Runway clips → Final video.",
+      message: "🎬 Video production started! Script → Images → Voiceover → Runway → Final video.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("generate-video error:", error);
+    console.error("[pipeline] Handler error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
