@@ -122,13 +122,18 @@ const ExternalAppConnections = () => {
               const connected = connectedApps[app.id];
               return (
                 <div key={app.id} className={`rounded-xl p-3 border transition-all ${
-                  connected?.is_valid ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/20"
+                  connected?.is_valid ? "border-primary/30 bg-primary/5" : (app as any).recommended ? "border-amber-400/40 bg-amber-500/5" : "border-border bg-secondary/20"
                 }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{app.icon}</span>
                       <div>
-                        <div className="text-xs font-semibold text-foreground">{app.name}</div>
+                        <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          {app.name}
+                          {(app as any).recommended && !connected?.is_valid && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">⭐ Recommended</span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">{app.description} • {app.cost}</div>
                       </div>
                     </div>
