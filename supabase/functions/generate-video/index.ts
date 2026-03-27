@@ -479,10 +479,15 @@ IMPORTANT: Each scene must have a "voiceover_line" that is the exact narration f
 
       for (let i = 0; i < sceneImageUrls.length; i++) {
         const scene = scriptContent.scenes[i];
-        const prompt = scene?.visual_description || `Professional promotional video for ${business.business_name}`;
+        const voiceoverLine = scene?.voiceover_line || scriptContent.scene_captions?.[i] || "";
+        const visualPrompt = scene?.visual_description || `Professional promotional video for ${business.business_name}`;
+        // Include both visual direction AND the script line so Runway generates contextual motion
+        const prompt = voiceoverLine
+          ? `${visualPrompt}. The narrator says: "${voiceoverLine}". ${scene?.camera_direction || "smooth cinematic motion"}.`
+          : visualPrompt;
 
         try {
-          console.log(`[generate-video] Rendering Runway clip ${i + 1}/${sceneImageUrls.length}...`);
+          console.log(`[generate-video] Rendering Runway clip ${i + 1}/${sceneImageUrls.length} with script line...`);
           const clipUrl = await renderRunwayClip(sceneImageUrls[i], prompt, userRunwayKey, config.perClip, ratio);
 
           if (clipUrl) {
