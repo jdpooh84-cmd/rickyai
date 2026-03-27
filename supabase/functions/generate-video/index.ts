@@ -213,22 +213,30 @@ async function isRealImage(url: string): Promise<boolean> {
   }
 }
 
-async function findExistingImage(supabase: any, userId: string): Promise<string | null> {
-  const { data: files } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
-  if (!files?.length) return null;
-  for (const folder of files) {
+/** Find ALL existing real images for a user across previous jobs */
+async function findAllExistingImages(supabase: any, userId: string): Promise<string[]> {
+  const urls: string[] = [];
+  const { data: folders } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+  if (!folders?.length) return urls;
+  for (const folder of folders) {
     if (!folder.name) continue;
-    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 10 });
+    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 20 });
     if (!images) continue;
     for (const img of images) {
       if (img.name?.includes("placeholder")) continue;
-      if (img.name?.endsWith(".png") || img.name?.endsWith(".jpg")) {
+      if (img.name?.endsWith(".png") || img.name?.endsWith(".jpg") || img.name?.endsWith(".jpeg")) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${folder.name}/${img.name}`);
-        return urlData.publicUrl;
+        if (urlData?.publicUrl) urls.push(urlData.publicUrl);
       }
     }
+    if (urls.length >= 8) break; // enough variety
   }
-  return null;
+  return urls;
+}
+
+async function findExistingImage(supabase: any, userId: string): Promise<string | null> {
+  const all = await findAllExistingImages(supabase, userId);
+  return all[0] || null;
 }
 
 function create128Png(colorIndex: number): Uint8Array {
