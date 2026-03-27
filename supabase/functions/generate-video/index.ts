@@ -118,6 +118,53 @@ async function renderRunwayClip(
   return completed.output?.[0] || null;
 }
 
+// ── Placeholder image generator (no AI credits needed) ──
+async function generatePlaceholderImage(
+  supabase: any,
+  userId: string,
+  jobId: string,
+  sceneIndex: number,
+  businessName: string,
+  overlayText: string,
+): Promise<string | null> {
+  // Build a simple SVG with a gradient background and text overlay
+  const colors = [
+    ["#1a1a2e", "#16213e", "#0f3460"],
+    ["#2d132c", "#801336", "#c72c41"],
+    ["#0d1b2a", "#1b263b", "#415a77"],
+    ["#212529", "#343a40", "#495057"],
+    ["#1b1b2f", "#162447", "#1f4068"],
+    ["#0b0c10", "#1f2833", "#45a29e"],
+  ];
+  const palette = colors[sceneIndex % colors.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${palette[0]}" />
+        <stop offset="50%" stop-color="${palette[1]}" />
+        <stop offset="100%" stop-color="${palette[2]}" />
+      </linearGradient>
+    </defs>
+    <rect width="1280" height="720" fill="url(#bg)" />
+    <text x="640" y="320" font-family="sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">${escapeXml(businessName)}</text>
+    <text x="640" y="400" font-family="sans-serif" font-size="32" fill="#cccccc" text-anchor="middle">${escapeXml(overlayText)}</text>
+  </svg>`;
+
+  const bytes = new TextEncoder().encode(svg);
+  const fileName = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.svg`;
+  const { error } = await supabase.storage.from("media").upload(fileName, bytes, { contentType: "image/svg+xml", upsert: true });
+  if (error) {
+    console.error(`[generate-video] Placeholder upload error:`, error);
+    return null;
+  }
+  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+  return urlData.publicUrl;
+}
+
+function escapeXml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+
 // ── Main job processor ──
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, productionMode: string) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
