@@ -69,6 +69,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
                 voiceoverUrl: (data.result_payload as any)?.voiceover_url || null,
                 businessName: businessName,
                 title: (data.result_payload as any)?.title || businessName,
+                sceneCaptions: (data.result_payload as any)?.scene_captions || [],
                 durationPerScene: 4,
                 width: 1080,
                 height: 1920,

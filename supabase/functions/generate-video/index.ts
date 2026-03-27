@@ -27,18 +27,18 @@ function buildTemplateScenes(business: any, location: any, videoType: string, sc
   const tone = business.brand_tone || "professional";
 
   const templates = [
-    { visual: `Stunning exterior shot of ${name} storefront at golden hour, warm inviting lighting, ${city}`, text: name, camera: "slow push in" },
-    { visual: `Close-up of ${category} work in progress, hands crafting with care, shallow depth of field`, text: `Quality ${category}`, camera: "slow pan right" },
-    { visual: `Happy ${audience} enjoying ${services} at ${name}, candid smiles, natural light`, text: "Happy Customers", camera: "static wide" },
-    { visual: `Detail shot showcasing the best of ${services}, professional lighting, product photography style`, text: services.split(",")[0]?.trim() || "Our Best", camera: "slow zoom in" },
-    { visual: `Team members at ${name} working together, ${tone} atmosphere, collaborative energy`, text: "Our Team", camera: "dolly left" },
-    { visual: `Behind-the-scenes look at ${category} preparation, organized workspace, attention to detail`, text: "Behind the Scenes", camera: "tracking shot" },
-    { visual: `Wide establishing shot of ${city} skyline or neighborhood where ${name} operates`, text: city || "Our Community", camera: "aerial pan" },
-    { visual: `Customer testimonial moment, genuine reaction to ${services}, warm emotional lighting`, text: "5-Star Experience", camera: "medium close-up" },
-    { visual: `Montage-style quick cuts of ${name}'s signature offerings, vibrant colors, dynamic angles`, text: "What We Offer", camera: "quick cuts" },
-    { visual: `Final beauty shot of ${name}'s signature product or service, dramatic lighting, hero angle`, text: "Visit Us Today", camera: "slow pull back" },
-    { visual: `Interior atmosphere of ${name}, cozy or ${tone} ambiance, inviting spaces`, text: "Step Inside", camera: "steadicam walk" },
-    { visual: `${name} logo or signage with bokeh background, elegant ${tone} branding moment`, text: `${name} — ${city}`, camera: "rack focus" },
+    { visual: `Stunning exterior shot of ${name} storefront at golden hour, warm inviting lighting, ${city}`, text: name, camera: "slow push in", voiceover_line: `Welcome to ${name}, your trusted ${category} in ${city}.` },
+    { visual: `Close-up of ${category} work in progress, hands crafting with care, shallow depth of field`, text: `Quality ${category}`, camera: "slow pan right", voiceover_line: `We take pride in delivering the highest quality ${category} experience.` },
+    { visual: `Happy ${audience} enjoying ${services} at ${name}, candid smiles, natural light`, text: "Happy Customers", camera: "static wide", voiceover_line: `Our ${audience} love what we do, and their smiles say it all.` },
+    { visual: `Detail shot showcasing the best of ${services}, professional lighting, product photography style`, text: services.split(",")[0]?.trim() || "Our Best", camera: "slow zoom in", voiceover_line: `From ${services}, we offer something special for everyone.` },
+    { visual: `Team members at ${name} working together, ${tone} atmosphere, collaborative energy`, text: "Our Team", camera: "dolly left", voiceover_line: `Our dedicated team works hard to make every visit memorable.` },
+    { visual: `Behind-the-scenes look at ${category} preparation, organized workspace, attention to detail`, text: "Behind the Scenes", camera: "tracking shot", voiceover_line: `Behind the scenes, every detail is carefully prepared just for you.` },
+    { visual: `Wide establishing shot of ${city} skyline or neighborhood where ${name} operates`, text: city || "Our Community", camera: "aerial pan", voiceover_line: `Proudly serving the ${city} community and surrounding areas.` },
+    { visual: `Customer testimonial moment, genuine reaction to ${services}, warm emotional lighting`, text: "5-Star Experience", camera: "medium close-up", voiceover_line: `Don't just take our word for it — our five-star reviews speak for themselves.` },
+    { visual: `Montage-style quick cuts of ${name}'s signature offerings, vibrant colors, dynamic angles`, text: "What We Offer", camera: "quick cuts", voiceover_line: `Explore our full range of offerings, designed to delight.` },
+    { visual: `Final beauty shot of ${name}'s signature product or service, dramatic lighting, hero angle`, text: "Visit Us Today", camera: "slow pull back", voiceover_line: `Visit ${name} today and experience the difference for yourself.` },
+    { visual: `Interior atmosphere of ${name}, cozy or ${tone} ambiance, inviting spaces`, text: "Step Inside", camera: "steadicam walk", voiceover_line: `Step inside and feel the warm, welcoming atmosphere.` },
+    { visual: `${name} logo or signage with bokeh background, elegant ${tone} branding moment`, text: `${name} — ${city}`, camera: "rack focus", voiceover_line: `${name} — your go-to ${category} in ${city}. See you soon!` },
   ];
 
   return templates.slice(0, sceneCount).map((t, i) => ({
@@ -47,6 +47,7 @@ function buildTemplateScenes(business: any, location: any, videoType: string, sc
     visual_description: t.visual,
     text_overlay: t.text,
     camera_direction: t.camera,
+    voiceover_line: t.voiceover_line,
   }));
 }
 
@@ -56,10 +57,12 @@ function buildTemplateScript(business: any, location: any, videoType: string, sc
   const services = business.services || "services";
   const city = location?.city || "your area";
 
+  const fullVoiceover = scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
   return {
     title: `${name} — Your Local ${category}`,
     description: `Discover what makes ${name} the go-to ${category} in ${city}.`,
-    voiceover_script: `Welcome to ${name}, your trusted ${category} in ${city}. We specialize in ${services}. Our dedicated team is here to deliver an exceptional experience every time. Visit us today and see why our customers keep coming back.`,
+    voiceover_script: fullVoiceover || `Welcome to ${name}, your trusted ${category} in ${city}. We specialize in ${services}. Our dedicated team is here to deliver an exceptional experience every time. Visit us today and see why our customers keep coming back.`,
+    scene_captions: scenes.map((s: any) => s.voiceover_line || s.text_overlay || ""),
     scenes,
     caption: `✨ Discover ${name} in ${city}! ${services} 🔥 #${name.replace(/\s+/g, "")} #${category} #${city.replace(/\s+/g, "")}`,
     hashtags: [name.replace(/\s+/g, ""), category, city.replace(/\s+/g, ""), "smallbusiness", "local"],
@@ -301,14 +304,17 @@ Return JSON with:
   "title": "video title",
   "description": "short description",
   "voiceover_script": "complete narration, ${config.min >= 60 ? "100-150" : "60-80"} words",
-  "scenes": [${Array.from({ length: config.scenes }, (_, i) => `{"scene_number":${i + 1},"duration_seconds":5,"visual_description":"detailed scene for AI image generation","text_overlay":"overlay text","camera_direction":"camera move"}`).join(",")}],
+  "scene_captions": ["voiceover line for scene 1", "voiceover line for scene 2", ...],
+  "scenes": [${Array.from({ length: config.scenes }, (_, i) => `{"scene_number":${i + 1},"duration_seconds":5,"visual_description":"detailed scene for AI image generation","text_overlay":"short overlay text","camera_direction":"camera move","voiceover_line":"the exact line of narration spoken during this scene"}`).join(",")}],
   "caption": "social media caption with emojis",
   "hashtags": ["relevant","hashtags"],
   "target_platform": "instagram",
   "aspect_ratio": "${productionMode === "quick" ? "9:16" : "16:9"}",
   "music_mood": "upbeat",
   "cta": "call to action"
-}` },
+}
+
+IMPORTANT: Each scene must have a "voiceover_line" that is the exact narration for that scene. The "scene_captions" array must match the voiceover_line from each scene in order.` },
           ],
           response_format: { type: "json_object" },
         }),
@@ -331,6 +337,11 @@ Return JSON with:
       usedTemplate = true;
       const scenes = buildTemplateScenes(business, location, videoType, config.scenes);
       scriptContent = buildTemplateScript(business, location, videoType, scenes);
+    }
+
+    // Ensure scene_captions array exists
+    if (!scriptContent.scene_captions || scriptContent.scene_captions.length === 0) {
+      scriptContent.scene_captions = (scriptContent.scenes || []).map((s: any) => s.voiceover_line || s.text_overlay || "");
     }
 
     // Ensure we have enough scenes
@@ -468,10 +479,15 @@ Return JSON with:
 
       for (let i = 0; i < sceneImageUrls.length; i++) {
         const scene = scriptContent.scenes[i];
-        const prompt = scene?.visual_description || `Professional promotional video for ${business.business_name}`;
+        const voiceoverLine = scene?.voiceover_line || scriptContent.scene_captions?.[i] || "";
+        const visualPrompt = scene?.visual_description || `Professional promotional video for ${business.business_name}`;
+        // Include both visual direction AND the script line so Runway generates contextual motion
+        const prompt = voiceoverLine
+          ? `${visualPrompt}. The narrator says: "${voiceoverLine}". ${scene?.camera_direction || "smooth cinematic motion"}.`
+          : visualPrompt;
 
         try {
-          console.log(`[generate-video] Rendering Runway clip ${i + 1}/${sceneImageUrls.length}...`);
+          console.log(`[generate-video] Rendering Runway clip ${i + 1}/${sceneImageUrls.length} with script line...`);
           const clipUrl = await renderRunwayClip(sceneImageUrls[i], prompt, userRunwayKey, config.perClip, ratio);
 
           if (clipUrl) {

@@ -4,6 +4,55 @@
  * Supports both image slideshows (Ken Burns) and Runway clip stitching.
  */
 
+/** Draw a styled on-screen caption/subtitle at the bottom of the canvas */
+function drawCaption(ctx: CanvasRenderingContext2D, text: string, width: number, height: number) {
+  if (!text) return;
+  const fontSize = Math.round(width * 0.038);
+  const padding = Math.round(width * 0.04);
+  const maxWidth = width - padding * 2;
+  ctx.font = `bold ${fontSize}px sans-serif`;
+
+  // Word-wrap
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+
+  const lineHeight = fontSize * 1.4;
+  const blockHeight = lines.length * lineHeight + padding;
+  const yStart = height - blockHeight - Math.round(height * 0.12);
+
+  // Semi-transparent background
+  ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+  const bgPad = Math.round(padding * 0.6);
+  const bgX = padding - bgPad;
+  const bgY = yStart - bgPad;
+  const bgW = maxWidth + bgPad * 2;
+  const bgH = blockHeight + bgPad;
+  // Simple rect fallback (roundRect not available everywhere)
+  ctx.fillRect(bgX, bgY, bgW, bgH);
+
+  // Text
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 4;
+  for (let l = 0; l < lines.length; l++) {
+    ctx.fillText(lines[l], width / 2, yStart + l * lineHeight + fontSize);
+  }
+  ctx.shadowBlur = 0;
+}
+
 interface ComposeOptions {
   sceneImages: string[];
   videoClips?: string[];
@@ -11,6 +60,7 @@ interface ComposeOptions {
   businessName: string;
   title?: string;
   captionText?: string;
+  sceneCaptions?: string[];
   durationPerScene?: number;
   width?: number;
   height?: number;
@@ -24,6 +74,7 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
     voiceoverUrl,
     businessName,
     title,
+    sceneCaptions,
     durationPerScene = 4,
     width = 1080,
     height = 1920,
@@ -32,17 +83,18 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
 
   // If we have Runway clips, stitch them together
   if (videoClips && videoClips.length > 0) {
-    return stitchVideoClips(videoClips, voiceoverUrl, businessName, width, height, onProgress);
+    return stitchVideoClips(videoClips, voiceoverUrl, businessName, sceneCaptions, width, height, onProgress);
   }
 
   // Otherwise fall back to image slideshow
-  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, durationPerScene, width, height, onProgress);
+  return composeFromImages(sceneImages, voiceoverUrl, businessName, title, sceneCaptions, durationPerScene, width, height, onProgress);
 }
 
 async function stitchVideoClips(
   clipUrls: string[],
   voiceoverUrl: string | null | undefined,
   businessName: string,
+  sceneCaptions: string[] | undefined,
   width: number,
   height: number,
   onProgress?: (pct: number) => void,
@@ -55,6 +107,7 @@ async function stitchVideoClips(
   const stream = canvas.captureStream(30);
 
   // Add voiceover audio track if available
+  let ttsUtteranceQueue: string[] = [];
   if (voiceoverUrl) {
     try {
       const audioEl = new Audio(voiceoverUrl);
@@ -73,6 +126,23 @@ async function stitchVideoClips(
     } catch {
       console.warn("Could not add voiceover audio");
     }
+  } else if (sceneCaptions && sceneCaptions.length > 0 && typeof window !== "undefined" && "speechSynthesis" in window) {
+    // Browser TTS fallback — queue captions for speech during playback
+    ttsUtteranceQueue = [...sceneCaptions];
+    try {
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      // Create an oscillator at zero volume just to get an audio track on the stream
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(dest);
+      osc.start();
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch {
+      // silent fallback
+    }
   }
 
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
@@ -90,6 +160,16 @@ async function stitchVideoClips(
 
     for (let i = 0; i < clipUrls.length; i++) {
       onProgress?.(Math.round((i / clipUrls.length) * 100));
+
+      // Speak the caption for this clip using browser TTS
+      if (ttsUtteranceQueue[i] && "speechSynthesis" in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(ttsUtteranceQueue[i]);
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          window.speechSynthesis.speak(utterance);
+        } catch { /* ignore TTS errors */ }
+      }
 
       try {
         const video = document.createElement("video");
@@ -133,6 +213,12 @@ async function stitchVideoClips(
             }
             ctx.drawImage(video, dx, dy, dw, dh);
 
+            // Draw on-screen caption for this clip
+            const caption = sceneCaptions?.[i];
+            if (caption) {
+              drawCaption(ctx, caption, width, height);
+            }
+
             requestAnimationFrame(drawClipFrame);
           }
           video.onended = () => res();
@@ -164,6 +250,7 @@ async function composeFromImages(
   voiceoverUrl: string | null | undefined,
   businessName: string,
   title: string | undefined,
+  sceneCaptions: string[] | undefined,
   durationPerScene: number,
   width: number,
   height: number,
@@ -288,6 +375,12 @@ async function composeFromImages(
       ctx.font = `bold ${Math.round(width * 0.04)}px sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText(businessName, width / 2, height - Math.round(height * 0.05));
+
+      // On-screen caption/subtitle for this scene
+      const caption = sceneCaptions?.[sceneIndex];
+      if (caption) {
+        drawCaption(ctx, caption, width, height);
+      }
 
       // Title overlay
       if (sceneIndex === 0 && frameInScene < fps * 2 && title) {
