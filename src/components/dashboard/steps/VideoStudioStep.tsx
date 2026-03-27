@@ -277,31 +277,29 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
   const handleGenerateVideo = async (videoType: string = "promotional") => {
-    if (!businessId) {
-      console.error("[VideoStudio] handleGenerateVideo: No businessId");
-      return;
-    }
-    console.log("[VideoStudio] handleGenerateVideo START", { businessId, videoType, productionMode });
+    if (!businessId) return;
     setGeneratingVideo(true);
+    setFinalVideoUrl(null);
+    composedRef.current = false;
+    setJobStatus("queued");
+    setComposePct(0);
     try {
       const response = await supabase.functions.invoke("generate-video", {
-        body: { businessId, videoType, productionMode },
+        body: { businessId, videoType, productionMode: productionMode || "standard" },
       });
-      console.log("[VideoStudio] handleGenerateVideo: Response", { error: response.error, hasData: !!response.data, data: response.data });
-      if (response.error) {
-        console.error("[VideoStudio] handleGenerateVideo: Function error", response.error);
-        throw new Error(response.error.message);
-      }
-      setGeneratedVideoScript(response.data);
-      if (response.data?.video_url) {
-        toast.success("Video generated successfully!");
+      if (response.error) throw new Error(response.error.message);
+
+      if (response.data?.job_id) {
+        setActiveJobId(response.data.job_id);
+        toast.info("🎬 Video production started! This may take a few minutes...");
       } else {
-        toast.success(response.data?.message || "Video brief generated — use it with CapCut, Canva, or any video tool.");
+        setGeneratedVideoScript(response.data);
+        setGeneratingVideo(false);
+        toast.success(response.data?.message || "Video brief generated.");
       }
     } catch (err: any) {
       console.error("[VideoStudio] handleGenerateVideo FAILED:", err);
       toast.error(err.message || "Failed to generate video");
-    } finally {
       setGeneratingVideo(false);
     }
   };
