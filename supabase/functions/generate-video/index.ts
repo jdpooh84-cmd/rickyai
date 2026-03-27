@@ -304,14 +304,17 @@ Return JSON with:
   "title": "video title",
   "description": "short description",
   "voiceover_script": "complete narration, ${config.min >= 60 ? "100-150" : "60-80"} words",
-  "scenes": [${Array.from({ length: config.scenes }, (_, i) => `{"scene_number":${i + 1},"duration_seconds":5,"visual_description":"detailed scene for AI image generation","text_overlay":"overlay text","camera_direction":"camera move"}`).join(",")}],
+  "scene_captions": ["voiceover line for scene 1", "voiceover line for scene 2", ...],
+  "scenes": [${Array.from({ length: config.scenes }, (_, i) => `{"scene_number":${i + 1},"duration_seconds":5,"visual_description":"detailed scene for AI image generation","text_overlay":"short overlay text","camera_direction":"camera move","voiceover_line":"the exact line of narration spoken during this scene"}`).join(",")}],
   "caption": "social media caption with emojis",
   "hashtags": ["relevant","hashtags"],
   "target_platform": "instagram",
   "aspect_ratio": "${productionMode === "quick" ? "9:16" : "16:9"}",
   "music_mood": "upbeat",
   "cta": "call to action"
-}` },
+}
+
+IMPORTANT: Each scene must have a "voiceover_line" that is the exact narration for that scene. The "scene_captions" array must match the voiceover_line from each scene in order.` },
           ],
           response_format: { type: "json_object" },
         }),
@@ -334,6 +337,11 @@ Return JSON with:
       usedTemplate = true;
       const scenes = buildTemplateScenes(business, location, videoType, config.scenes);
       scriptContent = buildTemplateScript(business, location, videoType, scenes);
+    }
+
+    // Ensure scene_captions array exists
+    if (!scriptContent.scene_captions || scriptContent.scene_captions.length === 0) {
+      scriptContent.scene_captions = (scriptContent.scenes || []).map((s: any) => s.voiceover_line || s.text_overlay || "");
     }
 
     // Ensure we have enough scenes
