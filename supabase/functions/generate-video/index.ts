@@ -811,7 +811,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       pipeline_steps: {
         script: "completed",
         images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
-        voiceover: voiceoverUrl ? "completed" : "browser_tts_fallback",
+        voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
         runway: hasClips ? "completed" : userRunwayKey ? "failed_or_exhausted" : "no_key",
       },
       message: statusMessage,
