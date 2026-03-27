@@ -30,59 +30,91 @@ function templateRewrite(originalScript: any, biz: any, loc: any): any {
   const name = biz.business_name || "Our Business";
   const cat = biz.business_category || "business";
   const city = loc?.city || "your area";
+  const svc = biz.services || "great service";
+  const aud = biz.target_audience || "customers";
   const scenes = originalScript?.scenes || [];
   
   if (scenes.length === 0) {
     return { ...originalScript, title: `${name} — Fresh Promo`, usedFallbackScript: true };
   }
 
-  // Pick random variants different from current text
+  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+  // Pick random hook and CTA different each time
   const hookIdx = Math.floor(Math.random() * HOOK_VARIANTS.length);
   const ctaIdx = Math.floor(Math.random() * CTA_VARIANTS.length);
+
+  // Large pool of middle-scene voiceover variants keyed by shotType
+  const middleVoiceovers: Record<string, string[]> = {
+    food: [
+      `From our kitchen to your table — every bite tells a story.`,
+      `Taste the difference that quality makes at ${name}.`,
+      `Freshness you can see, flavor you can feel.`,
+      `Handcrafted with the best ingredients ${city} has to offer.`,
+      `Our ${svc.split(",")[0]?.trim() || "menu"} is made to impress.`,
+      `This isn't fast food — this is ${name}.`,
+    ],
+    people: [
+      `Our team makes every ${aud} feel like family.`,
+      `Real smiles, real service, real ${city} hospitality.`,
+      `${name}'s crew brings the energy every single day.`,
+      `Our ${aud} are the reason we do what we do.`,
+      `Community-first — that's the ${name} way.`,
+      `Friendly faces you'll want to come back to.`,
+    ],
+    environment: [
+      `Step inside and feel the ${name} difference.`,
+      `A space designed for ${aud} who appreciate the details.`,
+      `${name}'s atmosphere? Unmatched in ${city}.`,
+      `Where comfort meets quality — welcome to ${name}.`,
+      `${city}'s favorite spot for a reason.`,
+      `Come for the ${cat}, stay for the vibe.`,
+    ],
+  };
+
+  const middleOverlays: string[] = [
+    `${name} Quality`, "Made Different", `${city} Favorite`, "Taste the Love",
+    "Experience It", "Only the Best", `Since Day One`, "You Deserve This",
+    "Built on Passion", "Come Hungry", "Stay Awhile", "Worth the Trip",
+  ];
 
   const rewrittenScenes = scenes.map((scene: any, i: number) => {
     const isFirst = i === 0;
     const isLast = i === scenes.length - 1;
+    const shotType = scene.shotType || "environment";
     
     let newVoiceover = scene.voiceover_line || "";
     let newOverlay = scene.text_overlay || "";
     
     if (isFirst) {
       newVoiceover = HOOK_VARIANTS[hookIdx](name, cat, city);
-      newOverlay = name;
+      newOverlay = pick([name, `Discover ${name}`, `${name} — ${city}`, `Meet ${name}`]);
     } else if (isLast) {
       newVoiceover = CTA_VARIANTS[ctaIdx](name);
-      newOverlay = `Visit ${name}!`;
+      newOverlay = pick([`Visit ${name}!`, `Follow ${name}`, `Order Now`, `See You Soon!`]);
     } else {
-      // Middle scenes: rephrase by swapping sentence structure
-      const phrases = [
-        `We take pride in our ${scene.shotType || "craft"}.`,
-        `Quality ${scene.shotType || "service"} is what sets ${name} apart.`,
-        `Experience the ${name} difference — ${scene.shotType || "excellence"} in every detail.`,
-        `At ${name}, every ${scene.shotType || "moment"} is crafted with care.`,
-        `This is what makes ${name} a ${city} favorite.`,
-      ];
-      newVoiceover = phrases[i % phrases.length];
-      if (scene.text_overlay) {
-        newOverlay = scene.text_overlay.split(" ").reverse().join(" ") !== scene.text_overlay
-          ? scene.text_overlay
-          : `${name} — ${scene.shotType || "Quality"}`;
-      }
+      const pool = middleVoiceovers[shotType] || middleVoiceovers.environment;
+      newVoiceover = pick(pool);
+      newOverlay = pick(middleOverlays);
     }
 
-    return {
-      ...scene,
-      voiceover_line: newVoiceover,
-      text_overlay: newOverlay,
-    };
+    return { ...scene, voiceover_line: newVoiceover, text_overlay: newOverlay };
   });
 
   const fullVoiceover = rewrittenScenes.map((s: any) => s.voiceover_line).join(" ");
+  const titles = [
+    `${name} — ${cat.charAt(0).toUpperCase() + cat.slice(1)} Promo`,
+    `Discover ${name} in ${city}`,
+    `${name} — Made for ${aud}`,
+    `Why ${city} Loves ${name}`,
+    `Experience ${name}`,
+  ];
 
   return {
-    title: `${name} — ${cat.charAt(0).toUpperCase() + cat.slice(1)} Promo`,
+    title: pick(titles),
     scenes: rewrittenScenes,
     voiceover_script: fullVoiceover,
+    scene_captions: rewrittenScenes.map((s: any) => s.voiceover_line),
     usedFallbackScript: true,
   };
 }
