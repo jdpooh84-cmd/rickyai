@@ -213,22 +213,30 @@ async function isRealImage(url: string): Promise<boolean> {
   }
 }
 
-async function findExistingImage(supabase: any, userId: string): Promise<string | null> {
-  const { data: files } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
-  if (!files?.length) return null;
-  for (const folder of files) {
+/** Find ALL existing real images for a user across previous jobs */
+async function findAllExistingImages(supabase: any, userId: string): Promise<string[]> {
+  const urls: string[] = [];
+  const { data: folders } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+  if (!folders?.length) return urls;
+  for (const folder of folders) {
     if (!folder.name) continue;
-    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 10 });
+    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 20 });
     if (!images) continue;
     for (const img of images) {
       if (img.name?.includes("placeholder")) continue;
-      if (img.name?.endsWith(".png") || img.name?.endsWith(".jpg")) {
+      if (img.name?.endsWith(".png") || img.name?.endsWith(".jpg") || img.name?.endsWith(".jpeg")) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${folder.name}/${img.name}`);
-        return urlData.publicUrl;
+        if (urlData?.publicUrl) urls.push(urlData.publicUrl);
       }
     }
+    if (urls.length >= 8) break; // enough variety
   }
-  return null;
+  return urls;
+}
+
+async function findExistingImage(supabase: any, userId: string): Promise<string | null> {
+  const all = await findAllExistingImages(supabase, userId);
+  return all[0] || null;
 }
 
 function create128Png(colorIndex: number): Uint8Array {
@@ -419,8 +427,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
     const sceneImageUrls: string[] = [];
-    const sceneImageIsReal: boolean[] = []; // Track which images are real vs placeholder
+    const sceneImageIsReal: boolean[] = [];
     let imageCreditsExhausted = false;
+
+    // Pre-fetch existing real images so we can cycle them when credits are gone
+    const existingRealImages = await findAllExistingImages(supabase, userId);
+    console.log(`[pipeline] Found ${existingRealImages.length} existing real images to reuse if needed`);
 
     for (let i = 0; i < script.scenes.length; i++) {
       try {
@@ -429,11 +441,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         sceneImageIsReal.push(result.isReal);
       } catch (e: any) {
         if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
-        const existing = await findExistingImage(supabase, userId);
-        if (existing) {
-          const real = await isRealImage(existing);
-          sceneImageUrls.push(existing);
-          sceneImageIsReal.push(real);
+        // Cycle through existing real images instead of creating placeholders
+        if (existingRealImages.length > 0) {
+          const cycledUrl = existingRealImages[i % existingRealImages.length];
+          sceneImageUrls.push(cycledUrl);
+          sceneImageIsReal.push(true); // These are real images, safe for Runway
+          console.log(`[pipeline] Scene ${i + 1}: reusing existing image (cycled)`);
         } else {
           const png = create128Png(i);
           const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
@@ -523,7 +536,10 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         const voLine = scene?.voiceover_line || script.scene_captions?.[sceneIdx] || "";
         const visPrompt = scene?.visual_description || `Professional video for ${business.business_name}`;
         const camDir = scene?.camera_direction || "smooth cinematic motion";
-        const prompt = `${visPrompt}. Camera: ${camDir}.${voLine ? ` The narrator says: "${voLine}"` : ""}`;
+        // Add variation keywords so reused images produce different motion
+        const variations = ["slow zoom in", "gentle pan left to right", "dolly forward", "slow pull back reveal", "overhead tilt down"];
+        const extraMotion = variations[ci % variations.length];
+        const prompt = `${visPrompt}. Camera: ${camDir}, ${extraMotion}.${voLine ? ` The narrator says: "${voLine}"` : ""}`;
 
         try {
           console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length} (scene ${sceneIdx + 1})...`);
