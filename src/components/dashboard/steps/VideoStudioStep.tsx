@@ -351,7 +351,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           {pendingScript && !scriptApproved && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-secondary/30 border border-border">
-                <p className="text-xs font-semibold text-foreground mb-3">{pendingScript.title}</p>
+                <p className="text-xs font-semibold text-foreground mb-1">{pendingScript.title}</p>
+                <p className="text-[10px] text-muted-foreground mb-3">Click any line below to edit it directly.</p>
                 <div className="space-y-3">
                   {pendingScript.scenes?.map((scene: any, i: number) => (
                     <div key={i} className="p-3 rounded-lg bg-background/50 border border-border/50">
@@ -359,10 +360,33 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                         <span className="text-[10px] font-bold text-primary">Scene {i + 1} — {scene.shotType || "general"}</span>
                         <span className="text-[10px] text-muted-foreground">{scene.duration_seconds}s</span>
                       </div>
-                      <p className="text-xs text-foreground/90 mb-1">{scene.voiceover_line}</p>
-                      {scene.text_overlay && (
-                        <p className="text-[10px] text-muted-foreground italic">On-screen: "{scene.text_overlay}"</p>
-                      )}
+                      <label className="text-[10px] text-muted-foreground font-semibold">Voiceover:</label>
+                      <textarea
+                        value={scene.voiceover_line || ""}
+                        onChange={(e) => {
+                          const updated = { ...pendingScript, scenes: pendingScript.scenes.map((s: any, idx: number) =>
+                            idx === i ? { ...s, voiceover_line: e.target.value } : s
+                          )};
+                          // Also update the full voiceover_script
+                          updated.voiceover_script = updated.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+                          setPendingScript(updated);
+                        }}
+                        className="w-full mt-1 p-2 text-xs text-foreground bg-background rounded-lg border border-border/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none min-h-[40px]"
+                        rows={2}
+                      />
+                      <label className="text-[10px] text-muted-foreground font-semibold mt-2 block">On-screen text:</label>
+                      <input
+                        type="text"
+                        value={scene.text_overlay || ""}
+                        onChange={(e) => {
+                          const updated = { ...pendingScript, scenes: pendingScript.scenes.map((s: any, idx: number) =>
+                            idx === i ? { ...s, text_overlay: e.target.value } : s
+                          )};
+                          setPendingScript(updated);
+                        }}
+                        className="w-full mt-1 p-2 text-xs text-foreground bg-background rounded-lg border border-border/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+                        placeholder="(optional on-screen caption)"
+                      />
                     </div>
                   ))}
                 </div>
