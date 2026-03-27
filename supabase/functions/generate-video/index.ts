@@ -118,7 +118,31 @@ async function renderRunwayClip(
   return completed.output?.[0] || null;
 }
 
-// ── Placeholder image generator (no AI credits needed) ──
+// ── Find a real image from storage to use as Runway seed ──
+async function findExistingSceneImage(supabase: any, userId: string): Promise<string | null> {
+  // Look for any previously generated scene image for this user (real AI images, not placeholders)
+  const { data: files } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
+  if (!files || files.length === 0) return null;
+
+  // List subfolders (job IDs) and find images
+  for (const folder of files) {
+    if (!folder.name) continue;
+    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 10 });
+    if (!images) continue;
+    for (const img of images) {
+      // Skip placeholder images (they're too small)
+      if (img.name?.includes("placeholder")) continue;
+      if (img.name?.endsWith(".png") || img.name?.endsWith(".jpg")) {
+        const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${folder.name}/${img.name}`);
+        console.log(`[generate-video] Found existing scene image: ${urlData.publicUrl}`);
+        return urlData.publicUrl;
+      }
+    }
+  }
+  return null;
+}
+
+// ── Placeholder image generator — 128x128 solid color PNG (>512 bytes for Runway) ──
 async function generatePlaceholderImage(
   supabase: any,
   userId: string,
@@ -127,10 +151,16 @@ async function generatePlaceholderImage(
   businessName: string,
   overlayText: string,
 ): Promise<string | null> {
-  // Create a minimal 1-pixel PNG and upload it. Runway will use this as a seed.
-  // In practice Runway uses the promptText more than the image for generation,
-  // so even a simple colored image works well as a seed.
-  const pngBytes = createMinimalPng(sceneIndex);
+  // First try to find a real existing image from previous jobs
+  const existingImage = await findExistingSceneImage(supabase, userId);
+  if (existingImage) {
+    console.log(`[generate-video] Scene ${sceneIndex + 1}: reusing real image as Runway seed`);
+    return existingImage;
+  }
+
+  // Create a 128x128 PNG (well above Runway's 512-byte minimum)
+  const pngBytes = create128Png(sceneIndex);
+  console.log(`[generate-video] Generated 128x128 placeholder: ${pngBytes.length} bytes`);
   const fileName = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}-placeholder.png`;
   const { error } = await supabase.storage.from("media").upload(fileName, pngBytes, { contentType: "image/png", upsert: true });
   if (error) {
@@ -142,16 +172,28 @@ async function generatePlaceholderImage(
   return urlData.publicUrl;
 }
 
-// Creates a valid 1x1 PNG with a dark color (Runway needs a valid image URL to start from)
-function createMinimalPng(colorIndex: number): Uint8Array {
+// Creates a valid 128x128 PNG with a gradient color (Runway needs >= 512 bytes)
+function create128Png(colorIndex: number): Uint8Array {
   const colors = [[26, 26, 46], [45, 19, 44], [13, 27, 42], [33, 37, 41], [27, 27, 47], [11, 12, 16]];
   const [r, g, b] = colors[colorIndex % colors.length];
-  // Minimal valid PNG: 1x1 pixel, RGBA
-  const header = [137, 80, 78, 71, 13, 10, 26, 10]; // PNG signature
-  const ihdr = createPngChunk("IHDR", [0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0]);
-  // Raw pixel data: filter byte (0) + RGB
-  const raw = new Uint8Array([0, r, g, b]);
-  // Deflate the raw data (use a minimal stored block)
+  const W = 128, H = 128;
+  // Raw pixel data: filter byte (0) + RGB per pixel, per row
+  const rawRows: number[] = [];
+  for (let y = 0; y < H; y++) {
+    rawRows.push(0); // filter byte
+    for (let x = 0; x < W; x++) {
+      // Slight gradient so the image isn't perfectly uniform
+      const rr = Math.min(255, r + Math.floor((x + y) / 4));
+      const gg = Math.min(255, g + Math.floor((x + y) / 6));
+      const bb = Math.min(255, b + Math.floor((x + y) / 3));
+      rawRows.push(rr, gg, bb);
+    }
+  }
+  const raw = new Uint8Array(rawRows);
+  const header = [137, 80, 78, 71, 13, 10, 26, 10];
+  // IHDR: 128x128, bit depth 8, color type 2 (RGB)
+  const ihdrData = [0,0,0,128, 0,0,0,128, 8, 2, 0, 0, 0];
+  const ihdr = createPngChunk("IHDR", ihdrData);
   const deflated = deflateStored(raw);
   const idat = createPngChunk("IDAT", Array.from(deflated));
   const iend = createPngChunk("IEND", []);
