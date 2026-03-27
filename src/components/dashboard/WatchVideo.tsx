@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Film, Download, Play, ArrowLeft, Loader2, Volume2, VolumeX } from "lucide-react";
+import { Film, Download, Play, ArrowLeft, Loader2, Volume2, VolumeX, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface VideoJob {
   id: string;
@@ -185,28 +186,67 @@ const WatchVideo = ({ onBack }: Props) => {
                 </div>
               )}
 
-              {/* Script */}
-              {result?.voiceover_script && (
-                <div className="p-3 rounded-xl bg-secondary/20">
-                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">🎙️ Script:</p>
-                  <p className="text-xs text-secondary-foreground">{result.voiceover_script}</p>
-                </div>
-              )}
+              {/* Tabs: Script / Storyboard / Caption */}
+              <Tabs defaultValue="script" className="w-full">
+                <TabsList className="w-full grid grid-cols-3 h-8">
+                  <TabsTrigger value="script" className="text-[10px]">🎙️ Script</TabsTrigger>
+                  <TabsTrigger value="storyboard" className="text-[10px]">
+                    <Clapperboard className="w-3 h-3 mr-1" /> Storyboard
+                  </TabsTrigger>
+                  <TabsTrigger value="caption" className="text-[10px]">📝 Caption</TabsTrigger>
+                </TabsList>
 
-              {/* Caption + Hashtags */}
-              {result?.caption && (
-                <div className="p-3 rounded-xl bg-secondary/20">
-                  <p className="text-[10px] font-semibold text-muted-foreground mb-1">📝 Caption:</p>
-                  <p className="text-xs text-secondary-foreground">{result.caption}</p>
-                  {result.hashtags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {result.hashtags.map((h: string, i: number) => (
-                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">#{h.replace("#", "")}</span>
-                      ))}
+                <TabsContent value="script">
+                  {result?.voiceover_script && (
+                    <div className="p-3 rounded-xl bg-secondary/20">
+                      <p className="text-xs text-secondary-foreground">{result.voiceover_script}</p>
                     </div>
                   )}
-                </div>
-              )}
+                </TabsContent>
+
+                <TabsContent value="storyboard">
+                  {result?.manus_visual_script?.shots?.length > 0 ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">{result.manus_visual_script.shots.length} shots • {result.manus_visual_script.style} • {result.manus_visual_script.aspect_ratio}</span>
+                      </div>
+                      {result.manus_visual_script.shots.map((shot: any) => (
+                        <div key={shot.index} className="p-3 rounded-xl bg-secondary/20 border border-border/50 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-primary">Shot {shot.index}: {shot.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{shot.estimated_duration_seconds}s • {shot.shot_type}</span>
+                          </div>
+                          <p className="text-[11px] text-foreground/90">{shot.prompt_text}</p>
+                          {shot.voice_lines && (
+                            <p className="text-[10px] text-muted-foreground italic">🎙️ "{shot.voice_lines}"</p>
+                          )}
+                          <div className="flex flex-wrap gap-1">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{shot.camera_movement}</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-accent/20 text-accent-foreground">{shot.transition_in} → {shot.transition_out}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground p-3">No storyboard data for this video. Newer videos will include a cinematic shot list.</p>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="caption">
+                  {result?.caption && (
+                    <div className="p-3 rounded-xl bg-secondary/20">
+                      <p className="text-xs text-secondary-foreground">{result.caption}</p>
+                      {result.hashtags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {result.hashtags.map((h: string, i: number) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">#{h.replace("#", "")}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
 
               {/* Standalone Voiceover Audio (when no video) */}
               {!hasVideo && voiceoverUrl && (
