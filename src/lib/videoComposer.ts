@@ -45,6 +45,7 @@ async function stitchVideoClips(
   clipUrls: string[],
   voiceoverUrl: string | null | undefined,
   businessName: string,
+  sceneCaptions: string[] | undefined,
   width: number,
   height: number,
   onProgress?: (pct: number) => void,
@@ -135,6 +136,12 @@ async function stitchVideoClips(
             }
             ctx.drawImage(video, dx, dy, dw, dh);
 
+            // Draw on-screen caption for this clip
+            const caption = sceneCaptions?.[i];
+            if (caption) {
+              drawCaption(ctx, caption, width, height);
+            }
+
             requestAnimationFrame(drawClipFrame);
           }
           video.onended = () => res();
@@ -166,6 +173,7 @@ async function composeFromImages(
   voiceoverUrl: string | null | undefined,
   businessName: string,
   title: string | undefined,
+  sceneCaptions: string[] | undefined,
   durationPerScene: number,
   width: number,
   height: number,
