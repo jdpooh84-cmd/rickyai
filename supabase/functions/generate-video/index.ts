@@ -1102,13 +1102,8 @@ Deno.serve(async (req) => {
         script.usedFallbackScript = false;
       } catch (e: any) {
         usedFallbackScript = true;
-        const { data: lastScript } = await supabase.from("strategy_outputs").select("output_data")
-          .eq("business_id", businessId).eq("step_number", 8).order("updated_at", { ascending: false }).limit(1).maybeSingle();
-        if (lastScript?.output_data?.voiceover_script) {
-          script = lastScript.output_data;
-        } else {
-          script = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
-        }
+        // Always use randomized buildScriptFromProfile for fresh scripts each time
+        script = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
         script.usedFallbackScript = true;
       }
 
