@@ -10,6 +10,9 @@ interface ConnectedApp {
 }
 
 const SUPPORTED_APPS = [
+  // AI & Research (recommended)
+  { id: "manus", name: "Manus AI", description: "AI video creation from prompts — generates full videos automatically", url: "https://manus.ai/", cost: "Free tier available", icon: "🤖", category: "AI & Research", recommended: true },
+  { id: "gemini", name: "Google Gemini", description: "AI-powered search & script research for better video content", url: "https://aistudio.google.com/apikey", cost: "Free tier / pay-as-you-go", icon: "💎", category: "AI & Research", recommended: true },
   // Video Production
   { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
   { id: "elevenlabs", name: "ElevenLabs", description: "AI voiceovers & dubbing", url: "https://elevenlabs.io/app/settings/api-keys", cost: "Free tier / $5/mo+", icon: "🎙️", category: "Voice" },
@@ -119,13 +122,18 @@ const ExternalAppConnections = () => {
               const connected = connectedApps[app.id];
               return (
                 <div key={app.id} className={`rounded-xl p-3 border transition-all ${
-                  connected?.is_valid ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/20"
+                  connected?.is_valid ? "border-primary/30 bg-primary/5" : (app as any).recommended ? "border-amber-400/40 bg-amber-500/5" : "border-border bg-secondary/20"
                 }`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-lg">{app.icon}</span>
                       <div>
-                        <div className="text-xs font-semibold text-foreground">{app.name}</div>
+                        <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          {app.name}
+                          {(app as any).recommended && !connected?.is_valid && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold">⭐ Recommended</span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-muted-foreground">{app.description} • {app.cost}</div>
                       </div>
                     </div>
