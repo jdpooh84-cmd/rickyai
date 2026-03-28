@@ -253,6 +253,35 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     removeLocalStorage(STATE_KEY);
   };
 
+  const handleImportManusVideo = async () => {
+    if (!manusUrlInput.trim() || !businessId) return;
+    setImportingManus(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const fileName = manusUrlInput.split("/").pop() || "manus-video.mp4";
+      const shotType = fileName.toLowerCase().includes("food") ? "food" : fileName.toLowerCase().includes("people") ? "people" : "environment";
+      const { error } = await supabase.from("business_media").insert({
+        business_id: businessId,
+        user_id: user.id,
+        file_name: fileName,
+        file_type: "video",
+        shot_type: shotType,
+        storage_path: `manus-imports/${user.id}/${fileName}`,
+        public_url: manusUrlInput.trim(),
+        tags: ["manus", "imported", "video"],
+      });
+      if (error) throw error;
+      toast.success("Manus video added to your Media Library! 🎬");
+      setManusUrlInput("");
+      setShowManusImport(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to import Manus video");
+    } finally {
+      setImportingManus(false);
+    }
+  };
+
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text).catch(() => {});
     setCopiedId(id);
