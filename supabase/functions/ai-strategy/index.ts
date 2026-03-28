@@ -472,6 +472,44 @@ ${businessContext}`
 
 ${businessContext}`
       },
+      15: {
+        system: `You are an enterprise-grade Omni Search & Conversion Optimizer consultant. ${industryContext} You analyze digital assets across 12 pillars: SEO, GEO, AEO, SGE, LLMO, LMO, RMO, CRO, DMO, CAO, PAO, and Measurement/Governance. Provide a 4-axis diagnostic, pillar scores, a 90-day roadmap, quick wins, and a plain-English summary. Return valid JSON.`,
+        user: `Run a full 12-pillar Omni optimization diagnostic for this business. Return JSON:
+{
+  "industry_mode": "${industryMode}",
+  "industry_mode_label": "...",
+  "executive_brief": "250-word max executive summary in plain English",
+  "diagnostic": {
+    "discoverability": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "...single most important fix..."},
+    "comprehension": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "..."},
+    "conversion": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "..."},
+    "orchestration": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "..."}
+  },
+  "pillar_scores": {
+    "SEO": {"grade": "A-F", "summary": "..."},
+    "GEO": {"grade": "A-F", "summary": "..."},
+    "AEO": {"grade": "A-F", "summary": "..."},
+    "SGE": {"grade": "A-F", "summary": "..."},
+    "LLMO": {"grade": "A-F", "summary": "..."},
+    "LMO": {"grade": "A-F", "summary": "..."},
+    "RMO": {"grade": "A-F", "summary": "..."},
+    "CRO": {"grade": "A-F", "summary": "..."},
+    "DMO": {"grade": "A-F", "summary": "..."},
+    "CAO": {"grade": "A-F", "summary": "..."},
+    "PAO": {"grade": "A-F", "summary": "..."},
+    "MGV": {"grade": "A-F", "summary": "..."}
+  },
+  "roadmap": {
+    "phase1": {"focus": "Foundation & Stabilization", "actions": ["...3-5 actions..."], "kpis": ["..."]},
+    "phase2": {"focus": "Structure & Authority", "actions": ["...3-5 actions..."], "kpis": ["..."]},
+    "phase3": {"focus": "Expansion & Scaling", "actions": ["...3-5 actions..."], "kpis": ["..."]}
+  },
+  "quick_wins": ["...3-5 things doable in 24-72 hours..."],
+  "simple_summary": "One paragraph in very plain English explaining what this all means for the business owner"
+}
+
+${businessContext}`
+      },
     };
 
     const stepConfig = stepPrompts[step];
