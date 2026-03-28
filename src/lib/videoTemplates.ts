@@ -8,7 +8,7 @@
  * ─── ARCHITECTURE ────────────────────────────────────────────────────
  *
  * (a) Marketing Script Template — six-beat structure every promo follows
- * (b) Visual Scene Template    — per-scene Runway request structure
+ * (b) Visual Scene Template    — per-scene Manus AI request structure
  * (c) Audio / VO Template      — TTS alignment with timestamps
  *
  * All templates are reusable across any business, not hardcoded for one client.
@@ -22,17 +22,16 @@ export const VIDEO_CONFIG = {
   MIN_DURATION_SECONDS: 45,
   /** Default target video length in seconds */
   DEFAULT_DURATION_SECONDS: 90,
-  /** Maximum scenes per video (controls Runway API call count) */
+  /** Maximum scenes per video */
   MAX_SCENES: 10,
 
-  // ── Runway ──
-  RUNWAY_MODEL: "gen4_turbo",
-  RUNWAY_RATIO_LANDSCAPE: "1280:720",
-  RUNWAY_RATIO_VERTICAL: "720:1280",
-  /** Clip duration sent to Runway (5 or 10 seconds per clip) */
-  RUNWAY_CLIP_DURATION: 10 as 5 | 10,
-  /** Estimated Runway credits per 10s clip (used for pre-flight cost estimate) */
-  RUNWAY_CREDITS_PER_10S_CLIP: 50,
+  // ── Manus AI ──
+  MANUS_RATIO_LANDSCAPE: "16:9",
+  MANUS_RATIO_VERTICAL: "9:16",
+  /** Clip duration per scene (seconds) */
+  CLIP_DURATION: 10 as 5 | 10,
+  /** Estimated Manus credits per 10s clip (default model: 30 credits/sec) */
+  MANUS_CREDITS_PER_10S_CLIP: 300,
 
   // ── TTS / Voiceover ──
   TTS_PROVIDER: "elevenlabs" as "elevenlabs" | "browser",
@@ -46,14 +45,14 @@ export const VIDEO_CONFIG = {
 } as const;
 
 // ═══════════════════════════════════════════════════════════════════════
-// PRODUCTION PRESETS — controls how many Runway calls happen
+// PRODUCTION PRESETS — controls video generation
 // ═══════════════════════════════════════════════════════════════════════
 export interface ProductionPreset {
   minDuration: number;
   sceneCount: number;
   clipDuration: 5 | 10;
   ratio: string;
-  /** Estimated Runway credits this preset will burn */
+  /** Estimated Manus credits this preset will use */
   estimatedCredits: number;
 }
 
@@ -113,7 +112,7 @@ export const MARKETING_SCRIPT_BEATS: ScriptBeat[] = [
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
-// (b) VISUAL SCENE TEMPLATE — each scene sent to Runway
+// (b) VISUAL SCENE TEMPLATE — each scene for Manus AI
 // ═══════════════════════════════════════════════════════════════════════
 export interface VisualScene {
   /** Sequential scene ID */
@@ -122,7 +121,7 @@ export interface VisualScene {
   startTime: number;
   /** When this scene ends in the final video (seconds) */
   endTime: number;
-  /** Vivid description for Runway: setting, people, camera movement, mood, lighting */
+  /** Vivid description for Manus AI: setting, people, camera movement, mood, lighting */
   visualPrompt: string;
   /** Camera style directive (e.g., slow push-in, lateral tracking, overhead, handheld) */
   cameraStyle: string;

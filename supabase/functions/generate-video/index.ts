@@ -8,21 +8,15 @@ const corsHeaders = {
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-flash";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
-const RUNWAY_API_URL = "https://api.dev.runwayml.com/v1";
-
 // ═══════════════════════════════════════════════════════════════════════
-// RUNWAY PRESET CONFIG — single source of truth for valid Runway params
+// VIDEO CONFIG — Manus AI is the primary video generator
 // ═══════════════════════════════════════════════════════════════════════
-const RUNWAY_CONFIG = {
-  DEFAULT_MODEL: "gen4_turbo",
-  // Runway-accepted ratios (exact pixel ratios)
-  RATIO_LANDSCAPE: "1280:720",
-  RATIO_VERTICAL: "720:1280",
-  // Runway Gen-4 Turbo accepted durations (seconds, must be a number)
+const VIDEO_PIPELINE_CONFIG = {
+  RATIO_LANDSCAPE: "16:9",
+  RATIO_VERTICAL: "9:16",
   DURATION_SHORT: 5 as const,
   DURATION_STANDARD: 10 as const,
-  DURATION_LONG: 10 as const,   // Runway max per clip is 10s; we stitch for longer
-  API_VERSION: "2024-11-06",
+  DURATION_LONG: 10 as const,
 };
 
 type Orientation = "landscape" | "vertical";
@@ -37,15 +31,15 @@ interface PipelinePreset {
 }
 
 function buildPreset(lengthMode: string, orientation: Orientation = "landscape"): PipelinePreset {
-  const ratio = orientation === "vertical" ? RUNWAY_CONFIG.RATIO_VERTICAL : RUNWAY_CONFIG.RATIO_LANDSCAPE;
+  const ratio = orientation === "vertical" ? VIDEO_PIPELINE_CONFIG.RATIO_VERTICAL : VIDEO_PIPELINE_CONFIG.RATIO_LANDSCAPE;
   switch (lengthMode) {
     case "short":
-      return { targetSeconds: 30, sceneCount: 3, clipDuration: RUNWAY_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Short (30s)" };
+      return { targetSeconds: 30, sceneCount: 3, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Short (30s)" };
     case "long":
-      return { targetSeconds: 90, sceneCount: 9, clipDuration: RUNWAY_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Long (90s)" };
+      return { targetSeconds: 90, sceneCount: 9, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Long (90s)" };
     case "standard":
     default:
-      return { targetSeconds: 60, sceneCount: 6, clipDuration: RUNWAY_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };
+      return { targetSeconds: 60, sceneCount: 6, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };
   }
 }
 
@@ -388,48 +382,10 @@ Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// RUNWAY HELPERS
+// RUNWAY REMOVED — Manus AI is the video generator.
+// The Make.com webhook sends the Manus prompt and receives the final video
+// via the video-callback edge function.
 // ═══════════════════════════════════════════════════════════════════════
-async function pollRunwayTask(taskId: string, key: string, maxAttempts = 120): Promise<any> {
-  for (let i = 0; i < maxAttempts; i++) {
-    const res = await fetch(`${RUNWAY_API_URL}/tasks/${taskId}`, {
-      headers: { "Authorization": `Bearer ${key}`, "X-Runway-Version": RUNWAY_CONFIG.API_VERSION },
-    });
-    if (!res.ok) throw new Error(`Runway poll failed [${res.status}]: ${await res.text()}`);
-    const task = await res.json();
-    console.log(`[pipeline] Runway task ${taskId}: ${task.status}`);
-    if (task.status === "SUCCEEDED") return task;
-    if (task.status === "FAILED") throw new Error(`Runway task failed: ${task.failure || "unknown"}`);
-    await new Promise(r => setTimeout(r, 5000));
-  }
-  throw new Error("Runway task timed out");
-}
-
-async function renderRunwayClip(imageUrl: string, promptText: string, key: string, preset: PipelinePreset): Promise<string | null> {
-  const body = {
-    model: RUNWAY_CONFIG.DEFAULT_MODEL,
-    promptImage: imageUrl,
-    promptText: `Cinematic, smooth motion, professional commercial. ${promptText}. High quality, vibrant colors.`,
-    duration: preset.clipDuration,  // always a number (5 or 10)
-    ratio: preset.ratio,            // always from RUNWAY_CONFIG
-  };
-  console.log(`[pipeline] Runway request: model=${body.model}, duration=${body.duration}, ratio=${body.ratio}, prompt="${promptText.substring(0, 80)}..."`);
-  const res = await fetch(`${RUNWAY_API_URL}/image_to_video`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json", "X-Runway-Version": RUNWAY_CONFIG.API_VERSION },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error(`[pipeline] Runway create error [${res.status}]:`, errText);
-    if (errText.toLowerCase().includes("enough credits")) throw new Error("RUNWAY_CREDITS_EXHAUSTED");
-    return null;
-  }
-  const task = await res.json();
-  console.log(`[pipeline] Runway clip task: ${task.id}`);
-  const completed = await pollRunwayTask(task.id, key);
-  return completed.output?.[0] || null;
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // IMAGE HELPERS
@@ -663,8 +619,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   }
   // If no lovableKey and not admin, script/image gen will use fallback templates
 
-  // Resolve Runway key — user's own key or admin-only platform key
-  const userRunwayKey = keyMap["runway"] || (isAdmin ? Deno.env.get("RUNWAY_API_KEY") : undefined);
+  // Runway removed — Manus AI is the video generator via Make.com
+  // Resolve ElevenLabs key — user's own key or admin-only platform key
   // Resolve ElevenLabs key — user's own key or admin-only platform key
   const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
 
@@ -685,7 +641,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const preset = buildPreset(lengthMode, orientation);
     console.log(`[pipeline] ═══ Starting job ${jobId} ═══`);
     console.log(`[pipeline] Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    console.log(`[pipeline] Runway key: ${userRunwayKey ? "YES" : "NO"}, ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
+    console.log(`[pipeline] ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 1: SCRIPT — use approved script if provided, else generate
@@ -906,7 +862,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       .eq("user_id", userId)
       .eq("tool_type", "video_generator")
       .maybeSingle();
-    const preferredVideoGen = videoGenDefault?.default_provider || "runway";
+    const preferredVideoGen = videoGenDefault?.default_provider || "manus";
     console.log(`[pipeline] Preferred video generator: ${preferredVideoGen}`);
 
     // ════════════════════════════════════════════════════════════════════
@@ -956,68 +912,14 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 4b: RUNWAY RENDERING (if runway selected or fallback)
+    // STEP 4b: SLIDESHOW FALLBACK (if Manus not selected or no webhook)
     // ════════════════════════════════════════════════════════════════════
     const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
 
     if (preferredVideoGen === "manus") {
-      console.log("[pipeline] Manus selected — skipping Runway rendering (stub mode, using slideshow fallback)");
-    } else if (!userRunwayKey) {
-      console.log("[pipeline] No Runway key — slideshow mode");
-    } else if (realImageCount === 0) {
-      console.log("[pipeline] No real images — skipping Runway");
+      console.log("[pipeline] Manus AI selected — video will be delivered via Make.com webhook callback");
     } else {
-      const scenesToRender = sceneImageUrls
-        .map((url, i) => ({ url, index: i, isReal: sceneImageIsReal[i], motionPrompt: sceneMotionPrompts[i] }))
-        .filter(s => s.isReal && s.motionPrompt); // only render images, not pre-existing videos
-
-      console.log(`[pipeline] 🎬 Rendering ${scenesToRender.length} Runway clips (model=${RUNWAY_CONFIG.DEFAULT_MODEL}, ratio=${preset.ratio}, dur=${preset.clipDuration})`);
-      await updateJob({
-        status: "rendering_video",
-        result_payload: {
-          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
-          pipeline_step: "runway", message: `🎬 Rendering ${scenesToRender.length} clips...`,
-          total_clips: scenesToRender.length, clips_completed: 0,
-        },
-      });
-
-      for (let ci = 0; ci < scenesToRender.length; ci++) {
-        const { url: imgUrl, index: sceneIdx, motionPrompt } = scenesToRender[ci];
-        const scene = script.scenes[sceneIdx];
-        // Use the detailed motion prompt instead of generic variations
-        const prompt = `${scene?.visual_description || `Professional video for ${business.business_name}`}. ${motionPrompt}`;
-
-        try {
-          console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length} with motion: "${motionPrompt.substring(0, 60)}..."`);
-          const clipUrl = await renderRunwayClip(imgUrl, prompt, userRunwayKey, preset);
-          if (clipUrl) {
-            const vidRes = await fetch(clipUrl);
-            if (vidRes.ok) {
-              const blob = await vidRes.blob();
-              const fn = `videos/${userId}/${jobId}/clip-${sceneIdx + 1}.mp4`;
-              const { error } = await supabase.storage.from("media").upload(fn, blob, { contentType: "video/mp4", upsert: true });
-              if (!error) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-                videoClips.push(urlData.publicUrl);
-              }
-            }
-          }
-        } catch (e: any) {
-          if (e.message === "RUNWAY_CREDITS_EXHAUSTED") {
-            console.error("[pipeline] Runway credits exhausted — stopping");
-            break;
-          }
-          console.error(`[pipeline] Clip ${ci + 1} failed:`, e);
-        }
-
-        await updateJob({
-          result_payload: {
-            ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
-            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${scenesToRender.length + sceneVideoClipUrls.length}`,
-            total_clips: scenesToRender.length, clips_completed: videoClips.length - sceneVideoClipUrls.length,
-          },
-        });
-      }
+      console.log("[pipeline] Slideshow mode — no external video generator");
     }
 
     // ════════════════════════════════════════════════════════════════════
@@ -1033,8 +935,11 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     let finalStatus: string;
     let isFallback = false;
 
-    if (hasClips) {
-      statusMessage = `🎬 ${videoClips.length} Runway clips ready (${totalDuration}s)! Assembling your final video...`;
+    if (preferredVideoGen === "manus" && manusPromptPreview) {
+      statusMessage = `🤖 Manus AI prompt ready! Your video will be delivered via Make.com when processing completes.`;
+      finalStatus = "processing";
+    } else if (hasClips) {
+      statusMessage = `🎬 ${videoClips.length} video clips ready (${totalDuration}s)!`;
       finalStatus = "completed";
     } else if (hasImages && realImageCount > 0) {
       statusMessage = `🎬 ${sceneImageUrls.length} photos ready — assembling slideshow video (~${totalDuration}s) with captions${voiceoverUrl ? " and voiceover" : ""}.`;
@@ -1070,17 +975,16 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       orientation,
       preferred_video_generator: preferredVideoGen,
       manus_prompt_preview: manusPromptPreview,
-      runway_preset: {
-        model: RUNWAY_CONFIG.DEFAULT_MODEL,
+      manus_config: {
         ratio: preset.ratio,
         clipDuration: preset.clipDuration,
+        orientation: preset.orientation,
       },
       pipeline_steps: {
         script: "completed",
         images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
         voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
-        runway: preferredVideoGen === "manus" ? "skipped_manus_selected" : hasClips ? "completed" : userRunwayKey ? "failed_or_exhausted" : "no_key",
-        manus: preferredVideoGen === "manus" ? "prompt_ready_stub" : "not_selected",
+        manus: preferredVideoGen === "manus" ? (manusPromptPreview ? "prompt_ready" : "not_configured") : "not_selected",
       },
       message: statusMessage,
     };
@@ -1109,7 +1013,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         shot_list: script.scenes,
         cta: script.cta,
         status: "media_ready",
-        production_tool: preferredVideoGen === "manus" ? "manus_ai" : hasClips ? "runway" : "rickyai_slideshow",
+        production_tool: preferredVideoGen === "manus" ? "manus_ai" : "rickyai_slideshow",
         thumbnail_url: sceneImageUrls[0] || null,
       }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
     }
@@ -1215,7 +1119,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         business_id: businessId,
         location_id: null,
-        provider: Deno.env.get("RUNWAY_API_KEY") ? "runway" : "built_in_ai",
+        provider: "manus_ai",
         status: "queued",
         request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape", approvedScript: approvedScript || null, manusModel: manusModel || "default", manusTier: manusTier || "free" },
       })
