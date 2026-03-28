@@ -588,13 +588,13 @@ ${businessContext}`
         // Save fallback
         await supabase.from("strategy_outputs").upsert({
           user_id: user.id, business_id: businessId, location_id: locationId || null,
-          step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step] || `Step ${step}`,
+          step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step] || `Step ${step}`,
           output_data: fallbackOutput,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,business_id,step_number", ignoreDuplicates: false }).then(async ({ error: ue }) => {
           if (ue) await supabase.from("strategy_outputs").insert({
             user_id: user.id, business_id: businessId, location_id: locationId || null,
-            step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step] || `Step ${step}`,
+            step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step] || `Step ${step}`,
             output_data: fallbackOutput,
           });
         });
@@ -625,7 +625,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step],
           output_data: outputData,
           updated_at: new Date().toISOString(),
         },
@@ -642,7 +642,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step],
           output_data: outputData,
         });
     }
