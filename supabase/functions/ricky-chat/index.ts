@@ -22,13 +22,42 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace("Bearer ", "")
     );
     if (authError || !user) throw new Error("Unauthorized");
+
+    // ── BYOLLM enforcement: platform keys are admin-only ──
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    const { data: userKeys } = await supabase
+      .from("user_api_keys")
+      .select("provider, api_key_encrypted")
+      .eq("user_id", user.id)
+      .eq("is_valid", true);
+    const userOpenaiKey = userKeys?.find(k => k.provider === "openai");
+
+    let chatAiUrl = AI_URL;
+    let chatAiModel = AI_MODEL;
+    let chatAiHeaders: Record<string, string> = {};
+
+    if (userOpenaiKey) {
+      chatAiUrl = "https://api.openai.com/v1/chat/completions";
+      chatAiModel = "gpt-4o";
+      chatAiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
+    } else if (isAdmin) {
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!lovableKey) throw new Error("Platform AI key not configured.");
+      chatAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+    } else if (!userKeys?.length) {
+      throw new Error("No AI provider connected. Go to Settings → Connect and add your API key to use Ricky chat.");
+    } else {
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!lovableKey) throw new Error("No compatible AI provider. Add a ChatGPT key in Settings → Connect.");
+      // If they have some key connected, allow chat (it's a lightweight feature)
+      chatAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+    }
 
     const { message, businessId, currentStep } = await req.json();
 
@@ -110,14 +139,11 @@ Rules:
     let reply: string;
 
     try {
-      const aiResponse = await fetch(AI_URL, {
+      const aiResponse = await fetch(chatAiUrl, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${lovableKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: chatAiHeaders,
         body: JSON.stringify({
-          model: AI_MODEL,
+          model: chatAiModel,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: message },

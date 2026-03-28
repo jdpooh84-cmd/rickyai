@@ -168,6 +168,9 @@ Deno.serve(async (req) => {
     let aiHeaders: Record<string, string> = {};
     let providerUsed = "lovable_ai";
 
+    // ── BYOLLM enforcement: platform keys are admin-only ──
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+
     const { data: userKeys } = await supabase
       .from("user_api_keys")
       .select("provider, api_key_encrypted")
@@ -187,12 +190,22 @@ Deno.serve(async (req) => {
       aiModel = "claude-sonnet-4-20250514";
       aiHeaders = { "x-api-key": claudeKey.api_key_encrypted, "anthropic-version": "2023-06-01", "Content-Type": "application/json" };
       providerUsed = "anthropic";
-    } else {
+    } else if (isAdmin) {
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       if (!LOVABLE_API_KEY) {
-        return new Response(JSON.stringify({ error: "No AI service available. Connect ChatGPT or Claude in your settings, or try again later." }), { status: 503, headers: corsHeaders });
+        // No platform key — use template fallback
+        const rewrittenScript = templateRewrite(currentScript, biz, loc);
+        return new Response(JSON.stringify({ script: rewrittenScript, providerUsed: "template_fallback" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       aiHeaders = { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" };
+    } else {
+      // Non-admin with no keys — use template fallback (no platform keys)
+      const rewrittenScript = templateRewrite(currentScript, biz, loc);
+      return new Response(JSON.stringify({ script: rewrittenScript, providerUsed: "template_fallback" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const brandContext = [
