@@ -539,7 +539,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                   </div>
                 )}
                 <div className="flex items-center gap-2 mb-2">
-                  <Film className="w-4 h-4 text-amber-500" />
+                  <Film className="w-4 h-4 text-accent-foreground" />
                   <span className="text-sm font-bold text-foreground">Cinematic (Veo 3)</span>
                   {manusModel === "veo3" && <Check className="w-3 h-3 text-primary ml-auto" />}
                 </div>
@@ -547,7 +547,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <p className="text-[10px] text-muted-foreground">16:9 widescreen only</p>
                 <p className="text-[10px] text-muted-foreground">Best for TV-style commercials</p>
                 {manusTier !== "agency" ? (
-                  <p className="text-[10px] text-amber-500 mt-1 font-semibold">🔒 Upgrade to Agency</p>
+                  <p className="text-[10px] text-accent-foreground mt-1 font-semibold">🔒 Upgrade to Agency</p>
                 ) : (
                   <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Unlocked on Agency</p>
                 )}

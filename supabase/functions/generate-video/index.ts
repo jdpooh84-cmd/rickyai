@@ -1114,7 +1114,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { businessId, videoType, lengthMode, orientation, mode, approvedScript } = await req.json();
+    const { businessId, videoType, lengthMode, orientation, mode, approvedScript, manusModel, manusTier } = await req.json();
 
     // ── SCRIPT-ONLY MODE: generate script and return synchronously ──
     if (mode === "script_only") {
