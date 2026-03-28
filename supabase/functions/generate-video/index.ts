@@ -31,15 +31,15 @@ interface PipelinePreset {
 }
 
 function buildPreset(lengthMode: string, orientation: Orientation = "landscape"): PipelinePreset {
-  const ratio = orientation === "vertical" ? RUNWAY_CONFIG.RATIO_VERTICAL : RUNWAY_CONFIG.RATIO_LANDSCAPE;
+  const ratio = orientation === "vertical" ? VIDEO_PIPELINE_CONFIG.RATIO_VERTICAL : VIDEO_PIPELINE_CONFIG.RATIO_LANDSCAPE;
   switch (lengthMode) {
     case "short":
-      return { targetSeconds: 30, sceneCount: 3, clipDuration: RUNWAY_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Short (30s)" };
+      return { targetSeconds: 30, sceneCount: 3, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Short (30s)" };
     case "long":
-      return { targetSeconds: 90, sceneCount: 9, clipDuration: RUNWAY_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Long (90s)" };
+      return { targetSeconds: 90, sceneCount: 9, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Long (90s)" };
     case "standard":
     default:
-      return { targetSeconds: 60, sceneCount: 6, clipDuration: RUNWAY_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };
+      return { targetSeconds: 60, sceneCount: 6, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };
   }
 }
 
@@ -382,48 +382,10 @@ Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// RUNWAY HELPERS
+// RUNWAY REMOVED — Manus AI is the video generator.
+// The Make.com webhook sends the Manus prompt and receives the final video
+// via the video-callback edge function.
 // ═══════════════════════════════════════════════════════════════════════
-async function pollRunwayTask(taskId: string, key: string, maxAttempts = 120): Promise<any> {
-  for (let i = 0; i < maxAttempts; i++) {
-    const res = await fetch(`${RUNWAY_API_URL}/tasks/${taskId}`, {
-      headers: { "Authorization": `Bearer ${key}`, "X-Runway-Version": RUNWAY_CONFIG.API_VERSION },
-    });
-    if (!res.ok) throw new Error(`Runway poll failed [${res.status}]: ${await res.text()}`);
-    const task = await res.json();
-    console.log(`[pipeline] Runway task ${taskId}: ${task.status}`);
-    if (task.status === "SUCCEEDED") return task;
-    if (task.status === "FAILED") throw new Error(`Runway task failed: ${task.failure || "unknown"}`);
-    await new Promise(r => setTimeout(r, 5000));
-  }
-  throw new Error("Runway task timed out");
-}
-
-async function renderRunwayClip(imageUrl: string, promptText: string, key: string, preset: PipelinePreset): Promise<string | null> {
-  const body = {
-    model: RUNWAY_CONFIG.DEFAULT_MODEL,
-    promptImage: imageUrl,
-    promptText: `Cinematic, smooth motion, professional commercial. ${promptText}. High quality, vibrant colors.`,
-    duration: preset.clipDuration,  // always a number (5 or 10)
-    ratio: preset.ratio,            // always from RUNWAY_CONFIG
-  };
-  console.log(`[pipeline] Runway request: model=${body.model}, duration=${body.duration}, ratio=${body.ratio}, prompt="${promptText.substring(0, 80)}..."`);
-  const res = await fetch(`${RUNWAY_API_URL}/image_to_video`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json", "X-Runway-Version": RUNWAY_CONFIG.API_VERSION },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error(`[pipeline] Runway create error [${res.status}]:`, errText);
-    if (errText.toLowerCase().includes("enough credits")) throw new Error("RUNWAY_CREDITS_EXHAUSTED");
-    return null;
-  }
-  const task = await res.json();
-  console.log(`[pipeline] Runway clip task: ${task.id}`);
-  const completed = await pollRunwayTask(task.id, key);
-  return completed.output?.[0] || null;
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // IMAGE HELPERS
