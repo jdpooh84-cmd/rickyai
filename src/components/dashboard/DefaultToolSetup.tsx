@@ -38,6 +38,17 @@ const TOOL_TYPES = [
     defaultProvider: "canva",
   },
   {
+    type: "video_generator",
+    label: "Video Generator",
+    question: "Default video rendering engine?",
+    options: [
+      { id: "runway", name: "Runway ML", desc: "AI video from images (Gen-4)" },
+      { id: "manus", name: "Manus AI", desc: "Full cinematic video creation" },
+      { id: "slideshow", name: "Slideshow", desc: "Built-in Ken Burns (free)" },
+    ],
+    defaultProvider: "runway",
+  },
+  {
     type: "voice",
     label: "Voiceover (Optional)",
     question: "Default voice tool?",

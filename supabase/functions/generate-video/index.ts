@@ -882,11 +882,58 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 4: RUNWAY RENDERING (with detailed motion prompts per scene)
+    // CHECK USER'S PREFERRED VIDEO GENERATOR
+    // ════════════════════════════════════════════════════════════════════
+    const { data: videoGenDefault } = await supabase
+      .from("user_tool_defaults")
+      .select("default_provider")
+      .eq("user_id", userId)
+      .eq("tool_type", "video_generator")
+      .maybeSingle();
+    const preferredVideoGen = videoGenDefault?.default_provider || "runway";
+    console.log(`[pipeline] Preferred video generator: ${preferredVideoGen}`);
+
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 4a: MANUS AI SHIM (if user chose Manus)
+    // ════════════════════════════════════════════════════════════════════
+    let manusPromptPreview: string | null = null;
+    if (preferredVideoGen === "manus") {
+      console.log(`[pipeline] 🤖 Manus AI selected — building prompt from visual script`);
+      await updateJob({
+        status: "rendering_video",
+        result_payload: {
+          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
+          pipeline_step: "manus", message: "🤖 Preparing Manus AI video prompt...",
+        },
+      });
+
+      // Build the Manus prompt from the visual script
+      manusPromptPreview = manusVisualScript.manus_prompt;
+      console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars):`);
+      console.log(manusPromptPreview.substring(0, 500) + "...");
+
+      // ── PLACEHOLDER: Replace this block with real Manus API call ──
+      // When Manus API is available:
+      //   const manusRes = await fetch("https://api.manus.ai/v1/video", {
+      //     method: "POST",
+      //     headers: { "Authorization": `Bearer ${manusApiKey}`, "Content-Type": "application/json" },
+      //     body: JSON.stringify({ prompt: manusPromptPreview, aspect_ratio: manusVisualScript.aspect_ratio }),
+      //   });
+      //   const manusResult = await manusRes.json();
+      //   // manusResult.video_url → store in videoClips, video_generation_jobs, and business_media
+      // ── END PLACEHOLDER ──
+
+      console.log(`[pipeline] ⏳ Manus integration is a stub — no real API call made. Prompt stored in debug payload.`);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // STEP 4b: RUNWAY RENDERING (if runway selected or fallback)
     // ════════════════════════════════════════════════════════════════════
     const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
 
-    if (!userRunwayKey) {
+    if (preferredVideoGen === "manus") {
+      console.log("[pipeline] Manus selected — skipping Runway rendering (stub mode, using slideshow fallback)");
+    } else if (!userRunwayKey) {
       console.log("[pipeline] No Runway key — slideshow mode");
     } else if (realImageCount === 0) {
       console.log("[pipeline] No real images — skipping Runway");
@@ -992,6 +1039,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       real_image_count: realImageCount,
       length_mode: lengthMode,
       orientation,
+      preferred_video_generator: preferredVideoGen,
+      manus_prompt_preview: manusPromptPreview,
       runway_preset: {
         model: RUNWAY_CONFIG.DEFAULT_MODEL,
         ratio: preset.ratio,
@@ -1001,7 +1050,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         script: "completed",
         images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
         voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
-        runway: hasClips ? "completed" : userRunwayKey ? "failed_or_exhausted" : "no_key",
+        runway: preferredVideoGen === "manus" ? "skipped_manus_selected" : hasClips ? "completed" : userRunwayKey ? "failed_or_exhausted" : "no_key",
+        manus: preferredVideoGen === "manus" ? "prompt_ready_stub" : "not_selected",
       },
       message: statusMessage,
     };
@@ -1030,7 +1080,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         shot_list: script.scenes,
         cta: script.cta,
         status: "media_ready",
-        production_tool: hasClips ? "runway" : "rickyai_slideshow",
+        production_tool: preferredVideoGen === "manus" ? "manus_ai" : hasClips ? "runway" : "rickyai_slideshow",
         thumbnail_url: sceneImageUrls[0] || null,
       }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
     }
