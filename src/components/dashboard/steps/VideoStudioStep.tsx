@@ -14,6 +14,7 @@ import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/p
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
 type LengthMode = "short" | "standard" | "long";
+type ManusModel = "default" | "veo3";
 
 const STATE_KEY = "rickyai-video-studio-state";
 const MAX_REWRITES = 3;
