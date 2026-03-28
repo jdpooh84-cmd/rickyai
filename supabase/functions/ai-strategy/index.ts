@@ -182,10 +182,20 @@ Location: ${location ? `${location.city}, ${location.state || ""} ${location.cou
 
     const stepPrompts: Record<number, { system: string; user: string }> = {
       3: {
-        system: `You are a local business visibility expert applying the Omni Search & Conversion Optimizer framework. Analyze SEO, GEO (Generative Engine Optimization), AEO (Answer Engine Optimization), and SGE (AI Overview) dimensions. ${industryContext} Return valid JSON.`,
-        user: `Analyze this business's online visibility across all modern search dimensions. Grade A-F and provide pillar-specific insights. Return JSON with this structure:
+        system: `You are a visibility strategist applying the Omni Search & Conversion Optimizer 12-pillar framework. Your analysis MUST cover these 4 pillars in depth:
+- SEO (Search Engine Optimization): technical health, on-page, backlinks, site speed, mobile-friendliness
+- GEO (Generative Engine Optimization): how well this business's content would be cited/referenced by AI models like ChatGPT, Gemini, Perplexity
+- AEO (Answer Engine Optimization): does the site answer the questions customers actually ask? FAQ schema, featured-snippet readiness
+- SGE (AI Overview Visibility): likelihood of appearing in Google AI Overviews, entity authority signals, structured data
+
+For LOCAL businesses: emphasize Google Business Profile completeness, local pack rankings, NAP consistency, review velocity, and neighborhood-level search terms.
+For ENTERPRISE businesses: emphasize domain authority, topical authority clusters, programmatic SEO, and brand SERP ownership.
+${industryContext} Return valid JSON only.`,
+        user: `Perform a full Omni Compete analysis for this business across SEO, GEO, AEO, and SGE pillars. Identify what makes this business UNIQUE — signature products, preparation methods, presentation styles, local reputation. These differentiators should inform every recommendation.
+
+Return JSON:
 {
-  "overall_grade": "A-F letter",
+  "overall_grade": "A-F",
   "overall_score": 0-100,
   "categories": [
     {"name": "Website Quality", "grade": "A-F", "score": 0-100, "findings": ["..."], "recommendations": ["..."]},
@@ -196,48 +206,119 @@ Location: ${location ? `${location.city}, ${location.state || ""} ${location.cou
     {"name": "Brand Consistency", "grade": "A-F", "score": 0-100, "findings": ["..."], "recommendations": ["..."]}
   ],
   "top_priorities": ["...top 3 things to fix first..."],
-  "competitive_edge": "A brief statement about their strongest differentiator",
-  "seo_health": {"grade": "A-F", "key_issues": ["..."], "quick_wins": ["..."]},
-  "geo_readiness": {"grade": "A-F", "citation_hooks": ["...content types that would get cited by AI..."], "entity_signals": ["...missing authority signals..."]},
-  "aeo_coverage": {"grade": "A-F", "questions_to_answer": ["...top 5 questions this business should answer on their site..."]},
-  "sge_visibility": {"grade": "A-F", "ai_overview_likelihood": "high|medium|low", "improvement_tips": ["..."]}
+  "competitive_edge": "What makes this business truly different — specific products, methods, or reputation signals",
+  "unique_details": ["...3-5 signature details that set this business apart (e.g. 'circle pizza with small square-cut slices', 'family recipes since 1963')..."],
+  "seo_health": {"grade": "A-F", "key_issues": ["..."], "quick_wins": ["..."], "local_pack_status": "appearing|not-appearing|unknown", "nap_consistent": true},
+  "geo_readiness": {"grade": "A-F", "citation_hooks": ["...content that AI would cite..."], "entity_signals": ["...missing authority signals..."], "ai_citation_score": 0-100},
+  "aeo_coverage": {"grade": "A-F", "questions_to_answer": ["...top 5 customer questions this business should answer on their site..."], "schema_status": "has-faq|needs-faq|none"},
+  "sge_visibility": {"grade": "A-F", "ai_overview_likelihood": "high|medium|low", "improvement_tips": ["..."], "entity_authority": "strong|moderate|weak"}
 }
 
 ${businessContext}`
       },
       4: {
-        system: "You are a competitive intelligence analyst for local businesses. Return valid JSON.",
-        user: `Analyze the competitive landscape for this business. Return JSON:
+        system: `You are a local market intelligence analyst applying the Omni Search & Conversion Optimizer framework. Your analysis MUST cover these 3 pillars:
+- LMO (Local Market Optimization): local search landscape, Google Maps presence, neighborhood trends, community conversations, local events and partnerships
+- CAO (Content Asset Optimization): what content assets competitors have that this business lacks — videos, blogs, guides, case studies, testimonials
+- AEO (Answer Engine Optimization): what questions local customers are asking that nobody is answering well
+
+For LOCAL businesses: focus on hyperlocal signals — neighborhood Facebook groups, local review sites, community events, seasonal trends, "near me" search patterns.
+For ENTERPRISE businesses: focus on market share signals, industry publications, analyst coverage, and competitive content moats.
+${industryContext} Return valid JSON only.`,
+        user: `Perform a full Omni Scout analysis for this business covering LMO, CAO, and AEO pillars. Scout the local market landscape. Identify what makes this business's PRODUCTS and SERVICES unique — specific ingredients, preparation methods, signature items, presentation styles.
+
+Return JSON:
 {
   "market_position": "leader|challenger|follower|nicher",
   "competitors": [
-    {"name": "...", "strengths": ["..."], "weaknesses": ["..."], "threat_level": "high|medium|low"}
+    {"name": "...", "strengths": ["..."], "weaknesses": ["..."], "threat_level": "high|medium|low", "content_gap": "what content they have that this business lacks"}
   ],
-  "opportunities": ["...5 specific opportunities..."],
+  "opportunities": ["...5 specific opportunities based on local market gaps..."],
   "threats": ["...3 market threats..."],
   "differentiation_strategy": "...",
-  "quick_wins": ["...3 things to do this week..."]
+  "unique_selling_details": ["...3-5 specific product/service details that make this business stand out (e.g. 'edge-to-edge toppings', 'hand-tossed daily', 'family-owned since 1963')..."],
+  "quick_wins": ["...3 things to do this week..."],
+  "lmo_analysis": {
+    "local_search_strength": "strong|moderate|weak",
+    "google_maps_optimized": true,
+    "community_signals": ["...local groups, events, partnerships to leverage..."],
+    "neighborhood_keywords": ["...hyperlocal search terms to target..."],
+    "review_velocity": "healthy|needs-improvement|critical",
+    "local_content_ideas": ["...3 content pieces based on local trends..."]
+  },
+  "cao_analysis": {
+    "content_assets_score": 0-100,
+    "missing_assets": ["...content types competitors have that this business lacks..."],
+    "top_performing_formats": ["...what content formats work best in this niche locally..."],
+    "repurpose_opportunities": ["...ways to turn one piece of content into 5+..."]
+  },
+  "aeo_analysis": {
+    "unanswered_questions": ["...5 questions local customers are asking that nobody answers well..."],
+    "faq_opportunities": ["...questions to add to website FAQ..."],
+    "voice_search_phrases": ["...how people ask about this type of business verbally..."]
+  }
 }
 
 ${businessContext}`
       },
       5: {
-        system: "You are a content marketing auditor. Analyze and provide actionable content audit. Return valid JSON.",
-        user: `Audit this business's content strategy. Return JSON:
+        system: `You are a reputation and content auditor applying the Omni Search & Conversion Optimizer framework. Your analysis MUST cover these 4 pillars:
+- RMO (Reputation Management Optimization): online reviews, ratings, review response rate, sentiment analysis, reputation signals across platforms
+- SEO (Search Engine Optimization): on-page content quality, keyword coverage, internal linking, technical SEO gaps
+- CRO (Conversion Rate Optimization): does the website/content actually convert visitors? CTAs, landing pages, trust signals, social proof
+- CAO (Content Asset Optimization): inventory of existing content assets, quality assessment, gaps in the content library
+
+For LOCAL businesses: emphasize Google reviews, Yelp, Facebook recommendations, local blog mentions, and community trust signals.
+For ENTERPRISE businesses: emphasize G2/Capterra reviews, case studies, whitepapers, thought leadership, and analyst relations.
+${industryContext} Return valid JSON only.`,
+        user: `Perform a full Omni Audit for this business covering RMO, SEO, CRO, and CAO pillars. Identify what makes this business UNIQUE — signature products, customer experience details, community reputation.
+
+Return JSON:
 {
   "content_score": 0-100,
   "existing_strengths": ["..."],
+  "unique_brand_signals": ["...3-5 specific things customers love about this business (e.g. 'generous toppings', 'fast delivery', 'friendly staff')..."],
   "content_gaps": [
-    {"gap": "...", "priority": "high|medium|low", "effort": "easy|medium|hard", "impact": "high|medium|low"}
+    {"gap": "...", "priority": "high|medium|low", "effort": "easy|medium|hard", "impact": "high|medium|low", "pillar": "RMO|SEO|CRO|CAO"}
   ],
   "content_calendar": [
-    {"week": 1, "type": "...", "topic": "...", "platform": "...", "goal": "..."},
-    {"week": 2, "type": "...", "topic": "...", "platform": "...", "goal": "..."},
-    {"week": 3, "type": "...", "topic": "...", "platform": "...", "goal": "..."},
-    {"week": 4, "type": "...", "topic": "...", "platform": "...", "goal": "..."}
+    {"week": 1, "type": "...", "topic": "...", "platform": "...", "goal": "...", "pillar": "RMO|SEO|CRO|CAO"},
+    {"week": 2, "type": "...", "topic": "...", "platform": "...", "goal": "...", "pillar": "RMO|SEO|CRO|CAO"},
+    {"week": 3, "type": "...", "topic": "...", "platform": "...", "goal": "...", "pillar": "RMO|SEO|CRO|CAO"},
+    {"week": 4, "type": "...", "topic": "...", "platform": "...", "goal": "...", "pillar": "RMO|SEO|CRO|CAO"}
   ],
   "pillar_topics": ["...3-5 core content pillars..."],
-  "recommended_formats": ["..."]
+  "recommended_formats": ["..."],
+  "rmo_analysis": {
+    "reputation_score": 0-100,
+    "avg_rating": 4.5,
+    "review_count_estimate": "low|moderate|high",
+    "response_rate": "good|needs-improvement|poor",
+    "sentiment": "positive|mixed|negative",
+    "reputation_gaps": ["...issues to address..."],
+    "review_generation_tactics": ["...3 ways to get more positive reviews..."]
+  },
+  "seo_audit": {
+    "on_page_score": 0-100,
+    "keyword_coverage": "comprehensive|partial|minimal",
+    "technical_issues": ["...top 3 technical SEO problems..."],
+    "content_quality": "excellent|good|needs-work|poor",
+    "internal_linking": "strong|weak|none"
+  },
+  "cro_analysis": {
+    "conversion_readiness": 0-100,
+    "cta_effectiveness": "strong|weak|missing",
+    "trust_signals": ["...existing trust signals found..."],
+    "missing_trust_signals": ["...trust signals to add..."],
+    "landing_page_issues": ["...conversion blockers..."],
+    "quick_cro_wins": ["...3 things to improve conversion this week..."]
+  },
+  "cao_analysis": {
+    "asset_inventory": {"videos": 0, "blogs": 0, "testimonials": 0, "case_studies": 0, "guides": 0},
+    "quality_assessment": "professional|adequate|needs-upgrade",
+    "missing_assets": ["...content types to create..."],
+    "repurpose_plan": ["...how to maximize existing content..."]
+  }
 }
 
 ${businessContext}`
