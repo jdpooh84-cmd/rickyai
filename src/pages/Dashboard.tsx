@@ -91,7 +91,7 @@ const Dashboard = () => {
 
   const markComplete = (step: number) => {
     if (!completedSteps.includes(step)) setCompletedSteps(prev => [...prev, step]);
-    if (step < 14) setActiveStep(step + 1);
+    if (step < 15) setActiveStep(step + 1);
   };
 
   const activeBiz = businesses.find(b => b.id === selectedBusiness);
@@ -150,6 +150,7 @@ const Dashboard = () => {
       case 12: return <GrantSearchStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(12)} />;
       case 13: return <SearchVisibilityStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(13)} />;
       case 14: return <CampaignBlueprintStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(14)} />;
+      case 15: return <OmniOptimizeStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(15)} />;
       default: return null;
     }
   };

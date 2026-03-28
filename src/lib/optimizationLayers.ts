@@ -85,6 +85,7 @@ const INDUSTRY_KEYWORDS: Record<IndustryMode, string[]> = {
   ecommerce: ["shop", "store", "retail", "ecommerce", "e-commerce", "marketplace", "cart", "sku", "fashion", "clothing", "jewelry", "boutique"],
   media: ["media", "streaming", "entertainment", "podcast", "video", "music", "film", "production", "broadcast", "content creator"],
   manufacturing: ["manufactur", "industrial", "factory", "oem", "plant", "wholesale", "supply chain", "logistics", "construction", "contractor"],
+  general: [],
 };
 
 export function detectIndustryMode(businessCategory?: string | null, niche?: string | null, services?: string | null): IndustryMode {
