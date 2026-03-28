@@ -1119,7 +1119,7 @@ Deno.serve(async (req) => {
         user_id: user.id,
         business_id: businessId,
         location_id: null,
-        provider: Deno.env.get("RUNWAY_API_KEY") ? "runway" : "built_in_ai",
+        provider: "manus_ai",
         status: "queued",
         request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape", approvedScript: approvedScript || null, manusModel: manusModel || "default", manusTier: manusTier || "free" },
       })
