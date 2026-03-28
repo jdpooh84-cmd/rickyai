@@ -27,6 +27,7 @@ import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
 import ReadyToPost from "@/pages/ReadyToPost";
 import CreateVideoFlow from "@/components/dashboard/CreateVideoFlow";
 import ExternalAppConnections from "@/components/dashboard/steps/ExternalAppConnections";
+import AddOnPaywall from "@/components/dashboard/AddOnPaywall";
 import WatchVideo from "@/components/dashboard/WatchVideo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
@@ -136,8 +137,8 @@ const Dashboard = () => {
     if (activeSection === "ready") return <ReadyToPost />;
     if (activeSection === "watch") return <WatchVideo onBack={() => { setActiveSection(""); setActiveStep(8); }} />;
     if (activeSection === "connect-tools") return <ExternalAppConnections />;
-    if (activeSection === "federal-contracting") return <FederalContractingStep businessId={selectedBusiness} locationId={selectedLocation} />;
-    if (activeSection === "grant-intel") return <GrantIntelStep businessId={selectedBusiness} locationId={selectedLocation} />;
+    if (activeSection === "federal-contracting") return <AddOnPaywall addOnKey="federal_contracting"><FederalContractingStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
+    if (activeSection === "grant-intel") return <AddOnPaywall addOnKey="grant_intel"><GrantIntelStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
