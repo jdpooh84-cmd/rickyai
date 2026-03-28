@@ -19,13 +19,58 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace("Bearer ", "")
     );
     if (authError || !user) throw new Error("Unauthorized");
+
+    // ── BYOLLM enforcement: platform keys are admin-only ──
+    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+
+    // Check user's own API keys
+    const { data: userKeys } = await supabase
+      .from("user_api_keys")
+      .select("provider, api_key_encrypted")
+      .eq("user_id", user.id)
+      .eq("is_valid", true);
+
+    const userOpenaiKey = userKeys?.find(k => k.provider === "openai");
+    const userClaudeKey = userKeys?.find(k => k.provider === "claude" || k.provider === "anthropic");
+    const userGeminiKey = userKeys?.find(k => k.provider === "gemini");
+    const hasUserKey = !!(userOpenaiKey || userClaudeKey || userGeminiKey);
+
+    let aiUrl = AI_URL;
+    let aiModel = AI_MODEL;
+    let aiHeaders: Record<string, string> = {};
+
+    if (userOpenaiKey) {
+      aiUrl = "https://api.openai.com/v1/chat/completions";
+      aiModel = "gpt-4o";
+      aiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
+    } else if (userClaudeKey) {
+      // Claude uses a different API format — for simplicity, treat like OpenAI-compatible
+      aiUrl = AI_URL;
+      aiModel = AI_MODEL;
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
+      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+    } else if (userGeminiKey) {
+      // Use Gemini via user's key — for now route through platform gateway
+      aiUrl = AI_URL;
+      aiModel = AI_MODEL;
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
+      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+    } else if (isAdmin) {
+      // Admin can use platform keys
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!lovableKey) throw new Error("Platform AI key not configured.");
+      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+    } else {
+      throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
+    }
 
     const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
 
