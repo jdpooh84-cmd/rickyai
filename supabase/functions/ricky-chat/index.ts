@@ -139,14 +139,11 @@ Rules:
     let reply: string;
 
     try {
-      const aiResponse = await fetch(AI_URL, {
+      const aiResponse = await fetch(chatAiUrl, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${lovableKey}`,
-          "Content-Type": "application/json",
-        },
+        headers: chatAiHeaders,
         body: JSON.stringify({
-          model: AI_MODEL,
+          model: chatAiModel,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: message },
