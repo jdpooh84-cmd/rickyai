@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { getPlanByProductId, PlanKey } from "@/lib/stripe";
+import { getPlanByProductId, getAddOnByProductId, PlanKey, AddOnKey } from "@/lib/stripe";
 
 interface SubscriptionState {
   subscribed: boolean;
@@ -9,6 +9,7 @@ interface SubscriptionState {
   subscriptionEnd: string | null;
   trialActive: boolean;
   trialEndsAt: string | null;
+  activeAddOns: AddOnKey[];
   loading: boolean;
 }
 
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     subscriptionEnd: null,
     trialActive: false,
     trialEndsAt: null,
+    activeAddOns: [],
     loading: true,
   });
 
@@ -44,12 +46,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) throw error;
+      const addOnProductIds: string[] = data.addon_product_ids || [];
+      const activeAddOns = addOnProductIds
+        .map((pid: string) => getAddOnByProductId(pid))
+        .filter((k: AddOnKey | null): k is AddOnKey => k !== null);
       setSubscription({
         subscribed: data.subscribed,
         plan: data.product_id ? getPlanByProductId(data.product_id) : null,
         subscriptionEnd: data.subscription_end,
         trialActive: data.trial_active ?? false,
         trialEndsAt: data.trial_ends_at ?? null,
+        activeAddOns,
         loading: false,
       });
     } catch (err) {
@@ -112,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, loading: false });
+    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, activeAddOns: [], loading: false });
   };
 
   return (
