@@ -47,9 +47,9 @@ Deno.serve(async (req) => {
             // Map product IDs to allowed steps
             const tierSteps: Record<string, number[]> = {
               "prod_UDep9PW3ELRa6K": [1, 2, 6, 7, 8, 9, 10, 13], // Creator
-              "prod_UDepZzB9GKoPnY": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Business
-              "prod_UDepPmrMY3zOEX": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Growth
-              "prod_UDeqmytH227V3p": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Agency
+              "prod_UDepZzB9GKoPnY": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Business
+              "prod_UDepPmrMY3zOEX": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Growth
+              "prod_UDeqmytH227V3p": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Agency
             };
             allowedSteps = tierSteps[productId as string] || allowedSteps;
           }
@@ -115,10 +115,30 @@ Funding Goals: ${business.funding_goals || "Not specified"}
 Location: ${location ? `${location.city}, ${location.state || ""} ${location.country || "US"} (${location.service_area || "local area"})` : "Not specified"}
 `;
 
+    // Auto-detect industry mode
+    const bizCat = (business.business_category || "").toLowerCase();
+    const bizNiche = (business.niche || "").toLowerCase();
+    const bizServices = (business.services || "").toLowerCase();
+    const combined = `${bizCat} ${bizNiche} ${bizServices}`;
+    let industryMode = "general";
+    const industryKeywords: Record<string, string[]> = {
+      finance: ["bank", "fintech", "investment", "insurance", "accounting", "financial", "tax", "wealth"],
+      healthcare: ["health", "medical", "dental", "pharma", "hospital", "clinic", "therapy", "wellness"],
+      software: ["saas", "software", "tech", "api", "cloud", "app", "digital"],
+      ecommerce: ["shop", "store", "retail", "ecommerce", "marketplace", "fashion", "boutique"],
+      media: ["media", "streaming", "entertainment", "podcast", "video", "music", "film"],
+      manufacturing: ["manufactur", "industrial", "factory", "oem", "construction", "contractor"],
+    };
+    for (const [mode, kws] of Object.entries(industryKeywords)) {
+      if (kws.some(k => combined.includes(k))) { industryMode = mode; break; }
+    }
+
+    const industryContext = `Industry mode: ${industryMode}. Tailor all advice to this industry's norms, compliance needs, and audience expectations.`;
+
     const stepPrompts: Record<number, { system: string; user: string }> = {
       3: {
-        system: "You are a local business visibility expert. Analyze the business and provide a visibility report card. Return valid JSON.",
-        user: `Analyze this business's online visibility and grade it A-F across these categories. Return JSON with this structure:
+        system: `You are a local business visibility expert applying the Omni Search & Conversion Optimizer framework. Analyze SEO, GEO (Generative Engine Optimization), AEO (Answer Engine Optimization), and SGE (AI Overview) dimensions. ${industryContext} Return valid JSON.`,
+        user: `Analyze this business's online visibility across all modern search dimensions. Grade A-F and provide pillar-specific insights. Return JSON with this structure:
 {
   "overall_grade": "A-F letter",
   "overall_score": 0-100,
@@ -131,7 +151,11 @@ Location: ${location ? `${location.city}, ${location.state || ""} ${location.cou
     {"name": "Brand Consistency", "grade": "A-F", "score": 0-100, "findings": ["..."], "recommendations": ["..."]}
   ],
   "top_priorities": ["...top 3 things to fix first..."],
-  "competitive_edge": "A brief statement about their strongest differentiator"
+  "competitive_edge": "A brief statement about their strongest differentiator",
+  "seo_health": {"grade": "A-F", "key_issues": ["..."], "quick_wins": ["..."]},
+  "geo_readiness": {"grade": "A-F", "citation_hooks": ["...content types that would get cited by AI..."], "entity_signals": ["...missing authority signals..."]},
+  "aeo_coverage": {"grade": "A-F", "questions_to_answer": ["...top 5 questions this business should answer on their site..."]},
+  "sge_visibility": {"grade": "A-F", "ai_overview_likelihood": "high|medium|low", "improvement_tips": ["..."]}
 }
 
 ${businessContext}`
@@ -448,6 +472,44 @@ ${businessContext}`
 
 ${businessContext}`
       },
+      15: {
+        system: `You are an enterprise-grade Omni Search & Conversion Optimizer consultant. ${industryContext} You analyze digital assets across 12 pillars: SEO, GEO, AEO, SGE, LLMO, LMO, RMO, CRO, DMO, CAO, PAO, and Measurement/Governance. Provide a 4-axis diagnostic, pillar scores, a 90-day roadmap, quick wins, and a plain-English summary. Return valid JSON.`,
+        user: `Run a full 12-pillar Omni optimization diagnostic for this business. Return JSON:
+{
+  "industry_mode": "${industryMode}",
+  "industry_mode_label": "...",
+  "executive_brief": "250-word max executive summary in plain English",
+  "diagnostic": {
+    "discoverability": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "...single most important fix..."},
+    "comprehension": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "..."},
+    "conversion": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "..."},
+    "orchestration": {"rating": "Strong|Adequate|Weak", "bullets": ["...2-3 reasons..."], "top_fix": "..."}
+  },
+  "pillar_scores": {
+    "SEO": {"grade": "A-F", "summary": "..."},
+    "GEO": {"grade": "A-F", "summary": "..."},
+    "AEO": {"grade": "A-F", "summary": "..."},
+    "SGE": {"grade": "A-F", "summary": "..."},
+    "LLMO": {"grade": "A-F", "summary": "..."},
+    "LMO": {"grade": "A-F", "summary": "..."},
+    "RMO": {"grade": "A-F", "summary": "..."},
+    "CRO": {"grade": "A-F", "summary": "..."},
+    "DMO": {"grade": "A-F", "summary": "..."},
+    "CAO": {"grade": "A-F", "summary": "..."},
+    "PAO": {"grade": "A-F", "summary": "..."},
+    "MGV": {"grade": "A-F", "summary": "..."}
+  },
+  "roadmap": {
+    "phase1": {"focus": "Foundation & Stabilization", "actions": ["...3-5 actions..."], "kpis": ["..."]},
+    "phase2": {"focus": "Structure & Authority", "actions": ["...3-5 actions..."], "kpis": ["..."]},
+    "phase3": {"focus": "Expansion & Scaling", "actions": ["...3-5 actions..."], "kpis": ["..."]}
+  },
+  "quick_wins": ["...3-5 things doable in 24-72 hours..."],
+  "simple_summary": "One paragraph in very plain English explaining what this all means for the business owner"
+}
+
+${businessContext}`
+      },
     };
 
     const stepConfig = stepPrompts[step];
@@ -519,6 +581,7 @@ ${businessContext}`
           11: { lead_sources: [], referral_partners: [], community_opportunities: [], networking_strategy: "", lead_magnet_ideas: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
           12: { grants: [], alternative_funding: [], funding_readiness_score: 0, preparation_steps: [], resources: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
           13: { overall_score: 0, overall_summary: "AI credits unavailable — retry later for a full search visibility analysis.", seo: { grade: "N/A", summary: "Unavailable", factors: [], recommendations: [] }, aeo: { grade: "N/A", summary: "Unavailable", ricky_explanation: "", questions_your_business_should_answer: [], optimized_faqs: [] }, geo: { grade: "N/A", summary: "Unavailable", ricky_explanation: "", citation_readiness: {}, optimized_summaries: [] }, ai_overviews: { grade: "N/A", summary: "Unavailable", ricky_explanation: "", visibility_gaps: [], scripts_for_visibility: [] }, action_plan: [], _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
+          15: { industry_mode: "general", industry_mode_label: "Local Business", executive_brief: "AI credits temporarily unavailable. Retry later for a full 12-pillar diagnostic.", diagnostic: { discoverability: { rating: "Weak", bullets: ["Analysis unavailable"], top_fix: "Retry when credits are available" }, comprehension: { rating: "Weak", bullets: ["Analysis unavailable"], top_fix: "Retry" }, conversion: { rating: "Weak", bullets: ["Analysis unavailable"], top_fix: "Retry" }, orchestration: { rating: "Weak", bullets: ["Analysis unavailable"], top_fix: "Retry" } }, pillar_scores: {}, roadmap: { phase1: { focus: "Run full diagnostic", actions: ["Retry Omni Optimize"], kpis: [] }, phase2: { focus: "TBD", actions: [], kpis: [] }, phase3: { focus: "TBD", actions: [], kpis: [] } }, quick_wins: ["Retry this step when AI credits are available"], simple_summary: "We couldn't run the full analysis right now. Please try again soon.", _fallback: true, _fallback_reason: "AI credits temporarily unavailable." },
         };
         
         const fallbackOutput = fallbackOutputs[step] || { _fallback: true, _fallback_reason: "AI credits temporarily unavailable. Please retry later." };
@@ -526,13 +589,13 @@ ${businessContext}`
         // Save fallback
         await supabase.from("strategy_outputs").upsert({
           user_id: user.id, business_id: businessId, location_id: locationId || null,
-          step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step] || `Step ${step}`,
+          step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step] || `Step ${step}`,
           output_data: fallbackOutput,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,business_id,step_number", ignoreDuplicates: false }).then(async ({ error: ue }) => {
           if (ue) await supabase.from("strategy_outputs").insert({
             user_id: user.id, business_id: businessId, location_id: locationId || null,
-            step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step] || `Step ${step}`,
+            step_number: step, step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step] || `Step ${step}`,
             output_data: fallbackOutput,
           });
         });
@@ -563,7 +626,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step],
           output_data: outputData,
           updated_at: new Date().toISOString(),
         },
@@ -580,7 +643,7 @@ ${businessContext}`
           business_id: businessId,
           location_id: locationId || null,
           step_number: step,
-          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint"][step],
+          step_name: ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"][step],
           output_data: outputData,
         });
     }

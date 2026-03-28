@@ -49,6 +49,12 @@ const phases = [
       { num: 14, icon: Zap, title: "Campaign Blueprint" },
     ],
   },
+  {
+    label: "Optimize",
+    steps: [
+      { num: 15, icon: ShieldCheck, title: "Omni Optimize" },
+    ],
+  },
 ];
 
 const extras = [
