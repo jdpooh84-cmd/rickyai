@@ -898,29 +898,42 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     // ════════════════════════════════════════════════════════════════════
     let manusPromptPreview: string | null = null;
     if (preferredVideoGen === "manus") {
-      console.log(`[pipeline] 🤖 Manus AI selected — building prompt from visual script`);
+      // Extract Manus model/tier from job request payload
+      const reqPayload = (jobRow?.request_payload as any) || {};
+      const selectedManusModel = reqPayload.manusModel || "default";
+      const selectedManusTier = reqPayload.manusTier || "free";
+
+      console.log(`[pipeline] 🤖 Manus AI selected — model=${selectedManusModel}, tier=${selectedManusTier}`);
       await updateJob({
         status: "rendering_video",
         result_payload: {
           ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
-          pipeline_step: "manus", message: "🤖 Preparing Manus AI video prompt...",
+          pipeline_step: "manus", message: `🤖 Preparing Manus AI video prompt (${selectedManusModel === "veo3" ? "Veo 3 Cinematic" : "Standard"})...`,
         },
       });
 
-      // Build the Manus prompt from the visual script
-      manusPromptPreview = manusVisualScript.manus_prompt;
-      console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars):`);
+      // Build tier-gated Manus prompt
+      const basePrompt = manusVisualScript.manus_prompt;
+
+      if (selectedManusTier === "free") {
+        // Free: default model, 16:9 or 9:16 only, ≤15s
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Keep total video length under 15 seconds to stay within credit limits.`;
+      } else if (selectedManusTier === "agency" && selectedManusModel === "veo3") {
+        // Agency + Veo 3: cinematic quality, 16:9 only, full duration
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds.`;
+      } else {
+        // Pro / Business: default model, user-selected format, full duration
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds.`;
+      }
+
+      console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel}):`);
       console.log(manusPromptPreview.substring(0, 500) + "...");
 
       // ── PLACEHOLDER: Replace this block with real Manus API call ──
-      // When Manus API is available:
-      //   const manusRes = await fetch("https://api.manus.ai/v1/video", {
-      //     method: "POST",
-      //     headers: { "Authorization": `Bearer ${manusApiKey}`, "Content-Type": "application/json" },
-      //     body: JSON.stringify({ prompt: manusPromptPreview, aspect_ratio: manusVisualScript.aspect_ratio }),
-      //   });
-      //   const manusResult = await manusRes.json();
-      //   // manusResult.video_url → store in videoClips, video_generation_jobs, and business_media
+      // When Manus API is available, the Make.com webhook will route based on tier:
+      //   Free → taskMode: "agent", default model, ≤15s
+      //   Pro  → taskMode: "agent", default model, full duration
+      //   Agency+Veo3 → taskMode: "agent", Veo 3 model, 16:9, full duration
       // ── END PLACEHOLDER ──
 
       console.log(`[pipeline] ⏳ Manus integration is a stub — no real API call made. Prompt stored in debug payload.`);
