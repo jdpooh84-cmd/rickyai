@@ -122,17 +122,20 @@ Deno.serve(async (req) => {
 
       const result = await webhookResponse.json().catch(() => ({ status: "triggered" }));
 
+      const messageMap: Record<string, string> = {
+        video_production: "Video production started! Your video will be ready in 5-10 minutes.",
+        manus_production: "Manus AI video pipeline triggered! Your video will render and merge with voiceover automatically.",
+        research_pipeline: "Research pipeline triggered. Results will appear in your content pipeline.",
+        social_posting: "Posting workflow triggered.",
+      };
+
       return new Response(JSON.stringify({
         success: true,
         source: "make_webhook",
         status: "processing",
         scenario,
         data: result,
-        message: scenario === "video_production"
-          ? "Video production started! Your video will be ready in 5-10 minutes."
-          : scenario === "research_pipeline"
-          ? "Research pipeline triggered. Results will appear in your content pipeline."
-          : "Posting workflow triggered.",
+        message: messageMap[scenario] || "Workflow triggered.",
         usage: { render_jobs_used: renderJobsUsed + 1, limit: RENDER_LIMIT },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

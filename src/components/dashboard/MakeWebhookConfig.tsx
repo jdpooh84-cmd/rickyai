@@ -7,8 +7,9 @@ import { Webhook, Check, Loader2 } from "lucide-react";
 
 const SCENARIOS = [
   { type: "video_production", label: "Scenario 1 — Video Creation Engine", desc: "Research → Script → Voice → HeyGen Video → Captions" },
-  { type: "social_posting", label: "Scenario 2 — The Posting Bot", desc: "Download video → Upload to YouTube → Update sheet" },
+  { type: "social_posting", label: "Scenario 2 — The Posting Bot", desc: "Download video → Upload to Facebook → Update sheet" },
   { type: "research_pipeline", label: "Scenario 3 — YouTube Research Helper", desc: "Watch keywords → Research → Log results" },
+  { type: "manus_production", label: "Scenario 4 — Manus Video Pipeline", desc: "Blueprint → Manus AI render → ElevenLabs voice → Merge → Callback to app" },
 ];
 
 const MakeWebhookConfig = () => {
