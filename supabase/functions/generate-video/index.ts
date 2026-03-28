@@ -862,7 +862,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       .eq("user_id", userId)
       .eq("tool_type", "video_generator")
       .maybeSingle();
-    const preferredVideoGen = videoGenDefault?.default_provider || "runway";
+    const preferredVideoGen = videoGenDefault?.default_provider || "manus";
     console.log(`[pipeline] Preferred video generator: ${preferredVideoGen}`);
 
     // ════════════════════════════════════════════════════════════════════
@@ -912,68 +912,14 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 4b: RUNWAY RENDERING (if runway selected or fallback)
+    // STEP 4b: SLIDESHOW FALLBACK (if Manus not selected or no webhook)
     // ════════════════════════════════════════════════════════════════════
     const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
 
     if (preferredVideoGen === "manus") {
-      console.log("[pipeline] Manus selected — skipping Runway rendering (stub mode, using slideshow fallback)");
-    } else if (!userRunwayKey) {
-      console.log("[pipeline] No Runway key — slideshow mode");
-    } else if (realImageCount === 0) {
-      console.log("[pipeline] No real images — skipping Runway");
+      console.log("[pipeline] Manus AI selected — video will be delivered via Make.com webhook callback");
     } else {
-      const scenesToRender = sceneImageUrls
-        .map((url, i) => ({ url, index: i, isReal: sceneImageIsReal[i], motionPrompt: sceneMotionPrompts[i] }))
-        .filter(s => s.isReal && s.motionPrompt); // only render images, not pre-existing videos
-
-      console.log(`[pipeline] 🎬 Rendering ${scenesToRender.length} Runway clips (model=${RUNWAY_CONFIG.DEFAULT_MODEL}, ratio=${preset.ratio}, dur=${preset.clipDuration})`);
-      await updateJob({
-        status: "rendering_video",
-        result_payload: {
-          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
-          pipeline_step: "runway", message: `🎬 Rendering ${scenesToRender.length} clips...`,
-          total_clips: scenesToRender.length, clips_completed: 0,
-        },
-      });
-
-      for (let ci = 0; ci < scenesToRender.length; ci++) {
-        const { url: imgUrl, index: sceneIdx, motionPrompt } = scenesToRender[ci];
-        const scene = script.scenes[sceneIdx];
-        // Use the detailed motion prompt instead of generic variations
-        const prompt = `${scene?.visual_description || `Professional video for ${business.business_name}`}. ${motionPrompt}`;
-
-        try {
-          console.log(`[pipeline] Rendering clip ${ci + 1}/${scenesToRender.length} with motion: "${motionPrompt.substring(0, 60)}..."`);
-          const clipUrl = await renderRunwayClip(imgUrl, prompt, userRunwayKey, preset);
-          if (clipUrl) {
-            const vidRes = await fetch(clipUrl);
-            if (vidRes.ok) {
-              const blob = await vidRes.blob();
-              const fn = `videos/${userId}/${jobId}/clip-${sceneIdx + 1}.mp4`;
-              const { error } = await supabase.storage.from("media").upload(fn, blob, { contentType: "video/mp4", upsert: true });
-              if (!error) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-                videoClips.push(urlData.publicUrl);
-              }
-            }
-          }
-        } catch (e: any) {
-          if (e.message === "RUNWAY_CREDITS_EXHAUSTED") {
-            console.error("[pipeline] Runway credits exhausted — stopping");
-            break;
-          }
-          console.error(`[pipeline] Clip ${ci + 1} failed:`, e);
-        }
-
-        await updateJob({
-          result_payload: {
-            ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: videoClips,
-            pipeline_step: "runway", message: `🎬 Rendered ${videoClips.length}/${scenesToRender.length + sceneVideoClipUrls.length}`,
-            total_clips: scenesToRender.length, clips_completed: videoClips.length - sceneVideoClipUrls.length,
-          },
-        });
-      }
+      console.log("[pipeline] Slideshow mode — no external video generator");
     }
 
     // ════════════════════════════════════════════════════════════════════
