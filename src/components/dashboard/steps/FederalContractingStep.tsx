@@ -159,12 +159,11 @@ const FederalContractingStep = ({ businessId, locationId, onComplete }: FederalC
     const displayText = result?.markdown || streamText;
 
     return (
-      <StepLayout
-        step={16}
-        title="Federal Contracting Readiness"
-        description="Your comprehensive government contracting readiness assessment"
-        icon={<Building2 className="w-5 h-5 text-primary" />}
-      >
+      <div className="max-w-3xl mx-auto pb-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold font-display text-foreground mb-2">🏛️ Federal Contracting Readiness</h1>
+          <p className="text-muted-foreground">Your comprehensive government contracting readiness assessment</p>
+        </div>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <Badge variant="secondary" className="text-xs">
@@ -205,17 +204,16 @@ const FederalContractingStep = ({ businessId, locationId, onComplete }: FederalC
             </CardContent>
           </Card>
         </div>
-      </StepLayout>
+      </div>
     );
   }
 
   return (
-    <StepLayout
-      step={16}
-      title="Federal Contracting Readiness"
-      description="AI-powered assessment to transform your organization into a qualified government contractor"
-      icon={<Building2 className="w-5 h-5 text-primary" />}
-    >
+    <div className="max-w-3xl mx-auto pb-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold font-display text-foreground mb-2">🏛️ Federal Contracting Readiness</h1>
+        <p className="text-muted-foreground">AI-powered assessment to transform your organization into a qualified government contractor</p>
+      </div>
       <div className="space-y-6">
         <Card className="border-primary/20">
           <CardHeader className="pb-2">
@@ -387,7 +385,7 @@ const FederalContractingStep = ({ businessId, locationId, onComplete }: FederalC
           </Button>
         </div>
       </div>
-    </StepLayout>
+    </div>
   );
 };
 
