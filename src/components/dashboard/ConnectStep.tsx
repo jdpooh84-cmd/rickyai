@@ -108,20 +108,12 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
         )}
       </div>
 
-      <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 mb-6">
-        <p className="text-sm text-foreground font-medium mb-1">✨ Good news — AI is already built in!</p>
-        <p className="text-xs text-muted-foreground">
-          RickyAI includes built-in AI for all core features. Adding your own keys is optional and unlocks higher-quality or specialized outputs.
-          You can skip this step and come back later.
-        </p>
-      </div>
-
       <div className="p-4 rounded-xl bg-accent/50 border border-accent mb-6">
         <p className="text-sm text-foreground font-medium mb-1">🔑 Bring Your Own LLM (BYOLLM)</p>
         <p className="text-xs text-muted-foreground">
-          On Enterprise plans, all AI generation runs through <strong>your own</strong> provider credentials.
-          We do not supply LLM access on your behalf — connect your preferred provider below to enable
-          video scripts, strategy generation, and all AI-powered features.
+          RickyAI is a <strong>BYOLLM platform</strong> — all AI-powered features (scripts, strategy, video generation)
+          run through <strong>your own</strong> provider credentials. We do not supply LLM access on your behalf.
+          Connect at least one provider below to get started.
         </p>
       </div>
 
