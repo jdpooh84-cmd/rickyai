@@ -238,7 +238,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setGeneratedVideoScript(null);
     try {
       const response = await supabase.functions.invoke("generate-video", {
-        body: { businessId, videoType: "promotional", lengthMode, approvedScript },
+        body: { businessId, videoType: "promotional", lengthMode, approvedScript, manusModel, manusTier },
       });
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
