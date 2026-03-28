@@ -1013,7 +1013,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         shot_list: script.scenes,
         cta: script.cta,
         status: "media_ready",
-        production_tool: preferredVideoGen === "manus" ? "manus_ai" : hasClips ? "runway" : "rickyai_slideshow",
+        production_tool: preferredVideoGen === "manus" ? "manus_ai" : "rickyai_slideshow",
         thumbnail_url: sceneImageUrls[0] || null,
       }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
     }
