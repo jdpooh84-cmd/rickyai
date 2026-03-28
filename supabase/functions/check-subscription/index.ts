@@ -40,6 +40,7 @@ serve(async (req) => {
         subscribed: false,
         trial_active: false,
         trial_ends_at: null,
+        addon_product_ids: [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -66,6 +67,7 @@ serve(async (req) => {
         subscribed: false,
         trial_active: !!trialActive,
         trial_ends_at: profile?.trial_ends_at || null,
+        addon_product_ids: [],
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -75,22 +77,39 @@ serve(async (req) => {
     const customerId = customers.data[0].id;
     logStep("Found customer", { customerId });
 
+    // Fetch ALL active subscriptions (main plan + add-ons)
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       status: "active",
-      limit: 1,
+      limit: 10,
     });
 
-    const hasActiveSub = subscriptions.data.length > 0;
-    let productId = null;
+    // Known add-on product IDs
+    const ADDON_PRODUCT_IDS = [
+      "prod_UEZOQ0OGfVdYPi", // Federal Contracting
+      "prod_UEZOL1ICzSWAnt", // Grant Intelligence
+    ];
+
+    let mainProductId = null;
     let subscriptionEnd = null;
+    const addonProductIds: string[] = [];
+
+    for (const sub of subscriptions.data) {
+      for (const item of sub.items.data) {
+        const prodId = typeof item.price.product === "string" ? item.price.product : (item.price.product as any).id;
+        if (ADDON_PRODUCT_IDS.includes(prodId)) {
+          addonProductIds.push(prodId);
+        } else if (!mainProductId) {
+          mainProductId = prodId;
+          subscriptionEnd = new Date(sub.current_period_end * 1000).toISOString();
+        }
+      }
+    }
+
+    const hasActiveSub = !!mainProductId;
+    logStep("Subscription check complete", { mainProductId, addonProductIds, subscriptionEnd });
 
     if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      productId = subscription.items.data[0].price.product;
-      logStep("Active subscription found", { productId, subscriptionEnd });
-
       // Upsert usage tracking
       const now = new Date();
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -102,16 +121,15 @@ serve(async (req) => {
           { user_id: user.id, period_start: periodStart, period_end: periodEnd },
           { onConflict: "user_id,period_start" }
         );
-    } else {
-      logStep("No active subscription");
     }
 
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
-      product_id: productId,
+      product_id: mainProductId,
       subscription_end: subscriptionEnd,
       trial_active: !!trialActive,
       trial_ends_at: profile?.trial_ends_at || null,
+      addon_product_ids: addonProductIds,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

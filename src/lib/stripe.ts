@@ -66,6 +66,30 @@ export const PLANS = {
 
 export type PlanKey = keyof typeof PLANS;
 
+// Premium add-on tools — $50/mo each, available at any tier
+export const ADD_ONS = {
+  federal_contracting: {
+    name: "Federal Contracting Readiness",
+    price_id: "price_1TG6FSDtqsarQIarDJgZa2sv",
+    product_id: "prod_UEZOQ0OGfVdYPi",
+    price: "$50",
+    period: "/mo",
+    desc: "AI-powered federal contracting readiness assessment and scaling architecture.",
+    sidebar_key: "federal-contracting",
+  },
+  grant_intel: {
+    name: "Grant Intelligence Pack",
+    price_id: "price_1TG6FsDtqsarQIarwU2LC0cM",
+    product_id: "prod_UEZOL1ICzSWAnt",
+    price: "$50",
+    period: "/mo",
+    desc: "Niche grant intelligence, funder mapping, and 12-month pursuit roadmaps.",
+    sidebar_key: "grant-intel",
+  },
+} as const;
+
+export type AddOnKey = keyof typeof ADD_ONS;
+
 // Enterprise is quote-based, not in Stripe self-serve
 export const ENTERPRISE_INFO = {
   name: "Enterprise",
@@ -81,6 +105,13 @@ export const NONPROFIT_DISCOUNT_PERCENT = 15;
 export function getPlanByProductId(productId: string): PlanKey | null {
   for (const [key, plan] of Object.entries(PLANS)) {
     if (plan.product_id === productId) return key as PlanKey;
+  }
+  return null;
+}
+
+export function getAddOnByProductId(productId: string): AddOnKey | null {
+  for (const [key, addon] of Object.entries(ADD_ONS)) {
+    if (addon.product_id === productId) return key as AddOnKey;
   }
   return null;
 }
