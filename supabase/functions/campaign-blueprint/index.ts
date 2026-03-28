@@ -195,14 +195,11 @@ Return this exact JSON structure:
 
 Generate 4-7 episodes covering different content angles. Make hooks platform-specific and attention-grabbing. Include disclaimers noting posting times may differ by location and target audience.`;
 
-    const aiResponse = await fetch(AI_URL, {
+    const aiResponse = await fetch(effectiveAiUrl, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: effectiveAiHeaders,
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: effectiveAiModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
