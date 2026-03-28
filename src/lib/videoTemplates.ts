@@ -8,7 +8,7 @@
  * ─── ARCHITECTURE ────────────────────────────────────────────────────
  *
  * (a) Marketing Script Template — six-beat structure every promo follows
- * (b) Visual Scene Template    — per-scene Runway request structure
+ * (b) Visual Scene Template    — per-scene Manus AI request structure
  * (c) Audio / VO Template      — TTS alignment with timestamps
  *
  * All templates are reusable across any business, not hardcoded for one client.
