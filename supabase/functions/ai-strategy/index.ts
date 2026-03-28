@@ -47,9 +47,9 @@ Deno.serve(async (req) => {
             // Map product IDs to allowed steps
             const tierSteps: Record<string, number[]> = {
               "prod_UDep9PW3ELRa6K": [1, 2, 6, 7, 8, 9, 10, 13], // Creator
-              "prod_UDepZzB9GKoPnY": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Business
-              "prod_UDepPmrMY3zOEX": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Growth
-              "prod_UDeqmytH227V3p": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14], // Agency
+              "prod_UDepZzB9GKoPnY": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Business
+              "prod_UDepPmrMY3zOEX": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Growth
+              "prod_UDeqmytH227V3p": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], // Agency
             };
             allowedSteps = tierSteps[productId as string] || allowedSteps;
           }
@@ -115,10 +115,30 @@ Funding Goals: ${business.funding_goals || "Not specified"}
 Location: ${location ? `${location.city}, ${location.state || ""} ${location.country || "US"} (${location.service_area || "local area"})` : "Not specified"}
 `;
 
+    // Auto-detect industry mode
+    const bizCat = (business.business_category || "").toLowerCase();
+    const bizNiche = (business.niche || "").toLowerCase();
+    const bizServices = (business.services || "").toLowerCase();
+    const combined = `${bizCat} ${bizNiche} ${bizServices}`;
+    let industryMode = "general";
+    const industryKeywords: Record<string, string[]> = {
+      finance: ["bank", "fintech", "investment", "insurance", "accounting", "financial", "tax", "wealth"],
+      healthcare: ["health", "medical", "dental", "pharma", "hospital", "clinic", "therapy", "wellness"],
+      software: ["saas", "software", "tech", "api", "cloud", "app", "digital"],
+      ecommerce: ["shop", "store", "retail", "ecommerce", "marketplace", "fashion", "boutique"],
+      media: ["media", "streaming", "entertainment", "podcast", "video", "music", "film"],
+      manufacturing: ["manufactur", "industrial", "factory", "oem", "construction", "contractor"],
+    };
+    for (const [mode, kws] of Object.entries(industryKeywords)) {
+      if (kws.some(k => combined.includes(k))) { industryMode = mode; break; }
+    }
+
+    const industryContext = `Industry mode: ${industryMode}. Tailor all advice to this industry's norms, compliance needs, and audience expectations.`;
+
     const stepPrompts: Record<number, { system: string; user: string }> = {
       3: {
-        system: "You are a local business visibility expert. Analyze the business and provide a visibility report card. Return valid JSON.",
-        user: `Analyze this business's online visibility and grade it A-F across these categories. Return JSON with this structure:
+        system: `You are a local business visibility expert applying the Omni Search & Conversion Optimizer framework. Analyze SEO, GEO (Generative Engine Optimization), AEO (Answer Engine Optimization), and SGE (AI Overview) dimensions. ${industryContext} Return valid JSON.`,
+        user: `Analyze this business's online visibility across all modern search dimensions. Grade A-F and provide pillar-specific insights. Return JSON with this structure:
 {
   "overall_grade": "A-F letter",
   "overall_score": 0-100,
@@ -131,7 +151,11 @@ Location: ${location ? `${location.city}, ${location.state || ""} ${location.cou
     {"name": "Brand Consistency", "grade": "A-F", "score": 0-100, "findings": ["..."], "recommendations": ["..."]}
   ],
   "top_priorities": ["...top 3 things to fix first..."],
-  "competitive_edge": "A brief statement about their strongest differentiator"
+  "competitive_edge": "A brief statement about their strongest differentiator",
+  "seo_health": {"grade": "A-F", "key_issues": ["..."], "quick_wins": ["..."]},
+  "geo_readiness": {"grade": "A-F", "citation_hooks": ["...content types that would get cited by AI..."], "entity_signals": ["...missing authority signals..."]},
+  "aeo_coverage": {"grade": "A-F", "questions_to_answer": ["...top 5 questions this business should answer on their site..."]},
+  "sge_visibility": {"grade": "A-F", "ai_overview_likelihood": "high|medium|low", "improvement_tips": ["..."]}
 }
 
 ${businessContext}`
