@@ -619,8 +619,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   }
   // If no lovableKey and not admin, script/image gen will use fallback templates
 
-  // Resolve Runway key — user's own key or admin-only platform key
-  const userRunwayKey = keyMap["runway"] || (isAdmin ? Deno.env.get("RUNWAY_API_KEY") : undefined);
+  // Runway removed — Manus AI is the video generator via Make.com
+  // Resolve ElevenLabs key — user's own key or admin-only platform key
   // Resolve ElevenLabs key — user's own key or admin-only platform key
   const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
 
@@ -641,7 +641,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const preset = buildPreset(lengthMode, orientation);
     console.log(`[pipeline] ═══ Starting job ${jobId} ═══`);
     console.log(`[pipeline] Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    console.log(`[pipeline] Runway key: ${userRunwayKey ? "YES" : "NO"}, ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
+    console.log(`[pipeline] ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 1: SCRIPT — use approved script if provided, else generate
