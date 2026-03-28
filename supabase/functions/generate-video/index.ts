@@ -8,21 +8,15 @@ const corsHeaders = {
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const AI_MODEL = "google/gemini-2.5-flash";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
-const RUNWAY_API_URL = "https://api.dev.runwayml.com/v1";
-
 // ═══════════════════════════════════════════════════════════════════════
-// RUNWAY PRESET CONFIG — single source of truth for valid Runway params
+// VIDEO CONFIG — Manus AI is the primary video generator
 // ═══════════════════════════════════════════════════════════════════════
-const RUNWAY_CONFIG = {
-  DEFAULT_MODEL: "gen4_turbo",
-  // Runway-accepted ratios (exact pixel ratios)
-  RATIO_LANDSCAPE: "1280:720",
-  RATIO_VERTICAL: "720:1280",
-  // Runway Gen-4 Turbo accepted durations (seconds, must be a number)
+const VIDEO_PIPELINE_CONFIG = {
+  RATIO_LANDSCAPE: "16:9",
+  RATIO_VERTICAL: "9:16",
   DURATION_SHORT: 5 as const,
   DURATION_STANDARD: 10 as const,
-  DURATION_LONG: 10 as const,   // Runway max per clip is 10s; we stitch for longer
-  API_VERSION: "2024-11-06",
+  DURATION_LONG: 10 as const,
 };
 
 type Orientation = "landscape" | "vertical";
