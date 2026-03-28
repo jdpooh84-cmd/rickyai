@@ -641,30 +641,32 @@ async function getSceneImage(
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, lengthMode: string, orientation: Orientation = "landscape") {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
-  const runwayKey = Deno.env.get("RUNWAY_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const updateJob = (fields: Record<string, any>) =>
-    supabase.from("video_generation_jobs").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", jobId);
+  // ── BYOLLM enforcement: platform keys are admin-only ──
+  const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+  const { data: userKeys } = await supabase
+    .from("user_api_keys")
+    .select("provider, api_key_encrypted")
+    .eq("user_id", userId)
+    .eq("is_valid", true);
+  const keyMap: Record<string, string> = {};
+  userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
 
-  try {
-    // ── Load business + location ──
-    const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", userId).single();
-    if (!business) throw new Error("Business not found");
-    const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
-    const location = locations?.[0];
+  // Resolve AI key (for script generation + image generation)
+  let lovableKey = "";
+  if (keyMap["openai"]) {
+    // User has OpenAI key — for image gen we still need platform key or skip
+    lovableKey = isAdmin ? (Deno.env.get("LOVABLE_API_KEY") || "") : "";
+  } else if (isAdmin) {
+    lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
+  }
+  // If no lovableKey and not admin, script/image gen will use fallback templates
 
-    // ── Load saved strategy data (for script enrichment) ──
-    const { data: strategyRows } = await supabase.from("strategy_outputs").select("output_data").eq("business_id", businessId).eq("user_id", userId).order("step_number", { ascending: true }).limit(10);
-    const strategyData = strategyRows?.reduce((acc: any, row: any) => ({ ...acc, ...(row.output_data || {}) }), {}) || {};
-
-    // ── User API keys ──
-    const { data: userKeys } = await supabase.from("user_api_keys").select("provider, api_key_encrypted").eq("user_id", userId);
-    const keyMap: Record<string, string> = {};
-    userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
-    const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
-    const userRunwayKey = keyMap["runway"] || runwayKey;
+  // Resolve Runway key — user's own key or admin-only platform key
+  const userRunwayKey = keyMap["runway"] || (isAdmin ? Deno.env.get("RUNWAY_API_KEY") : undefined);
+  // Resolve ElevenLabs key — user's own key or admin-only platform key
+  const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
 
     const preset = buildPreset(lengthMode, orientation);
     console.log(`[pipeline] ═══ Starting job ${jobId} ═══`);
