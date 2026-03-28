@@ -3,7 +3,7 @@ import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +50,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [rewriteCount, setRewriteCount] = useState(0);
   const [scriptVersions, setScriptVersions] = useState<any[]>([]);
   const scriptPanelRef = useRef<HTMLDivElement>(null);
+  // Manus import state
+  const [manusUrlInput, setManusUrlInput] = useState("");
+  const [showManusImport, setShowManusImport] = useState(false);
+  const [importingManus, setImportingManus] = useState(false);
 
   // Persist state
   useEffect(() => {
@@ -247,6 +251,35 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setRewriteCount(0);
     setScriptVersions([]);
     removeLocalStorage(STATE_KEY);
+  };
+
+  const handleImportManusVideo = async () => {
+    if (!manusUrlInput.trim() || !businessId) return;
+    setImportingManus(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const fileName = manusUrlInput.split("/").pop() || "manus-video.mp4";
+      const shotType = fileName.toLowerCase().includes("food") ? "food" : fileName.toLowerCase().includes("people") ? "people" : "environment";
+      const { error } = await supabase.from("business_media").insert({
+        business_id: businessId,
+        user_id: user.id,
+        file_name: fileName,
+        file_type: "video",
+        shot_type: shotType,
+        storage_path: `manus-imports/${user.id}/${fileName}`,
+        public_url: manusUrlInput.trim(),
+        tags: ["manus", "imported", "video"],
+      });
+      if (error) throw error;
+      toast.success("Manus video added to your Media Library! 🎬");
+      setManusUrlInput("");
+      setShowManusImport(false);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to import Manus video");
+    } finally {
+      setImportingManus(false);
+    }
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -573,11 +606,43 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </button>
             </div>
 
+            {/* Manus prompt preview */}
+            {generatedVideoScript?.manus_prompt_preview && (
+              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border">
+                <p className="text-[10px] font-bold text-primary mb-1">🤖 Manus AI Prompt (ready to send)</p>
+                <p className="text-[10px] text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">{generatedVideoScript.manus_prompt_preview}</p>
+                <CopyButton text={generatedVideoScript.manus_prompt_preview} id="manus-prompt" />
+              </div>
+            )}
+
+            {/* Manus video URL import */}
+            {!showManusImport ? (
+              <button onClick={() => setShowManusImport(true)}
+                className="mt-2 text-[10px] text-primary hover:underline flex items-center gap-1">
+                <Link2 className="w-3 h-3" /> Import a Manus AI video URL to Media Library
+              </button>
+            ) : (
+              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border space-y-2">
+                <p className="text-[10px] font-semibold text-foreground">Paste your Manus AI video URL:</p>
+                <input type="url" value={manusUrlInput} onChange={e => setManusUrlInput(e.target.value)}
+                  placeholder="https://manus.ai/video/..." className="w-full p-2 text-xs rounded-lg border border-border bg-background text-foreground" />
+                <div className="flex gap-2">
+                  <button onClick={handleImportManusVideo} disabled={importingManus || !manusUrlInput.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50">
+                    {importingManus ? "Importing..." : "Yes, add to Media Library"}
+                  </button>
+                  <button onClick={() => { setShowManusImport(false); setManusUrlInput(""); }}
+                    className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs hover:bg-secondary/80">No thanks</button>
+                </div>
+              </div>
+            )}
+
             {generatedVideoScript?.total_duration_seconds && (
               <p className="text-[10px] text-muted-foreground mt-2 text-center">
                 Duration: ~{generatedVideoScript.total_duration_seconds}s
                 {generatedVideoScript.real_image_count !== undefined && ` • ${generatedVideoScript.real_image_count} real photos used`}
                 {generatedVideoScript.usedFallbackScript ? " • Saved-data script" : " • AI script"}
+                {generatedVideoScript.preferred_video_generator === "manus" && " • 🤖 Manus AI"}
               </p>
             )}
           </div>
