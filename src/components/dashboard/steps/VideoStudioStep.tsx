@@ -318,7 +318,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_script": return "✍️ Writing your script...";
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
-      case "rendering_video": return "🎬 Rendering with Runway AI...";
+      case "rendering_video": return "🎬 Rendering with Manus AI...";
       case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
       default: return "Processing...";
     }
@@ -640,7 +640,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               {generatedVideoScript?.total_clips && (
                 <div className="space-y-1">
                   <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Runway clips</span>
+                    <span>Manus clips</span>
                     <span>{generatedVideoScript.clips_completed || 0}/{generatedVideoScript.total_clips}</span>
                   </div>
                   <Progress value={((generatedVideoScript.clips_completed || 0) / generatedVideoScript.total_clips) * 100} className="h-2" />
@@ -667,7 +667,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
             {generatedVideoScript?.is_fallback && (
               <div className="mb-3 p-2 rounded-lg bg-accent/10 border border-accent/20">
-                <p className="text-[10px] text-accent-foreground">⚠️ This is a fallback slideshow — upload real photos or replenish credits for full Runway video.</p>
+                <p className="text-[10px] text-accent-foreground">⚠️ This is a fallback slideshow — upload real photos or connect Manus AI for full video production.</p>
               </div>
             )}
 
