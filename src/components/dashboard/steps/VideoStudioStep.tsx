@@ -27,6 +27,7 @@ const LENGTH_OPTIONS: { key: LengthMode; label: string; duration: string; emoji:
 ];
 
 const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
+  const { subscription } = useAuth();
   const persisted = readLocalStorage(STATE_KEY, {
     lengthMode: "standard" as LengthMode,
     generatedVideoScript: null as any,
@@ -56,6 +57,18 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [manusUrlInput, setManusUrlInput] = useState("");
   const [showManusImport, setShowManusImport] = useState(false);
   const [importingManus, setImportingManus] = useState(false);
+  // Manus model selection
+  const [manusModel, setManusModel] = useState<ManusModel>("default");
+
+  // Derive tier for Manus model gating
+  const manusTier = useMemo(() => {
+    const plan = subscription.plan;
+    if (plan === "agency") return "agency";
+    if (plan === "growth") return "pro";
+    if (plan === "business") return "pro";
+    if (plan === "creator") return "free";
+    return "free";
+  }, [subscription.plan]);
 
   // Persist state
   useEffect(() => {
