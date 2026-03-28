@@ -935,8 +935,11 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     let finalStatus: string;
     let isFallback = false;
 
-    if (hasClips) {
-      statusMessage = `🎬 ${videoClips.length} Runway clips ready (${totalDuration}s)! Assembling your final video...`;
+    if (preferredVideoGen === "manus" && manusPromptPreview) {
+      statusMessage = `🤖 Manus AI prompt ready! Your video will be delivered via Make.com when processing completes.`;
+      finalStatus = "processing";
+    } else if (hasClips) {
+      statusMessage = `🎬 ${videoClips.length} video clips ready (${totalDuration}s)!`;
       finalStatus = "completed";
     } else if (hasImages && realImageCount > 0) {
       statusMessage = `🎬 ${sceneImageUrls.length} photos ready — assembling slideshow video (~${totalDuration}s) with captions${voiceoverUrl ? " and voiceover" : ""}.`;
@@ -972,17 +975,16 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       orientation,
       preferred_video_generator: preferredVideoGen,
       manus_prompt_preview: manusPromptPreview,
-      runway_preset: {
-        model: RUNWAY_CONFIG.DEFAULT_MODEL,
+      manus_config: {
         ratio: preset.ratio,
         clipDuration: preset.clipDuration,
+        orientation: preset.orientation,
       },
       pipeline_steps: {
         script: "completed",
         images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
         voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
-        runway: preferredVideoGen === "manus" ? "skipped_manus_selected" : hasClips ? "completed" : userRunwayKey ? "failed_or_exhausted" : "no_key",
-        manus: preferredVideoGen === "manus" ? "prompt_ready_stub" : "not_selected",
+        manus: preferredVideoGen === "manus" ? (manusPromptPreview ? "prompt_ready" : "not_configured") : "not_selected",
       },
       message: statusMessage,
     };
