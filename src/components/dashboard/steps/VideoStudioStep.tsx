@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2 } from "lucide-react";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2, Lock, Zap, Clapperboard } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
 import { composeVideo } from "@/lib/videoComposer";
 import demoVideoAsset from "@/assets/demo-business-promo.mp4.asset.json";
