@@ -489,6 +489,78 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           )}
         </div>
 
+        {/* ═══ STEP 2.5: Manus Video Quality Selector ═══ */}
+        {scriptApproved && (
+          <div className="glass rounded-2xl p-6">
+            <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+              <Clapperboard className="w-4 h-4 text-primary" /> Choose Video Quality
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              {/* Standard (Default Model) */}
+              <button
+                onClick={() => setManusModel("default")}
+                className={`rounded-2xl p-4 text-left transition-all border ${
+                  manusModel === "default"
+                    ? "border-primary bg-primary/5 ring-2 ring-primary"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-bold text-foreground">Standard</span>
+                  {manusModel === "default" && <Check className="w-3 h-3 text-primary ml-auto" />}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Good for social media & quick promos</p>
+                <p className="text-[10px] text-muted-foreground">Supports 16:9, 9:16, and 1:1</p>
+                {manusTier === "free" && <p className="text-[10px] text-primary mt-1 font-semibold">≤15s recommended on Free tier</p>}
+                <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Included in your plan</p>
+              </button>
+
+              {/* Cinematic (Veo 3) */}
+              <button
+                onClick={() => {
+                  if (manusTier === "agency") {
+                    setManusModel("veo3");
+                  } else {
+                    toast.info("Cinematic (Veo 3) quality requires the Agency plan. Upgrade to unlock!");
+                  }
+                }}
+                className={`rounded-2xl p-4 text-left transition-all border relative ${
+                  manusModel === "veo3"
+                    ? "border-primary bg-primary/5 ring-2 ring-primary"
+                    : manusTier !== "agency"
+                    ? "border-border/50 opacity-70 cursor-not-allowed"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                {manusTier !== "agency" && (
+                  <div className="absolute top-2 right-2">
+                    <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-2">
+                  <Film className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-bold text-foreground">Cinematic (Veo 3)</span>
+                  {manusModel === "veo3" && <Check className="w-3 h-3 text-primary ml-auto" />}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Highest quality AI video</p>
+                <p className="text-[10px] text-muted-foreground">16:9 widescreen only</p>
+                <p className="text-[10px] text-muted-foreground">Best for TV-style commercials</p>
+                {manusTier !== "agency" ? (
+                  <p className="text-[10px] text-amber-500 mt-1 font-semibold">🔒 Upgrade to Agency</p>
+                ) : (
+                  <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Unlocked on Agency</p>
+                )}
+              </button>
+            </div>
+            {manusTier === "free" && manusModel === "default" && (
+              <p className="text-[10px] text-muted-foreground mt-3 text-center">
+                💡 Free tier: clips under 15 seconds recommended to stay within credit limits. Upgrade to Pro for longer videos.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* ═══ STEP 3: PRODUCE BUTTON (gated by script approval) ═══ */}
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center justify-between">
