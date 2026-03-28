@@ -20,6 +20,7 @@ import SearchVisibilityStep from "@/components/dashboard/steps/SearchVisibilityS
 import CampaignBlueprintStep from "@/components/dashboard/steps/CampaignBlueprintStep";
 import OmniOptimizeStep from "@/components/dashboard/steps/OmniOptimizeStep";
 import FederalContractingStep from "@/components/dashboard/steps/FederalContractingStep";
+import GrantIntelStep from "@/components/dashboard/steps/GrantIntelStep";
 import GamificationPanel from "@/components/dashboard/GamificationPanel";
 import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
@@ -136,6 +137,7 @@ const Dashboard = () => {
     if (activeSection === "watch") return <WatchVideo onBack={() => { setActiveSection(""); setActiveStep(8); }} />;
     if (activeSection === "connect-tools") return <ExternalAppConnections />;
     if (activeSection === "federal-contracting") return <FederalContractingStep businessId={selectedBusiness} locationId={selectedLocation} />;
+    if (activeSection === "grant-intel") return <GrantIntelStep businessId={selectedBusiness} locationId={selectedLocation} />;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;

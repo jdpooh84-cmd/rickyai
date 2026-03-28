@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -62,6 +62,7 @@ const extras = [
   { id: "ready", icon: Check, title: "Ready to Post" },
   { id: "connect-tools", icon: Key, title: "Connect Tools" },
   { id: "federal-contracting", icon: Building2, title: "Fed Contracting" },
+  { id: "grant-intel", icon: Compass, title: "Grant Intel" },
   { id: "score", icon: Trophy, title: "Growth Score" },
   { id: "community", icon: MessageSquare, title: "Community" },
   { id: "marketplace", icon: ShoppingBag, title: "Marketplace" },
