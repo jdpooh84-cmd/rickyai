@@ -3,7 +3,7 @@ import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
@@ -50,6 +50,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [rewriteCount, setRewriteCount] = useState(0);
   const [scriptVersions, setScriptVersions] = useState<any[]>([]);
   const scriptPanelRef = useRef<HTMLDivElement>(null);
+  // Manus import state
+  const [manusUrlInput, setManusUrlInput] = useState("");
+  const [showManusImport, setShowManusImport] = useState(false);
+  const [importingManus, setImportingManus] = useState(false);
 
   // Persist state
   useEffect(() => {
