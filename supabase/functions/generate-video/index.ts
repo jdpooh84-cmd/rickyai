@@ -668,10 +668,24 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   // Resolve ElevenLabs key — user's own key or admin-only platform key
   const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
 
+  const updateJob = (fields: Record<string, any>) =>
+    supabase.from("video_generation_jobs").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", jobId);
+
+  try {
+    // ── Load business + location ──
+    const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", userId).single();
+    if (!business) throw new Error("Business not found");
+    const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
+    const location = locations?.[0];
+
+    // ── Load saved strategy data (for script enrichment) ──
+    const { data: strategyRows } = await supabase.from("strategy_outputs").select("output_data").eq("business_id", businessId).eq("user_id", userId).order("step_number", { ascending: true }).limit(10);
+    const strategyData = strategyRows?.reduce((acc: any, row: any) => ({ ...acc, ...(row.output_data || {}) }), {}) || {};
+
     const preset = buildPreset(lengthMode, orientation);
     console.log(`[pipeline] ═══ Starting job ${jobId} ═══`);
     console.log(`[pipeline] Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    console.log(`[pipeline] Runway key: ${userRunwayKey ? "YES" : "NO"}, ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}`);
+    console.log(`[pipeline] Runway key: ${userRunwayKey ? "YES" : "NO"}, ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 1: SCRIPT — use approved script if provided, else generate
