@@ -560,15 +560,12 @@ ${businessContext}`
     const stepConfig = stepPrompts[step];
     if (!stepConfig) throw new Error(`Invalid step: ${step}`);
 
-    // Call Lovable AI
-    const aiResponse = await fetch(AI_URL, {
+    // Call AI using BYOLLM-resolved provider
+    const aiResponse = await fetch(aiUrl, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: aiHeaders,
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: aiModel,
         messages: [
           { role: "system", content: stepConfig.system },
           { role: "user", content: stepConfig.user },
