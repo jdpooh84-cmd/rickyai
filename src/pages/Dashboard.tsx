@@ -18,6 +18,7 @@ import LeadScoutStep from "@/components/dashboard/steps/LeadScoutStep";
 import GrantSearchStep from "@/components/dashboard/steps/GrantSearchStep";
 import SearchVisibilityStep from "@/components/dashboard/steps/SearchVisibilityStep";
 import CampaignBlueprintStep from "@/components/dashboard/steps/CampaignBlueprintStep";
+import OmniOptimizeStep from "@/components/dashboard/steps/OmniOptimizeStep";
 import GamificationPanel from "@/components/dashboard/GamificationPanel";
 import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
