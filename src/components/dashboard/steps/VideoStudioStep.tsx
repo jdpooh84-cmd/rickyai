@@ -90,7 +90,18 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         setJobStatus(data.status);
         if (data.result_payload) setGeneratedVideoScript(data.result_payload);
 
-        if (data.status === "completed" || data.status === "media_ready") {
+        if (data.status === "processing") {
+          // Manus job dispatched to Make.com — keep polling, don't stop
+          setGeneratedVideoScript(data.result_payload);
+          // Check if video_url was filled in by the callback
+          if (data.video_url) {
+            clearInterval(interval);
+            setGeneratingVideo(false);
+            setFinalVideoUrl(data.video_url);
+            toast.success("Your video is ready from Manus AI! 🎬");
+          }
+          // Otherwise keep polling — Make.com hasn't called back yet
+        } else if (data.status === "completed" || data.status === "media_ready") {
           clearInterval(interval);
           setGeneratingVideo(false);
 
@@ -98,7 +109,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           const clips = payload?.video_clips || [];
           const images = payload?.scene_images || [];
 
-          if ((clips.length > 0 || images.length > 0) && !composedRef.current) {
+          if (data.video_url) {
+            setFinalVideoUrl(data.video_url);
+            toast.success("Your video is ready! 🎬");
+          } else if ((clips.length > 0 || images.length > 0) && !composedRef.current) {
             composedRef.current = true;
             setComposingVideo(true);
             setJobStatus("composing_video");
@@ -138,9 +152,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               toast.error("Video assembly had issues, but your clips and images are ready");
             }
             setComposingVideo(false);
-          } else if (data.video_url) {
-            setFinalVideoUrl(data.video_url);
-            toast.success("Your video is ready! 🎬");
           } else {
             toast.success("Production complete!");
           }
@@ -319,6 +330,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
       case "rendering_video": return "🎬 Rendering with Manus AI...";
+      case "processing": return "🤖 Waiting for Manus AI to finish rendering... (this can take a few minutes)";
       case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
       default: return "Processing...";
     }
