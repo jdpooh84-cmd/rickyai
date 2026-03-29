@@ -49,6 +49,27 @@ serve(async (req) => {
     const user = userData.user;
     logStep("User authenticated", { email: user.email });
 
+    // ── ADMIN BYPASS: Admins get full access without a subscription ──
+    const { data: isAdmin } = await supabaseClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    if (isAdmin) {
+      logStep("Admin user detected — granting full access bypass");
+      return new Response(JSON.stringify({
+        subscribed: true,
+        product_id: "admin_bypass",
+        subscription_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_active: false,
+        trial_ends_at: null,
+        addon_product_ids: [
+          "prod_UEZOQ0OGfVdYPi", // Federal Contracting
+          "prod_UEZOL1ICzSWAnt", // Grant Intelligence
+        ],
+        is_admin: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     // Check trial status
     const { data: profile } = await supabaseClient
       .from("profiles")
