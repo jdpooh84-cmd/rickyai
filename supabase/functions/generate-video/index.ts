@@ -901,14 +901,49 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel}):`);
       console.log(manusPromptPreview.substring(0, 500) + "...");
 
-      // ── PLACEHOLDER: Replace this block with real Manus API call ──
-      // When Manus API is available, the Make.com webhook will route based on tier:
-      //   Free → taskMode: "agent", default model, ≤15s
-      //   Pro  → taskMode: "agent", default model, full duration
-      //   Agency+Veo3 → taskMode: "agent", Veo 3 model, 16:9, full duration
-      // ── END PLACEHOLDER ──
+      // ── DISPATCH TO MAKE.COM WEBHOOK ──
+      const { data: webhookRow } = await supabase
+        .from("webhook_config")
+        .select("webhook_url")
+        .eq("scenario_type", "manus_production")
+        .eq("is_active", true)
+        .maybeSingle();
 
-      console.log(`[pipeline] ⏳ Manus integration is a stub — no real API call made. Prompt stored in debug payload.`);
+      if (webhookRow?.webhook_url) {
+        console.log(`[pipeline] 🚀 Dispatching to Make.com webhook: ${webhookRow.webhook_url.substring(0, 60)}...`);
+        const webhookPayload = {
+          job_id: jobId,
+          user_id: userId,
+          business_id: businessId,
+          business_name: business.business_name,
+          manus_prompt: manusPromptPreview,
+          manus_visual_script: manusVisualScript,
+          scene_images: sceneImageUrls,
+          voiceover_url: voiceoverUrl,
+          tier: selectedManusTier,
+          model: selectedManusModel,
+          aspect_ratio: preset.ratio,
+          target_duration_seconds: preset.targetSeconds,
+          callback_url: `${supabaseUrl}/functions/v1/video-callback`,
+        };
+        try {
+          const webhookRes = await fetch(webhookRow.webhook_url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(webhookPayload),
+          });
+          if (webhookRes.ok) {
+            console.log(`[pipeline] ✅ Make.com webhook accepted (${webhookRes.status})`);
+          } else {
+            const errText = await webhookRes.text();
+            console.error(`[pipeline] ⚠️ Make.com webhook returned ${webhookRes.status}: ${errText}`);
+          }
+        } catch (webhookErr: any) {
+          console.error(`[pipeline] ⚠️ Make.com webhook dispatch failed:`, webhookErr.message);
+        }
+      } else {
+        console.log(`[pipeline] ⚠️ No active manus_production webhook configured — prompt stored but not dispatched`);
+      }
     }
 
     // ════════════════════════════════════════════════════════════════════

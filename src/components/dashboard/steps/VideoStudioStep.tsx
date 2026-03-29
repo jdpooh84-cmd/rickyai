@@ -90,7 +90,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         setJobStatus(data.status);
         if (data.result_payload) setGeneratedVideoScript(data.result_payload);
 
-        if (data.status === "completed" || data.status === "media_ready") {
+        if (data.status === "completed" || data.status === "media_ready" || data.status === "processing") {
           clearInterval(interval);
           setGeneratingVideo(false);
 
