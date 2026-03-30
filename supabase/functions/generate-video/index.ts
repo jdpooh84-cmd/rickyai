@@ -35,10 +35,11 @@ function buildPreset(lengthMode: string, orientation: Orientation = "landscape")
   // MINIMUM 60 seconds enforced on all videos
   switch (lengthMode) {
     case "short":
-      // "Short" now produces 60s minimum (6 scenes × 10s each)
       return { targetSeconds: 60, sceneCount: 6, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };
     case "long":
       return { targetSeconds: 90, sceneCount: 9, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Long (90s)" };
+    case "extended":
+      return { targetSeconds: 120, sceneCount: 12, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Extended (120s)" };
     case "standard":
     default:
       return { targetSeconds: 60, sceneCount: 6, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };

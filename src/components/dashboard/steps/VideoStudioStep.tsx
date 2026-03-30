@@ -14,16 +14,17 @@ import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/p
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
-type LengthMode = "short" | "standard" | "long";
+type LengthMode = "short" | "standard" | "long" | "extended";
 type ManusModel = "default" | "veo3";
 
 const STATE_KEY = "rickyai-video-studio-state";
 const MAX_REWRITES = 3;
 
 const LENGTH_OPTIONS: { key: LengthMode; label: string; duration: string; emoji: string; desc: string }[] = [
-  { key: "short", label: "Short", duration: "~30s", emoji: "⚡", desc: "Quick social clips for TikTok, Reels, Shorts" },
-  { key: "standard", label: "Standard", duration: "~60s", emoji: "🎬", desc: "Full promo for Instagram, Facebook, YouTube" },
+  { key: "short", label: "Standard", duration: "~60s", emoji: "⚡", desc: "Quick social clips for TikTok, Reels, Shorts" },
+  { key: "standard", label: "Standard+", duration: "~60s", emoji: "🎬", desc: "Full promo for Instagram, Facebook, YouTube" },
   { key: "long", label: "Long", duration: "~90s", emoji: "📹", desc: "Extended brand story or commercial" },
+  { key: "extended", label: "Extended", duration: "~120s", emoji: "🎥", desc: "Full-length cinematic brand film or ad spot" },
 ];
 
 const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
@@ -357,7 +358,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" /> Choose Video Length
           </h4>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {LENGTH_OPTIONS.map(opt => (
               <button key={opt.key} onClick={() => { setLengthMode(opt.key); if (scriptApproved) { setScriptApproved(false); setApprovedScript(null); setPendingScript(null); } }}
                 className={`rounded-2xl p-4 text-center transition-all border ${
