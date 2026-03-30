@@ -543,10 +543,228 @@ Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each. EV
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// RUNWAY REMOVED — Manus AI is the video generator.
-// The Make.com webhook sends the Manus prompt and receives the final video
-// via the video-callback edge function.
+// AI PROMPT FIXER — self-correction loop for quality enforcement
 // ═══════════════════════════════════════════════════════════════════════
+const MAX_SELF_CORRECT_ATTEMPTS = 3;
+
+interface PromptFixerIssue {
+  type: "short_duration" | "missing_scenes" | "duplicate_scenes" | "missing_voiceover" | "missing_visuals" | "wrong_location" | "generic_script" | "bad_format" | "missing_storyboard" | "outdated_info";
+  severity: "critical" | "warning";
+  detail: string;
+  fix: string;
+}
+
+function diagnoseScript(script: any, preset: PipelinePreset, biz: any, loc: any): PromptFixerIssue[] {
+  const issues: PromptFixerIssue[] = [];
+  const scenes = script?.scenes || [];
+  const bizCity = loc?.city || "";
+  const bizState = loc?.state || "";
+  const bizName = biz?.business_name || "";
+
+  // 1. Duration check — scenes must add up to minimum
+  const totalDuration = scenes.reduce((sum: number, s: any) => sum + (s.duration_seconds || preset.clipDuration), 0);
+  if (totalDuration < preset.targetSeconds) {
+    issues.push({ type: "short_duration", severity: "critical", detail: `Total duration ${totalDuration}s < required ${preset.targetSeconds}s (${scenes.length} scenes)`, fix: `Add more scenes. Need ${Math.ceil((preset.targetSeconds - totalDuration) / preset.clipDuration)} more scenes of ${preset.clipDuration}s each.` });
+  }
+
+  // 2. Scene count check
+  if (scenes.length < preset.sceneCount) {
+    issues.push({ type: "missing_scenes", severity: "critical", detail: `Only ${scenes.length} scenes, need ${preset.sceneCount}`, fix: `Generate ${preset.sceneCount - scenes.length} additional scenes with unique visuals and voiceover lines.` });
+  }
+
+  // 3. Duplicate scene detection
+  const voiceLines = scenes.map((s: any) => (s.voiceover_line || "").toLowerCase().trim()).filter(Boolean);
+  const uniqueVoice = new Set(voiceLines);
+  if (voiceLines.length > 0 && uniqueVoice.size < voiceLines.length * 0.7) {
+    issues.push({ type: "duplicate_scenes", severity: "critical", detail: `${voiceLines.length - uniqueVoice.size} duplicate voiceover lines detected`, fix: "Rewrite duplicate scenes with completely new content. Each scene must have unique dialogue and visual direction." });
+  }
+
+  const visuals = scenes.map((s: any) => (s.visual_description || "").toLowerCase().trim()).filter(Boolean);
+  const uniqueVisuals = new Set(visuals);
+  if (visuals.length > 0 && uniqueVisuals.size < visuals.length * 0.7) {
+    issues.push({ type: "duplicate_scenes", severity: "warning", detail: `${visuals.length - uniqueVisuals.size} similar visual descriptions`, fix: "Vary shot types, camera movements, and subjects across scenes." });
+  }
+
+  // 4. Missing voiceover
+  const emptyVO = scenes.filter((s: any) => !s.voiceover_line?.trim()).length;
+  if (emptyVO > 0) {
+    issues.push({ type: "missing_voiceover", severity: "warning", detail: `${emptyVO} scenes missing voiceover lines`, fix: "Add narration for every scene tied to the business story." });
+  }
+
+  // 5. Missing visual descriptions
+  const emptyVisual = scenes.filter((s: any) => !s.visual_description?.trim() && !s.visual?.trim()).length;
+  if (emptyVisual > 0) {
+    issues.push({ type: "missing_visuals", severity: "warning", detail: `${emptyVisual} scenes missing visual descriptions`, fix: "Add detailed cinematic visual prompts for each scene." });
+  }
+
+  // 6. Wrong location / generic defaults
+  const voText = (script.voiceover_script || "").toLowerCase();
+  const wrongLocations = ["ohio", "columbus", "new york", "los angeles", "san francisco", "chicago"].filter(
+    loc => voText.includes(loc) && bizCity.toLowerCase() !== loc && bizState.toLowerCase() !== loc
+  );
+  if (wrongLocations.length > 0) {
+    issues.push({ type: "wrong_location", severity: "critical", detail: `Script references wrong location(s): ${wrongLocations.join(", ")}. Business is in ${bizCity}, ${bizState}`, fix: `Replace ALL location references with ${bizCity}${bizState ? `, ${bizState}` : ""}. Never reference headquarters or other cities.` });
+  }
+
+  // 7. Generic script detection
+  const genericPhrases = ["welcome to our business", "we are proud to", "our team is dedicated", "we strive to provide", "contact us today for more information"];
+  const foundGeneric = genericPhrases.filter(p => voText.includes(p));
+  if (foundGeneric.length >= 2) {
+    issues.push({ type: "generic_script", severity: "warning", detail: `Script uses ${foundGeneric.length} generic phrases: "${foundGeneric.join('", "')}"`, fix: "Rewrite using the brand's actual voice and specific details about their services, not corporate clichés." });
+  }
+
+  // 8. Business name check — make sure it's referenced
+  if (bizName && !voText.includes(bizName.toLowerCase())) {
+    issues.push({ type: "outdated_info", severity: "warning", detail: `Business name "${bizName}" not mentioned in script`, fix: `Include the business name "${bizName}" naturally in the voiceover.` });
+  }
+
+  // 9. Missing storyboard elements
+  const missingCamera = scenes.filter((s: any) => !s.camera_direction?.trim()).length;
+  const missingOverlay = scenes.filter((s: any) => !s.text_overlay?.trim()).length;
+  if (missingCamera > scenes.length * 0.5) {
+    issues.push({ type: "missing_storyboard", severity: "warning", detail: `${missingCamera}/${scenes.length} scenes missing camera direction`, fix: "Add specific camera movements (dolly, steadicam, crane, etc.) for each scene." });
+  }
+  if (missingOverlay > scenes.length * 0.5) {
+    issues.push({ type: "missing_storyboard", severity: "warning", detail: `${missingOverlay}/${scenes.length} scenes missing text overlays`, fix: "Add 2-5 word text overlays for each scene." });
+  }
+
+  return issues;
+}
+
+function applyScriptFixes(script: any, issues: PromptFixerIssue[], preset: PipelinePreset, biz: any, loc: any, strategyData: any): any {
+  const fixed = JSON.parse(JSON.stringify(script)); // deep clone
+  const city = loc?.city || "your area";
+  const state = loc?.state || "";
+  const name = biz?.business_name || "Our Business";
+
+  for (const issue of issues) {
+    switch (issue.type) {
+      case "short_duration":
+      case "missing_scenes": {
+        // Pad with new unique scenes from buildScriptFromProfile
+        while ((fixed.scenes?.length || 0) < preset.sceneCount) {
+          const extra = buildScriptFromProfile(biz, loc, strategyData, preset.sceneCount, preset.clipDuration);
+          const needed = preset.sceneCount - (fixed.scenes?.length || 0);
+          // Only add scenes that aren't duplicates
+          for (const newScene of extra.scenes) {
+            if ((fixed.scenes?.length || 0) >= preset.sceneCount) break;
+            const isDupe = fixed.scenes?.some((s: any) => s.voiceover_line === newScene.voiceover_line);
+            if (!isDupe) {
+              newScene.scene_number = (fixed.scenes?.length || 0) + 1;
+              fixed.scenes = [...(fixed.scenes || []), newScene];
+            }
+          }
+          if ((fixed.scenes?.length || 0) < preset.sceneCount) {
+            // Force-add remaining
+            const remaining = preset.sceneCount - (fixed.scenes?.length || 0);
+            const filler = buildScriptFromProfile(biz, loc, strategyData, remaining + 2, preset.clipDuration);
+            fixed.scenes = [...(fixed.scenes || []), ...filler.scenes.slice(0, remaining)];
+          }
+        }
+        break;
+      }
+      case "duplicate_scenes": {
+        // Replace duplicates with fresh scenes
+        const seen = new Set<string>();
+        const freshPool = buildScriptFromProfile(biz, loc, strategyData, preset.sceneCount * 2, preset.clipDuration);
+        let freshIdx = 0;
+        fixed.scenes = fixed.scenes.map((s: any) => {
+          const key = (s.voiceover_line || "").toLowerCase().trim();
+          if (seen.has(key) && freshIdx < freshPool.scenes.length) {
+            const replacement = freshPool.scenes[freshIdx++];
+            replacement.scene_number = s.scene_number;
+            return replacement;
+          }
+          seen.add(key);
+          return s;
+        });
+        break;
+      }
+      case "wrong_location": {
+        // Fix all location references
+        const wrongLocs = ["ohio", "columbus", "new york", "los angeles", "san francisco", "chicago"];
+        const correctLoc = `${city}${state ? `, ${state}` : ""}`;
+        fixed.scenes = fixed.scenes.map((s: any) => {
+          let vo = s.voiceover_line || "";
+          let vis = s.visual_description || "";
+          for (const wrong of wrongLocs) {
+            const regex = new RegExp(wrong, "gi");
+            vo = vo.replace(regex, city);
+            vis = vis.replace(regex, city);
+          }
+          return { ...s, voiceover_line: vo, visual_description: vis };
+        });
+        if (fixed.voiceover_script) {
+          for (const wrong of wrongLocs) {
+            fixed.voiceover_script = fixed.voiceover_script.replace(new RegExp(wrong, "gi"), city);
+          }
+        }
+        break;
+      }
+      case "missing_voiceover": {
+        fixed.scenes = fixed.scenes.map((s: any, i: number) => {
+          if (!s.voiceover_line?.trim()) {
+            const fallbacks = [
+              `Discover what makes ${name} special.`,
+              `Quality you can see and taste at ${name}.`,
+              `${name} — ${city}'s favorite.`,
+              `Experience the difference at ${name}.`,
+              `Come see for yourself at ${name}.`,
+            ];
+            return { ...s, voiceover_line: fallbacks[i % fallbacks.length] };
+          }
+          return s;
+        });
+        break;
+      }
+      case "missing_visuals": {
+        const shotTypes = ["environment", "food", "people"];
+        fixed.scenes = fixed.scenes.map((s: any, i: number) => {
+          if (!s.visual_description?.trim() && !s.visual?.trim()) {
+            const type = s.shotType || shotTypes[i % shotTypes.length];
+            const visuals: Record<string, string> = {
+              environment: `Wide cinematic shot of ${name} storefront in ${city}. Golden hour lighting, warm glow.`,
+              food: `Close-up of ${name}'s signature offering. Dramatic rim lighting, vibrant colors, steam rising.`,
+              people: `Happy customers at ${name}. Candid smiles, warm atmosphere, natural light.`,
+            };
+            return { ...s, visual_description: visuals[type] || visuals.environment };
+          }
+          return s;
+        });
+        break;
+      }
+      case "missing_storyboard": {
+        const camMoves = ["slow push-in", "lateral tracking", "steadicam follow", "overhead orbit", "pull-back reveal", "gentle pan"];
+        fixed.scenes = fixed.scenes.map((s: any, i: number) => {
+          if (!s.camera_direction?.trim()) s.camera_direction = camMoves[i % camMoves.length];
+          if (!s.text_overlay?.trim()) s.text_overlay = (s.voiceover_line || "").split(" ").slice(0, 3).join(" ") || `Scene ${i + 1}`;
+          return s;
+        });
+        break;
+      }
+    }
+  }
+
+  // Renumber scenes and rebuild derived fields
+  fixed.scenes = (fixed.scenes || []).slice(0, preset.sceneCount).map((s: any, i: number) => ({
+    ...s,
+    scene_number: i + 1,
+    duration_seconds: s.duration_seconds || preset.clipDuration,
+  }));
+  fixed.voiceover_script = fixed.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+  fixed.scene_captions = fixed.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+
+  return fixed;
+}
+
+function logPromptFixer(attempt: number, issues: PromptFixerIssue[], action: string) {
+  const critical = issues.filter(i => i.severity === "critical").length;
+  const warnings = issues.filter(i => i.severity === "warning").length;
+  console.log(`[PromptFixer] Attempt ${attempt}: ${critical} critical, ${warnings} warnings — ${action}`);
+  for (const i of issues) {
+    console.log(`[PromptFixer]   [${i.severity}] ${i.type}: ${i.detail}`);
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 // IMAGE HELPERS
@@ -871,6 +1089,48 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     script.scenes = script.scenes.slice(0, preset.sceneCount);
     script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
     script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+
+    // ═══ AI PROMPT FIXER — SELF-CORRECTION LOOP ═══
+    for (let fixAttempt = 1; fixAttempt <= MAX_SELF_CORRECT_ATTEMPTS; fixAttempt++) {
+      const issues = diagnoseScript(script, preset, business, location);
+      const criticalIssues = issues.filter(i => i.severity === "critical");
+
+      if (issues.length === 0) {
+        console.log(`[PromptFixer] ✅ Script passed all quality checks (attempt ${fixAttempt})`);
+        break;
+      }
+
+      logPromptFixer(fixAttempt, issues, criticalIssues.length > 0 ? "APPLYING FIXES" : "APPLYING POLISH");
+
+      await updateJob({
+        result_payload: {
+          ...script, pipeline_step: "prompt_fixer",
+          message: `🔧 AI Prompt Fixer: correcting ${issues.length} issue(s) (attempt ${fixAttempt}/${MAX_SELF_CORRECT_ATTEMPTS})...`,
+        },
+      });
+
+      script = applyScriptFixes(script, issues, preset, business, location, strategyData);
+
+      // Re-diagnose after fix
+      const remaining = diagnoseScript(script, preset, business, location);
+      const remainingCritical = remaining.filter(i => i.severity === "critical");
+      if (remainingCritical.length === 0) {
+        console.log(`[PromptFixer] ✅ All critical issues resolved after attempt ${fixAttempt}. ${remaining.length} minor warnings remain.`);
+        break;
+      }
+
+      if (fixAttempt === MAX_SELF_CORRECT_ATTEMPTS && remainingCritical.length > 0) {
+        console.warn(`[PromptFixer] ⚠️ ${remainingCritical.length} critical issues remain after ${MAX_SELF_CORRECT_ATTEMPTS} attempts. Proceeding with best-effort script.`);
+        // Final forced fix — ensure minimum scene count by brute force
+        while ((script.scenes?.length || 0) < preset.sceneCount) {
+          const emergency = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+          script.scenes = [...(script.scenes || []), ...emergency.scenes.slice(0, preset.sceneCount - (script.scenes?.length || 0))];
+        }
+        script.scenes = script.scenes.slice(0, preset.sceneCount);
+        script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+        script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+      }
+    }
 
     // ═══ BUILD MANUS VISUAL SCRIPT (cinematic shot list) ═══
     const manusVisualScript = buildManusVisualScript(script, business, preset, jobId);
@@ -1297,6 +1557,19 @@ Deno.serve(async (req) => {
       script.scenes = script.scenes.slice(0, preset.sceneCount);
       script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
       script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+
+      // ═══ AI PROMPT FIXER — script_only mode ═══
+      for (let fixAttempt = 1; fixAttempt <= MAX_SELF_CORRECT_ATTEMPTS; fixAttempt++) {
+        const issues = diagnoseScript(script, preset, business, location);
+        if (issues.length === 0 || issues.filter(i => i.severity === "critical").length === 0) {
+          if (issues.length > 0) console.log(`[PromptFixer:script_only] ${issues.length} minor warnings, proceeding`);
+          break;
+        }
+        logPromptFixer(fixAttempt, issues, "FIXING (script_only)");
+        script = applyScriptFixes(script, issues, preset, business, location, strategyData);
+        script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+        script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+      }
 
       // Build cinematic visual script for script_only mode too
       const manusVisualScript = buildManusVisualScript(script, business, preset, "preview");
