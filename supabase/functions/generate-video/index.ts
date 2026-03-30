@@ -249,7 +249,18 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
     const envDetails = scene.visual_description?.split(".").slice(1).join(".").trim() || "";
 
     // Build the full cinematic prompt text for Manus
-    const promptText = `${shotSize} of ${subject}, ${scene.camera_direction || cameraMovement}, ${lighting}, ${envDetails}. Style: cinematic, crisp, high-detail, natural motion, no cheesy stock footage look.`;
+    const promptText = `${shotSize} of ${subject}, ${scene.camera_direction || cameraMovement}, ${lighting}, ${envDetails}. Style: cinematic, crisp, high-detail, natural motion, photorealistic. DO NOT: generic stock footage, robotic movement, flat lighting.`;
+
+    // Derive emotional beat from scene position
+    const emotionalBeats = ["intrigue", "discovery", "connection", "desire", "action"];
+    const beatIndex = Math.min(Math.floor(i / Math.max(1, scenes.length / emotionalBeats.length)), emotionalBeats.length - 1);
+
+    // Negative prompts per shot type
+    const negativePrompts: Record<string, string> = {
+      food: "no flat overhead lighting, no plastic-looking food, no cluttered backgrounds",
+      people: "no stiff posed shots, no fake smiles, no empty restaurant feel",
+      environment: "no harsh fluorescent lighting, no cluttered signage, no dirty surfaces",
+    };
 
     return {
       index: i + 1,
@@ -272,8 +283,10 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
       on_screen_text: scene.text_overlay || "",
       brand_elements: i === 0 || i === scenes.length - 1 ? `${biz.business_name} logo/signage` : "",
       constraints: "no text covering key subjects, no extreme camera shake, maintain brand consistency",
+      emotional_beat: scene.emotional_beat || emotionalBeats[beatIndex],
+      negative_prompt: scene.negative_prompt || negativePrompts[shotType] || "no generic stock footage",
       prompt_text: promptText,
-      notes_for_ricky: i === 0 ? "Opening hook — keep high energy" : i === scenes.length - 1 ? "Closing CTA — end with brand recall" : "",
+      notes_for_ricky: i === 0 ? "Opening hook — unexpected angle, grab attention in 2s" : i === scenes.length - 1 ? "Closing CTA — memorable brand moment, not generic" : `Scene ${i + 1} — ${emotionalBeats[beatIndex]} beat`,
     };
   });
 
