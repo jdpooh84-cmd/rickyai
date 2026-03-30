@@ -341,52 +341,154 @@ DIRECTION:
 // ═══════════════════════════════════════════════════════════════════════
 // AI SCRIPT — only if credits available
 // ═══════════════════════════════════════════════════════════════════════
-function buildAIPrompt(biz: any, loc: any, preset: PipelinePreset) {
+// ═══════════════════════════════════════════════════════════════════════
+// BUSINESS DNA ANALYZER — extracts strategic insights for video creation
+// ═══════════════════════════════════════════════════════════════════════
+function analyzeBusinessDNA(biz: any, loc: any, strategyData: any) {
+  const name = biz.business_name || "Business";
+  const cat = biz.business_category || "local business";
+  const svc = biz.services || "";
+  const aud = biz.target_audience || "";
+  const tone = biz.brand_tone || "professional";
   const city = loc?.city || "";
   const state = loc?.state || "";
+  const competitors = biz.competitors || "";
+  const goals = biz.content_goals || "";
+  const niche = biz.niche || cat;
+  const website = biz.website_url || "";
+
+  // Derive brand personality from tone
+  const toneMap: Record<string, { visualStyle: string; pacing: string; colorMood: string; musicVibe: string }> = {
+    "friendly": { visualStyle: "warm, approachable, natural light", pacing: "moderate with moments of energy", colorMood: "warm golds, soft oranges, cream", musicVibe: "upbeat acoustic, feel-good" },
+    "professional": { visualStyle: "clean, polished, structured compositions", pacing: "measured, confident", colorMood: "navy, silver, white", musicVibe: "corporate inspirational, subtle" },
+    "fun": { visualStyle: "vibrant, dynamic, playful angles", pacing: "fast cuts, high energy", colorMood: "saturated primaries, pops of neon", musicVibe: "upbeat pop, energetic" },
+    "luxury": { visualStyle: "dramatic lighting, cinematic depth of field", pacing: "slow, deliberate, editorial", colorMood: "deep black, gold accents, rich burgundy", musicVibe: "orchestral, ambient elegance" },
+    "edgy": { visualStyle: "high contrast, gritty textures, unconventional angles", pacing: "rapid cuts mixed with slow-mo", colorMood: "desaturated with bold accent pops", musicVibe: "electronic, bass-heavy" },
+    "community-focused": { visualStyle: "candid, documentary-style, real moments", pacing: "natural rhythm, breathing room", colorMood: "earth tones, greens, warm neutrals", musicVibe: "indie folk, heartfelt" },
+  };
+  const brandProfile = toneMap[tone.toLowerCase()] || toneMap["friendly"];
+
+  // Competitive differentiation
+  const competitorList = competitors.split(",").map((c: string) => c.trim()).filter(Boolean);
+  const diffStrategy = competitorList.length > 0
+    ? `Differentiate from competitors (${competitorList.slice(0, 3).join(", ")}). Show what makes ${name} DIFFERENT, not just good.`
+    : `Position ${name} as the category leader in ${city || "the area"}.`;
+
+  // Audience emotional triggers
+  const audienceSegments = aud.split(",").map((a: string) => a.trim()).filter(Boolean);
+  const emotionalHooks = audienceSegments.map((seg: string) => {
+    if (/famil/i.test(seg)) return "belonging, togetherness, making memories";
+    if (/student|college|young/i.test(seg)) return "value, social proof, FOMO, convenience";
+    if (/professional|business/i.test(seg)) return "efficiency, quality, trust, status";
+    if (/foodie|lover/i.test(seg)) return "sensory pleasure, discovery, craft appreciation";
+    return "trust, quality, community connection";
+  });
+
+  return {
+    name, cat, svc, aud, tone, city, state, niche, website, goals,
+    brandProfile,
+    diffStrategy,
+    emotionalHooks: [...new Set(emotionalHooks)],
+    competitorList,
+    serviceList: svc.split(",").map((s: string) => s.trim()).filter(Boolean),
+    strategyKeywords: strategyData?.keywords || strategyData?.top_keywords || [],
+    usp: strategyData?.unique_selling_points || strategyData?.differentiators || [],
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// AI SCRIPT PROMPT — deep business analysis + cinematic direction
+// ═══════════════════════════════════════════════════════════════════════
+function buildAIPrompt(biz: any, loc: any, preset: PipelinePreset, strategyData: any = {}) {
+  const dna = analyzeBusinessDNA(biz, loc, strategyData);
   const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  return `Create a ${preset.targetSeconds}-second promotional video script for:
 
-Business: ${biz.business_name}
-Category: ${biz.business_category || "General"}
-Services: ${biz.services || "Not specified"}
-Target Audience: ${biz.target_audience || "General"}
-Brand Tone: ${biz.brand_tone || "Professional"}
-Location: ${city}${state ? `, ${state}` : ""}
+  // Pick a random creative angle to force variety
+  const angles = [
+    "Tell the story through a customer's first visit — their discovery moment",
+    "Show the transformation: before they found this business vs. after",
+    "Frame it as a love letter from the business to the community",
+    "Use a 'day in the life' structure showing peak moments across one day",
+    "Start with an unexpected question that challenges assumptions about the industry",
+    "Build around a single powerful statistic or customer testimonial moment",
+    "Use sensory storytelling — make the viewer feel textures, smells, sounds",
+    "Frame the business as the neighborhood's secret weapon",
+    "Tell the story backwards — start with the satisfied customer, rewind to show why",
+    "Use a comparison structure: 'Some do X. We do Y. Here's the difference.'",
+  ];
+  const chosenAngle = angles[Math.floor(Math.random() * angles.length)];
 
-═══ ZERO REDUNDANCY POLICY (Generation ID: ${uniqueSeed}) ═══
-You are PROHIBITED from reusing templates, recycled dialogue, or repetitive structural tropes.
-- Use a RANDOMIZED entry point — never the same hook twice.
-- Avoid crutch words and common AI phrasings. Break typical syntax.
-- Shuffle the narrative flow — if linear is expected, go modular or inverse.
-- Before finalizing, self-audit: if it looks like a repeat, discard and regenerate with a 180-degree shift.
-- CRITICAL: Use ONLY "${city}${state ? `, ${state}` : ""}" as the location. Do NOT reference corporate headquarters or founding cities.
-═══════════════════════════════════════════════════════════════
+  return `You are a senior video creative director. You've been hired to create a ${preset.targetSeconds}-second video for a REAL business. You must LEARN this business first, then create.
 
-Script structure for ~${preset.targetSeconds} seconds:
-- Hook (1–2 lines, grab attention — MUST be a completely fresh angle)
-- Who we are / where we are
-- What we serve (product/service focus)
-- Why people love us (families, locals, regulars)
-- Call to action
-- Tagline / sign-off
+═══ GENERATION ID: ${uniqueSeed} — ZERO TEMPLATE POLICY ═══
+Do NOT reuse any default video structure. This is a bespoke production.
+
+═══ BUSINESS DNA (study this carefully) ═══
+Business: ${dna.name}
+Category: ${dna.cat}
+Niche: ${dna.niche}
+Services: ${dna.svc || "Not specified"}
+Target Audience: ${dna.aud || "General"}
+Audience Emotional Triggers: ${dna.emotionalHooks.join("; ")}
+Brand Tone: ${dna.tone}
+Location: ${dna.city}${dna.state ? `, ${dna.state}` : ""} (USE THIS LOCATION ONLY — never reference headquarters or other cities)
+Content Goals: ${dna.goals || "brand awareness, customer acquisition"}
+Website: ${dna.website || "N/A"}
+${dna.strategyKeywords.length ? `Strategy Keywords: ${dna.strategyKeywords.join(", ")}` : ""}
+${dna.usp.length ? `Unique Selling Points: ${dna.usp.join("; ")}` : ""}
+Competitive Strategy: ${dna.diffStrategy}
+
+═══ CREATIVE DIRECTION ═══
+Visual Style: ${dna.brandProfile.visualStyle}
+Pacing: ${dna.brandProfile.pacing}
+Color Mood: ${dna.brandProfile.colorMood}
+Music Vibe: ${dna.brandProfile.musicVibe}
+
+═══ MANDATORY CREATIVE ANGLE ═══
+${chosenAngle}
+Use this angle as your narrative backbone. Do NOT default to a generic "welcome to our business" structure.
+
+═══ CINEMATIC PROMPTING RULES ═══
+For each scene's visual_description, use professional cinematography language:
+- Specify camera movement (dolly, steadicam, crane, handheld, locked-off, tracking)
+- Specify shot size (ECU, CU, MCU, MS, MWS, WS, EWS)
+- Specify lighting style (Rembrandt, butterfly, split, practical, available, golden hour)
+- Specify depth of field (shallow/deep) and focus behavior (rack focus, pull focus)
+
+═══ NEGATIVE PROMPTING (what to AVOID) ═══
+- NO generic stock footage aesthetic
+- NO robotic or unnatural movement
+- NO oversaturated "Instagram filter" look
+- NO cheesy text animations or star wipes
+- NO corporate jargon ("synergy", "leveraging", "solutions")
+- NO identical framing in consecutive shots (vary shot sizes!)
+
+═══ EMOTIONAL ARC ═══
+Beat 1 (0-${Math.round(preset.targetSeconds * 0.15)}s): INTRIGUE — Hook with curiosity or surprise
+Beat 2 (${Math.round(preset.targetSeconds * 0.15)}-${Math.round(preset.targetSeconds * 0.4)}s): DISCOVERY — Reveal what makes this place special
+Beat 3 (${Math.round(preset.targetSeconds * 0.4)}-${Math.round(preset.targetSeconds * 0.7)}s): CONNECTION — Show the human element, community, experience
+Beat 4 (${Math.round(preset.targetSeconds * 0.7)}-${Math.round(preset.targetSeconds * 0.9)}s): DESIRE — Create wanting, FOMO, aspiration
+Beat 5 (${Math.round(preset.targetSeconds * 0.9)}-${preset.targetSeconds}s): ACTION — Clear, compelling CTA
 
 Return JSON:
 {
-  "title": "video title",
-  "description": "short description",
-  "voiceover_script": "complete narration, ${preset.targetSeconds >= 60 ? "100-150" : "50-80"} words, friendly local owner tone",
+  "title": "creative video title (not generic)",
+  "description": "one-line creative concept summary",
+  "creative_angle": "which narrative angle you chose and why",
+  "voiceover_script": "complete narration, ${preset.targetSeconds >= 60 ? "100-150" : "50-80"} words, written in the brand's voice — NOT a generic announcer tone",
   "scenes": [${Array.from({ length: preset.sceneCount }, (_, i) =>
-    `{"scene_number":${i + 1},"duration_seconds":${preset.clipDuration},"visual_description":"VIVID cinematic description","text_overlay":"3-5 word phrase","camera_direction":"camera style","voiceover_line":"narration line","shotType":"food|people|environment"}`
+    `{"scene_number":${i + 1},"duration_seconds":${preset.clipDuration},"visual_description":"DETAILED cinematic prompt: shot size + camera move + lighting + subject + action + environment + mood","text_overlay":"2-5 word overlay","camera_direction":"specific camera direction","voiceover_line":"narration for this beat","shotType":"food|people|environment","emotional_beat":"what the viewer should FEEL","negative_prompt":"what to AVOID in this shot"}`
   ).join(",")}],
   "scene_captions": ["line1","line2",...],
-  "caption": "social caption with emojis",
-  "hashtags": ["tag1","tag2"],
+  "caption": "platform-optimized social caption",
+  "hashtags": ["relevant","specific","tags"],
   "target_platform": "instagram",
-  "cta": "call to action"
+  "cta": "specific action tied to the business",
+  "visual_style_notes": "overall look/feel summary",
+  "color_palette": "3-4 specific colors that match the brand"
 }
 
-Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each. This script MUST be entirely unique — no recycled hooks, closings, or scene structures.`;
+Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each. EVERY scene must have a unique shot size and camera movement — no two consecutive scenes should look the same.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
