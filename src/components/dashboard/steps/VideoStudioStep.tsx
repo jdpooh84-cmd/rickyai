@@ -358,7 +358,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-primary" /> Choose Video Length
           </h4>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {LENGTH_OPTIONS.map(opt => (
               <button key={opt.key} onClick={() => { setLengthMode(opt.key); if (scriptApproved) { setScriptApproved(false); setApprovedScript(null); setPendingScript(null); } }}
                 className={`rounded-2xl p-4 text-center transition-all border ${
