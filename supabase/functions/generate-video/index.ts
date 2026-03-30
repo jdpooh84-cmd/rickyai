@@ -1090,6 +1090,48 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
     script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
 
+    // ═══ AI PROMPT FIXER — SELF-CORRECTION LOOP ═══
+    for (let fixAttempt = 1; fixAttempt <= MAX_SELF_CORRECT_ATTEMPTS; fixAttempt++) {
+      const issues = diagnoseScript(script, preset, business, location);
+      const criticalIssues = issues.filter(i => i.severity === "critical");
+
+      if (issues.length === 0) {
+        console.log(`[PromptFixer] ✅ Script passed all quality checks (attempt ${fixAttempt})`);
+        break;
+      }
+
+      logPromptFixer(fixAttempt, issues, criticalIssues.length > 0 ? "APPLYING FIXES" : "APPLYING POLISH");
+
+      await updateJob({
+        result_payload: {
+          ...script, pipeline_step: "prompt_fixer",
+          message: `🔧 AI Prompt Fixer: correcting ${issues.length} issue(s) (attempt ${fixAttempt}/${MAX_SELF_CORRECT_ATTEMPTS})...`,
+        },
+      });
+
+      script = applyScriptFixes(script, issues, preset, business, location, strategyData);
+
+      // Re-diagnose after fix
+      const remaining = diagnoseScript(script, preset, business, location);
+      const remainingCritical = remaining.filter(i => i.severity === "critical");
+      if (remainingCritical.length === 0) {
+        console.log(`[PromptFixer] ✅ All critical issues resolved after attempt ${fixAttempt}. ${remaining.length} minor warnings remain.`);
+        break;
+      }
+
+      if (fixAttempt === MAX_SELF_CORRECT_ATTEMPTS && remainingCritical.length > 0) {
+        console.warn(`[PromptFixer] ⚠️ ${remainingCritical.length} critical issues remain after ${MAX_SELF_CORRECT_ATTEMPTS} attempts. Proceeding with best-effort script.`);
+        // Final forced fix — ensure minimum scene count by brute force
+        while ((script.scenes?.length || 0) < preset.sceneCount) {
+          const emergency = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+          script.scenes = [...(script.scenes || []), ...emergency.scenes.slice(0, preset.sceneCount - (script.scenes?.length || 0))];
+        }
+        script.scenes = script.scenes.slice(0, preset.sceneCount);
+        script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+        script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+      }
+    }
+
     // ═══ BUILD MANUS VISUAL SCRIPT (cinematic shot list) ═══
     const manusVisualScript = buildManusVisualScript(script, business, preset, jobId);
     script.manus_visual_script = manusVisualScript;
