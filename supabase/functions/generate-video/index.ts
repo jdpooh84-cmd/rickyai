@@ -344,6 +344,7 @@ DIRECTION:
 function buildAIPrompt(biz: any, loc: any, preset: PipelinePreset) {
   const city = loc?.city || "";
   const state = loc?.state || "";
+  const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   return `Create a ${preset.targetSeconds}-second promotional video script for:
 
 Business: ${biz.business_name}
@@ -353,8 +354,17 @@ Target Audience: ${biz.target_audience || "General"}
 Brand Tone: ${biz.brand_tone || "Professional"}
 Location: ${city}${state ? `, ${state}` : ""}
 
+═══ ZERO REDUNDANCY POLICY (Generation ID: ${uniqueSeed}) ═══
+You are PROHIBITED from reusing templates, recycled dialogue, or repetitive structural tropes.
+- Use a RANDOMIZED entry point — never the same hook twice.
+- Avoid crutch words and common AI phrasings. Break typical syntax.
+- Shuffle the narrative flow — if linear is expected, go modular or inverse.
+- Before finalizing, self-audit: if it looks like a repeat, discard and regenerate with a 180-degree shift.
+- CRITICAL: Use ONLY "${city}${state ? `, ${state}` : ""}" as the location. Do NOT reference corporate headquarters or founding cities.
+═══════════════════════════════════════════════════════════════
+
 Script structure for ~${preset.targetSeconds} seconds:
-- Hook (1–2 lines, grab attention)
+- Hook (1–2 lines, grab attention — MUST be a completely fresh angle)
 - Who we are / where we are
 - What we serve (product/service focus)
 - Why people love us (families, locals, regulars)
@@ -376,7 +386,7 @@ Return JSON:
   "cta": "call to action"
 }
 
-Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each.`;
+Generate exactly ${preset.sceneCount} scenes of ${preset.clipDuration}s each. This script MUST be entirely unique — no recycled hooks, closings, or scene structures.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
