@@ -61,148 +61,126 @@ function buildScriptFromProfile(biz: any, loc: any, strategyData: any, sceneCoun
   const strategyInsights = strategyData?.keywords?.join(", ") || strategyData?.top_keywords?.join(", ") || "";
   const uniqueSelling = strategyData?.unique_selling_points?.join(". ") || strategyData?.differentiators?.join(". ") || "";
 
-  // Randomization seed so each call produces different output
-  const rand = () => Math.random();
+  // Time-seeded randomization so no two calls produce the same script
+  const seed = Date.now();
+  const rand = () => { const x = Math.sin(seed + Math.random() * 10000) * 10000; return x - Math.floor(x); };
   const pick = <T>(arr: T[]): T => arr[Math.floor(rand() * arr.length)];
   const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => rand() - 0.5);
 
-  // Multiple hook variants
+  // ── LARGE HOOK POOL (18 variants) ──
   const hooks = [
     { voiceLine: `Looking for the best ${cat} in ${city}? You just found it.`, textOverlay: name },
-    { voiceLine: `${city}, meet your new favorite ${cat} spot — ${name}.`, textOverlay: `Discover ${name}` },
-    { voiceLine: `Craving something amazing? ${name} in ${city} has you covered.`, textOverlay: `${name} — ${city}` },
+    { voiceLine: `${city}, meet your new favorite ${cat} — ${name}.`, textOverlay: `Discover ${name}` },
+    { voiceLine: `Craving something amazing? ${name} in ${city}${state ? `, ${state}` : ""} has you covered.`, textOverlay: `${name} — ${city}` },
     { voiceLine: `What makes ${name} the talk of ${city}? Let us show you.`, textOverlay: `Why ${name}?` },
     { voiceLine: `Stop scrolling. ${name} is about to change your ${cat} game.`, textOverlay: name },
     { voiceLine: `${city}'s best-kept secret? It's called ${name}.`, textOverlay: `Secret's Out` },
+    { voiceLine: `Three words: ${name}, ${city}. Need we say more?`, textOverlay: `${name} ✦ ${city}` },
+    { voiceLine: `Picture this: the perfect ${cat} experience. That's ${name}.`, textOverlay: `Picture This` },
+    { voiceLine: `Forget everything you thought you knew about ${cat}. ${name} rewrites the rules.`, textOverlay: `New Standard` },
+    { voiceLine: `One taste. One visit. That's all it takes to fall in love with ${name}.`, textOverlay: `Fall in Love` },
+    { voiceLine: `${name} didn't come to play — we came to set the standard in ${city}.`, textOverlay: `The Standard` },
+    { voiceLine: `There's ${cat}… and then there's ${name}. The difference is everything.`, textOverlay: `The Difference` },
+    { voiceLine: `Ask anyone in ${city} where to go for ${cat}. They'll say ${name}.`, textOverlay: `Ask Around` },
+    { voiceLine: `Welcome to the place ${city} can't stop talking about.`, textOverlay: `Welcome` },
+    { voiceLine: `If you haven't tried ${name} yet, this is your sign.`, textOverlay: `Your Sign` },
+    { voiceLine: `Let's take you inside ${city}'s most talked-about ${cat}.`, textOverlay: `Step Inside` },
+    { voiceLine: `Every great neighborhood deserves a great ${cat}. ${city} has ${name}.`, textOverlay: `Neighborhood Gem` },
+    { voiceLine: `What happens when passion meets ${cat}? You get ${name}.`, textOverlay: `Passion Meets ${cat}` },
   ];
 
-  // Multiple CTA/closing variants
+  // ── LARGE CLOSING POOL (12 variants) ──
   const closings = [
-    { voiceLine: `${name} — your go-to ${cat} in ${city}. See you soon!`, textOverlay: `${name} — ${city}` },
+    { voiceLine: `${name} — your go-to ${cat} in ${city}${state ? `, ${state}` : ""}. See you soon!`, textOverlay: `${name} — ${city}` },
     { voiceLine: `Come visit ${name} today. We can't wait to serve you!`, textOverlay: `Visit Us Today!` },
     { voiceLine: `Follow ${name} for more. Link in bio!`, textOverlay: `Follow ${name}` },
     { voiceLine: `Ready for the ${name} experience? Walk in or order online today.`, textOverlay: `Order Now` },
     { voiceLine: `${name} — where every visit feels like coming home. See you there!`, textOverlay: `Welcome Home` },
+    { voiceLine: `Don't just take our word for it — come see for yourself. ${name}, ${city}.`, textOverlay: `See for Yourself` },
+    { voiceLine: `Your next favorite ${cat} experience starts at ${name}. Let's go!`, textOverlay: `Let's Go!` },
+    { voiceLine: `Tag someone who needs to know about ${name}!`, textOverlay: `Tag a Friend` },
+    { voiceLine: `${name}. ${city}. Every single time.`, textOverlay: `Every Time` },
+    { voiceLine: `Life's too short for average ${cat}. Choose ${name}.`, textOverlay: `Choose ${name}` },
+    { voiceLine: `Save this. Share this. Visit ${name}.`, textOverlay: `Save & Share` },
+    { voiceLine: `The doors are open. The team is ready. ${name} is waiting for you.`, textOverlay: `We're Waiting` },
   ];
 
-  // Large pool of middle scenes with variety
+  // ── EXPANDED MIDDLE SCENES (20 variants) ──
   const middleScenes = [
-    {
-      shotType: "people",
-      visual: `Owner or team at ${name} smiling warmly, greeting customers. ${tone} atmosphere, polished interior.`,
-      camera: "steadicam walk-through",
-      voiceLine: `Welcome to ${name}${city ? ` in ${city}${state ? `, ${state}` : ""}` : ""}. We've been serving our community with pride.`,
-      textOverlay: `Welcome to ${name}`,
-    },
-    {
-      shotType: "food",
-      visual: `Hero shot of ${name}'s signature ${primarySvc}. Dramatic rim lighting, vibrant colors, steam rising.`,
-      camera: "slow pan across product display",
-      voiceLine: `From ${primarySvc} to ${secondarySvc} — every detail crafted with care.${uniqueSelling ? ` ${uniqueSelling}` : ""}`,
-      textOverlay: primarySvc,
-    },
-    {
-      shotType: "food",
-      visual: `Close-up montage of ${name}'s offerings. Multiple items, dynamic composition, vibrant colors.`,
-      camera: "rack focus transitions between items",
-      voiceLine: `We bring you only the best — quality you can see and taste.`,
-      textOverlay: "Something for Everyone",
-    },
-    {
-      shotType: "people",
-      visual: `Happy ${aud} enjoying their experience at ${name}. Friends, families laughing together.`,
-      camera: "lateral tracking shot, smooth dolly",
-      voiceLine: `Our ${aud} keep coming back because we make every visit count.${strategyInsights ? ` Known for ${strategyInsights}.` : ""}`,
-      textOverlay: "Loved by Locals",
-    },
-    {
-      shotType: "people",
-      visual: `Behind-the-scenes at ${name}. Skilled hands at work, attention to detail. Cinematic shallow focus.`,
-      camera: "dolly-in extreme close-up",
-      voiceLine: `Behind every great experience is a team that truly cares.`,
-      textOverlay: "Crafted with Care",
-    },
-    {
-      shotType: "environment",
-      visual: `Inviting wide shot of ${name}'s interior. ${tone} atmosphere, warm pendant lighting.`,
-      camera: "overhead crane shot",
-      voiceLine: `Come visit ${name} today and see the difference for yourself.`,
-      textOverlay: "Step Inside",
-    },
-    {
-      shotType: "food",
-      visual: `Top-down flat lay of ${name}'s best offerings arranged artfully. Rich textures, garnishes.`,
-      camera: "slow overhead rotate",
-      voiceLine: `Fresh, delicious, and made just for you. That's our promise.`,
-      textOverlay: "Always Fresh",
-    },
-    {
-      shotType: "people",
-      visual: `A family enjoying a meal together at ${name}. Warm smiles, shared plates, golden light.`,
-      camera: "medium shot, gentle push-in",
-      voiceLine: `${name} isn't just ${cat} — it's where memories are made.`,
-      textOverlay: "Family Moments",
-    },
-    {
-      shotType: "environment",
-      visual: `${name} team preparing for the day. Organized, energetic, morning light streaming in.`,
-      camera: "tracking shot through the space",
-      voiceLine: `Every day starts with one goal: make your experience unforgettable.`,
-      textOverlay: "Ready for You",
-    },
-    {
-      shotType: "food",
-      visual: `Action shot of ${primarySvc} being prepared. Hands in motion, ingredients flying, energy and precision.`,
-      camera: "dynamic handheld, close-up",
-      voiceLine: `Watch the magic happen. Real craft, real passion, real flavor.`,
-      textOverlay: "Made with Passion",
-    },
-    {
-      shotType: "people",
-      visual: `Regular customers giving thumbs up, leaving reviews, sharing on social media.`,
-      camera: "medium close-up, natural light",
-      voiceLine: `Don't just take our word for it — our fans speak for themselves.`,
-      textOverlay: "★★★★★",
-    },
-    {
-      shotType: "environment",
-      visual: `${name} exterior at night with warm glow, neon signs, inviting entrance.`,
-      camera: "slow dolly approaching entrance",
-      voiceLine: `Whether it's lunch, dinner, or a late-night craving — ${name} is here for you.`,
-      textOverlay: "Open for You",
-    },
+    { shotType: "people", visual: `Owner or team at ${name} smiling warmly, greeting customers. ${tone} atmosphere.`, camera: "steadicam walk-through", voiceLine: `Welcome to ${name}${city ? ` in ${city}${state ? `, ${state}` : ""}` : ""}. Serving our community with pride.`, textOverlay: `Welcome to ${name}` },
+    { shotType: "food", visual: `Hero shot of ${name}'s signature ${primarySvc}. Dramatic rim lighting, vibrant colors.`, camera: "slow pan across product", voiceLine: `From ${primarySvc} to ${secondarySvc} — every detail crafted with care.${uniqueSelling ? ` ${uniqueSelling}` : ""}`, textOverlay: primarySvc },
+    { shotType: "food", visual: `Close-up montage of ${name}'s offerings. Dynamic composition, vibrant colors.`, camera: "rack focus transitions", voiceLine: `Only the best — quality you can see and taste.`, textOverlay: "Something for Everyone" },
+    { shotType: "people", visual: `Happy ${aud} enjoying their experience at ${name}. Laughing together.`, camera: "lateral tracking dolly", voiceLine: `Our ${aud} keep coming back.${strategyInsights ? ` Known for ${strategyInsights}.` : ""}`, textOverlay: "Loved by Locals" },
+    { shotType: "people", visual: `Behind-the-scenes at ${name}. Skilled hands at work, attention to detail.`, camera: "dolly-in extreme close-up", voiceLine: `Behind every great experience is a team that truly cares.`, textOverlay: "Crafted with Care" },
+    { shotType: "environment", visual: `Inviting wide shot of ${name}'s interior. ${tone} atmosphere, warm lighting.`, camera: "overhead crane shot", voiceLine: `Come see the difference for yourself.`, textOverlay: "Step Inside" },
+    { shotType: "food", visual: `Top-down flat lay of ${name}'s best offerings arranged artfully.`, camera: "slow overhead rotate", voiceLine: `Fresh, delicious, and made just for you.`, textOverlay: "Always Fresh" },
+    { shotType: "people", visual: `A family enjoying time together at ${name}. Warm smiles, golden light.`, camera: "medium shot, gentle push-in", voiceLine: `${name} isn't just ${cat} — it's where memories are made.`, textOverlay: "Family Moments" },
+    { shotType: "environment", visual: `${name} team preparing for the day. Organized, energetic, morning light.`, camera: "tracking shot through space", voiceLine: `Every day starts with one goal: make your experience unforgettable.`, textOverlay: "Ready for You" },
+    { shotType: "food", visual: `Action shot of ${primarySvc} being prepared. Hands in motion, energy and precision.`, camera: "dynamic handheld close-up", voiceLine: `Real craft, real passion, real flavor.`, textOverlay: "Made with Passion" },
+    { shotType: "people", visual: `Regular customers giving thumbs up, sharing on social media.`, camera: "medium close-up, natural light", voiceLine: `Our fans speak for themselves.`, textOverlay: "★★★★★" },
+    { shotType: "environment", visual: `${name} exterior at night with warm glow, inviting entrance.`, camera: "slow dolly approaching entrance", voiceLine: `Whether it's lunch, dinner, or a late-night craving — ${name} is here.`, textOverlay: "Open for You" },
+    { shotType: "food", visual: `Extreme close-up of textures — melted cheese, crispy edges, fresh garnish on ${primarySvc}.`, camera: "macro lens slow pull-out", voiceLine: `The details tell the story. Every texture, every flavor — intentional.`, textOverlay: "Every Detail" },
+    { shotType: "people", visual: `Staff member carefully packaging a to-go order with a handwritten thank-you note.`, camera: "over-the-shoulder medium shot", voiceLine: `Whether you dine in or take out, the ${name} touch goes with you.`, textOverlay: "The Extra Mile" },
+    { shotType: "environment", visual: `Wide aerial-style shot of ${city} with ${name}'s location highlighted by warm light.`, camera: "ascending drone reveal", voiceLine: `Right here in the heart of ${city}${state ? `, ${state}` : ""} — a ${cat} worth the trip.`, textOverlay: `Heart of ${city}` },
+    { shotType: "people", visual: `A first-time customer walking in, eyes lighting up at the atmosphere.`, camera: "following steadicam from behind", voiceLine: `First timers become regulars. That's the ${name} effect.`, textOverlay: "The Effect" },
+    { shotType: "food", visual: `Side-by-side comparison: raw ingredients transforming into a finished ${primarySvc}.`, camera: "timelapse-style sequence", voiceLine: `From scratch to served — we put the work in so you taste the difference.`, textOverlay: "From Scratch" },
+    { shotType: "environment", visual: `Cozy corner of ${name} — a couple sharing a quiet moment, ambient music vibes.`, camera: "soft focus medium wide", voiceLine: `It's not just about the ${cat}. It's about the feeling.`, textOverlay: "The Feeling" },
+    { shotType: "people", visual: `Group of friends cheering, clinking glasses, celebrating at ${name}.`, camera: "wide shot with confetti energy", voiceLine: `Birthdays, milestones, random Tuesdays — ${name} makes them all special.`, textOverlay: "Celebrate Here" },
+    { shotType: "food", visual: `${name}'s newest or seasonal offering, presented with dramatic flair.`, camera: "rotating pedestal shot", voiceLine: `Always evolving, always surprising. Ask about what's new.`, textOverlay: "What's New" },
   ];
 
-  // Build the scene list with randomization
+  // ── STRUCTURAL VARIANCE — pick a random architecture ──
+  const structures = ["linear", "bookend", "reverse", "middle_heavy"] as const;
+  const structure = pick([...structures]);
+
   const chosenHook = pick(hooks);
   const chosenClosing = pick(closings);
   const shuffledMiddles = shuffle(middleScenes);
-  const neededMiddles = Math.max(0, sceneCount - 2); // first + last are hook/closing
+  const neededMiddles = Math.max(0, sceneCount - 2);
 
   const scenes: any[] = [];
 
-  // Scene 1: Hook (random variant)
-  scenes.push({
-    shotType: "environment",
-    visual: `Stunning exterior of ${name} storefront at golden hour. Warm inviting glow, signage prominent, ${city} street life.`,
-    camera: "slow push-in towards entrance",
-    voiceLine: chosenHook.voiceLine,
-    textOverlay: chosenHook.textOverlay,
-  });
+  // Hook visual variants
+  const hookVisuals = [
+    `Stunning exterior of ${name} storefront at golden hour. Warm inviting glow, signage prominent, ${city} street life.`,
+    `Drone-style sweeping shot descending toward ${name}'s entrance. ${city} skyline visible, dramatic reveal.`,
+    `Quick-cut montage: hands preparing ${primarySvc}, a smile, the ${name} sign — all in 3 seconds. High energy.`,
+    `Slow-motion shot of the ${name} door opening, warm light spilling out, a customer stepping inside.`,
+    `Time-lapse of ${city} transitioning from morning to evening, ending with ${name} lit up at night.`,
+  ];
 
-  // Middle scenes: shuffled selection
-  for (let i = 0; i < neededMiddles && i < shuffledMiddles.length; i++) {
-    scenes.push(shuffledMiddles[i]);
+  // Closing visual variants
+  const closingVisuals = [
+    `${name} logo or storefront signage at twilight. Beautiful bokeh, elegant branding moment.`,
+    `Happy customers walking out of ${name}, waving goodbye, takeaway bags in hand. Warm sunset.`,
+    `Animated text reveal of ${name}'s address and social handles over a blurred background of the interior.`,
+    `Overhead shot of a full table at ${name} — food, drinks, hands reaching in. Community moment.`,
+  ];
+
+  if (structure === "reverse") {
+    // Start with CTA, end with hook — inverted structure
+    scenes.push({ shotType: "environment", visual: pick(closingVisuals), camera: "slow pull-back reveal", voiceLine: chosenClosing.voiceLine, textOverlay: chosenClosing.textOverlay });
+    for (let i = 0; i < neededMiddles && i < shuffledMiddles.length; i++) scenes.push(shuffledMiddles[i]);
+    scenes.push({ shotType: "environment", visual: pick(hookVisuals), camera: "slow push-in towards entrance", voiceLine: chosenHook.voiceLine, textOverlay: chosenHook.textOverlay });
+  } else if (structure === "middle_heavy") {
+    // Short hook, extra middles, short close
+    scenes.push({ shotType: "environment", visual: pick(hookVisuals), camera: "quick whip pan", voiceLine: chosenHook.voiceLine, textOverlay: chosenHook.textOverlay });
+    for (let i = 0; i < neededMiddles + 1 && i < shuffledMiddles.length && scenes.length < sceneCount - 1; i++) scenes.push(shuffledMiddles[i]);
+    scenes.push({ shotType: "environment", visual: pick(closingVisuals), camera: "snap zoom to logo", voiceLine: chosenClosing.voiceLine, textOverlay: chosenClosing.textOverlay });
+  } else {
+    // Linear or bookend (standard flow)
+    scenes.push({ shotType: "environment", visual: pick(hookVisuals), camera: "slow push-in towards entrance", voiceLine: chosenHook.voiceLine, textOverlay: chosenHook.textOverlay });
+    for (let i = 0; i < neededMiddles && i < shuffledMiddles.length; i++) scenes.push(shuffledMiddles[i]);
+    scenes.push({ shotType: "environment", visual: pick(closingVisuals), camera: "slow pull-back reveal", voiceLine: chosenClosing.voiceLine, textOverlay: chosenClosing.textOverlay });
   }
 
-  // Last scene: CTA/closing (random variant)
-  scenes.push({
-    shotType: "environment",
-    visual: `${name} logo or storefront signage at twilight. Beautiful bokeh, elegant branding moment.`,
-    camera: "slow pull-back reveal",
-    voiceLine: chosenClosing.voiceLine,
-    textOverlay: chosenClosing.textOverlay,
-  });
+  // Trim or pad to exact sceneCount
+  while (scenes.length > sceneCount) scenes.pop();
+  while (scenes.length < sceneCount) {
+    const extra = shuffledMiddles[scenes.length % shuffledMiddles.length];
+    if (extra) scenes.push(extra);
+    else break;
+  }
 
   const formattedScenes = scenes.map((s, i) => ({
     scene_number: i + 1,
@@ -214,17 +192,22 @@ function buildScriptFromProfile(biz: any, loc: any, strategyData: any, sceneCoun
     shotType: s.shotType,
   }));
 
+  // Title variants
+  const titlePrefixes = ["Your Local", "Discover", "Experience", "Meet", "Welcome to", "Introducing", "Inside", "The Story of", "Why People Love", "A Taste of", "Behind the Scenes at"];
+
   return {
-    title: `${name} — ${pick(["Your Local", "Discover", "Experience", "Meet", "Welcome to"])} ${cat}`,
+    title: `${name} — ${pick(titlePrefixes)} ${cat}`,
     description: `Discover what makes ${name} the go-to ${cat} in ${city}.`,
     voiceover_script: formattedScenes.map(s => s.voiceover_line).join(" "),
     scene_captions: formattedScenes.map(s => s.voiceover_line),
     scenes: formattedScenes,
-    caption: `✨ Discover ${name} in ${city}! ${svc} 🔥 #${name.replace(/\s+/g, "")} #${cat.replace(/\s+/g, "")}`,
-    hashtags: [name.replace(/\s+/g, ""), cat.replace(/\s+/g, ""), city.replace(/\s+/g, ""), "smallbusiness"],
-    target_platform: "instagram",
+    caption: `${pick(["✨", "🔥", "💯", "🎬", "⭐"])} ${pick(["Discover", "Experience", "Meet", "Fall in love with", "Check out"])} ${name} in ${city}! ${svc} ${pick(["🔥", "💪", "✨", "🎯"])} #${name.replace(/\s+/g, "")} #${cat.replace(/\s+/g, "")}`,
+    hashtags: [name.replace(/\s+/g, ""), cat.replace(/\s+/g, ""), city.replace(/\s+/g, ""), "smallbusiness", pick(["localbusiness", "supportlocal", "shoplocal", "communitylove"])],
+    target_platform: pick(["instagram", "tiktok", "facebook"]),
     cta: chosenClosing.voiceLine,
     usedFallbackScript: true,
+    _generationId: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    _structure: structure,
   };
 }
 
