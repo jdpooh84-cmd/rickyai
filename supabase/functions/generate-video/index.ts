@@ -819,7 +819,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       usedFallbackScript = !!passedScript.usedFallbackScript;
     } else {
       try {
-        const prompt = buildAIPrompt(business, location, preset);
+        const prompt = buildAIPrompt(business, location, preset, strategyData);
         const res = await fetch(AI_URL, {
           method: "POST",
           headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
