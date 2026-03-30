@@ -317,7 +317,21 @@ function buildManusPromptText(script: any, biz: any, shots: any[], aspectRatio: 
     `Shot ${s.index} (${s.estimated_duration_seconds}s): ${s.prompt_text}\nVO: "${s.voice_lines}"\nOn-screen: "${s.on_screen_text}"`
   ).join("\n\n");
 
+  // Unique seed so Manus never produces the same video twice
+  const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
   return `Create a ${aspectRatio} cinematic promotional video for ${biz.business_name}.
+
+═══ ZERO REDUNDANCY POLICY ═══
+Generation ID: ${uniqueSeed}
+You are PROHIBITED from reusing templates, recycled dialogue, or repetitive structural tropes from ANY previous output.
+EXECUTION RULES:
+1. RANDOMIZED ENTRY — Do NOT start with the same greeting, hook, or scene-setter used before. Invent a fresh opening angle.
+2. LEXICAL DIVERSITY — Avoid crutch words and common AI phrasings. If a sentence feels "typical," break the syntax and rewrite.
+3. ARCHITECTURAL VARIANCE — Shuffle the narrative flow. Use a non-linear, modular, or inverse structure compared to standard promos.
+4. SELF-AUDIT — Before finalizing, cross-reference against common patterns. If it looks like a repeat, discard and regenerate with a 180-degree shift in tone or perspective.
+5. At least 80% of thematic territory must be NEW compared to any standard output for this category.
+═══════════════════════════════
 
 BRAND CONTEXT:
 - Business: ${biz.business_name} (${biz.business_category || "local business"})
@@ -325,10 +339,10 @@ BRAND CONTEXT:
 - Audience: ${biz.target_audience || "local customers"}
 - Tone: ${biz.brand_tone || "friendly and professional"}
 
-APPROVED VOICEOVER SCRIPT:
+APPROVED VOICEOVER SCRIPT (use as inspiration, rewrite for uniqueness):
 "${script.voiceover_script}"
 
-CINEMATIC SHOT LIST (follow this exact scene order):
+CINEMATIC SHOT LIST (follow this exact scene order but make each visually distinct):
 ${shotDescriptions}
 
 DIRECTION:
@@ -337,7 +351,8 @@ DIRECTION:
 - Match the overall tone: cinematic, high contrast, natural motion, no cheesy stock footage look
 - Use warm, inviting color grading throughout
 - Ensure brand elements (logo, signage) are visible in opening and closing shots
-- Total duration: approximately ${shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0)} seconds`;
+- Total duration: approximately ${shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0)} seconds
+- THIS VIDEO MUST FEEL COMPLETELY DIFFERENT from any prior video generated for this business`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
