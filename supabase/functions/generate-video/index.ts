@@ -32,9 +32,11 @@ interface PipelinePreset {
 
 function buildPreset(lengthMode: string, orientation: Orientation = "landscape"): PipelinePreset {
   const ratio = orientation === "vertical" ? VIDEO_PIPELINE_CONFIG.RATIO_VERTICAL : VIDEO_PIPELINE_CONFIG.RATIO_LANDSCAPE;
+  // MINIMUM 60 seconds enforced on all videos
   switch (lengthMode) {
     case "short":
-      return { targetSeconds: 30, sceneCount: 3, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Short (30s)" };
+      // "Short" now produces 60s minimum (6 scenes × 10s each)
+      return { targetSeconds: 60, sceneCount: 6, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Standard (60s)" };
     case "long":
       return { targetSeconds: 90, sceneCount: 9, clipDuration: VIDEO_PIPELINE_CONFIG.DURATION_STANDARD, orientation, ratio, label: "Long (90s)" };
     case "standard":
