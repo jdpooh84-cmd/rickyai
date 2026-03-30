@@ -297,45 +297,80 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
 
 function buildManusPromptText(script: any, biz: any, shots: any[], aspectRatio: string): string {
   const shotDescriptions = shots.map((s: any) =>
-    `Shot ${s.index} (${s.estimated_duration_seconds}s): ${s.prompt_text}\nVO: "${s.voice_lines}"\nOn-screen: "${s.on_screen_text}"`
+    `Shot ${s.index} (${s.estimated_duration_seconds}s): ${s.prompt_text}\nVO: "${s.voice_lines}"\nOn-screen: "${s.on_screen_text}"\nEmotional beat: ${s.emotional_beat || "engage"}\nDO NOT: ${s.negative_prompt || "no generic stock footage look"}`
   ).join("\n\n");
 
-  // Unique seed so Manus never produces the same video twice
   const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tone = biz.brand_tone || "friendly";
+  const cat = biz.business_category || "local business";
+  const city = biz.locations?.[0]?.city || "";
+  const competitors = biz.competitors || "";
 
-  return `Create a ${aspectRatio} cinematic promotional video for ${biz.business_name}.
+  return `═══ AI VIDEO CREATION BRIEF — BESPOKE PRODUCTION ═══
+Generation ID: ${uniqueSeed}
+Format: ${aspectRatio} cinematic promotional video
+Client: ${biz.business_name}
+
+═══ BUSINESS INTELLIGENCE ═══
+Category: ${cat}
+Services: ${biz.services || "various"}
+Target Market: ${biz.target_audience || "local customers"}
+Brand Voice: ${tone}
+${competitors ? `Competitors: ${competitors} — THIS VIDEO MUST DIFFERENTIATE from these brands` : ""}
+${biz.content_goals ? `Marketing Goals: ${biz.content_goals}` : ""}
 
 ═══ ZERO REDUNDANCY POLICY ═══
-Generation ID: ${uniqueSeed}
-You are PROHIBITED from reusing templates, recycled dialogue, or repetitive structural tropes from ANY previous output.
-EXECUTION RULES:
-1. RANDOMIZED ENTRY — Do NOT start with the same greeting, hook, or scene-setter used before. Invent a fresh opening angle.
-2. LEXICAL DIVERSITY — Avoid crutch words and common AI phrasings. If a sentence feels "typical," break the syntax and rewrite.
-3. ARCHITECTURAL VARIANCE — Shuffle the narrative flow. Use a non-linear, modular, or inverse structure compared to standard promos.
-4. SELF-AUDIT — Before finalizing, cross-reference against common patterns. If it looks like a repeat, discard and regenerate with a 180-degree shift in tone or perspective.
-5. At least 80% of thematic territory must be NEW compared to any standard output for this category.
-═══════════════════════════════
+You are PROHIBITED from:
+- Reusing ANY templates, recycled dialogue, or repetitive structural tropes
+- Starting with the same hook or visual approach as any standard promo
+- Using generic AI phrasings or crutch words
+- Producing anything that looks like a "template" video
+Each generation must be a CLEAN SLATE — 80%+ new thematic territory.
 
-BRAND CONTEXT:
-- Business: ${biz.business_name} (${biz.business_category || "local business"})
-- Services: ${biz.services || "various"}
-- Audience: ${biz.target_audience || "local customers"}
-- Tone: ${biz.brand_tone || "friendly and professional"}
+═══ CINEMATIC PROMPTING ═══
+For every shot, specify:
+1. SHOT SIZE: ECU, CU, MCU, MS, MWS, WS, EWS (vary between scenes!)
+2. CAMERA MOVEMENT: dolly, steadicam, crane, handheld, locked-off, tracking, orbit
+3. LIGHTING: Rembrandt, butterfly, split, practical, available, golden hour, blue hour
+4. DEPTH OF FIELD: shallow (f/1.4-2.8) or deep (f/8-16), rack focus, pull focus
+5. COLOR GRADE: specific look (warm amber, cool teal, desaturated earth, etc.)
 
-APPROVED VOICEOVER SCRIPT (use as inspiration, rewrite for uniqueness):
+═══ NEGATIVE PROMPTING (WHAT TO AVOID) ═══
+- NO generic stock footage aesthetic or corporate feel
+- NO robotic, unnatural, or AI-looking movement
+- NO oversaturated "Instagram filter" color grading
+- NO cheesy text animations, star wipes, or lens flares
+- NO identical framing in consecutive shots
+- NO corporate jargon or generic "welcome to our business" messaging
+- NO default placeholder music or generic sound design
+
+═══ STYLING DIRECTIVE ═══
+Visual Aesthetic: Photorealistic, cinematic, natural motion
+Color Palette: Derived from ${biz.business_name}'s brand — ${tone === "luxury" ? "deep blacks, golds, rich textures" : tone === "fun" ? "vibrant saturated colors, high energy" : tone === "edgy" ? "high contrast, desaturated with accent pops" : "warm naturals, golden light, inviting warmth"}
+Texture: Real-world textures — wood grain, fabric, food surfaces, skin — no flat CGI surfaces
+Motion Quality: Smooth, professional, like a $50K commercial production
+
+═══ VOICEOVER SCRIPT (APPROVED — adapt for uniqueness) ═══
 "${script.voiceover_script}"
 
-CINEMATIC SHOT LIST (follow this exact scene order but make each visually distinct):
+═══ CINEMATIC SHOT LIST ═══
 ${shotDescriptions}
 
-DIRECTION:
-- Follow the scene order exactly as listed above
-- Aim for smooth transitions between shots
-- Match the overall tone: cinematic, high contrast, natural motion, no cheesy stock footage look
-- Use warm, inviting color grading throughout
-- Ensure brand elements (logo, signage) are visible in opening and closing shots
-- Total duration: approximately ${shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0)} seconds
-- THIS VIDEO MUST FEEL COMPLETELY DIFFERENT from any prior video generated for this business`;
+═══ EMOTIONAL ARC ═══
+Opening (Shots 1-2): INTRIGUE → Hook the viewer instantly. Unexpected angle.
+Middle (Shots 3-${Math.max(3, shots.length - 2)}): DISCOVERY + CONNECTION → Reveal + human element
+Climax (Shot ${Math.max(4, shots.length - 1)}): DESIRE → Make viewer WANT this experience
+Close (Shot ${shots.length}): ACTION → Clear, memorable CTA with brand recall
+
+═══ PRE-VISUALIZATION NOTES ═══
+- Each shot must transition seamlessly into the next
+- Vary shot sizes: NEVER use the same framing twice in a row
+- Use at least 3 different camera movements across the video
+- Color grading must be consistent throughout — this is ONE cohesive piece
+- Brand signage/logo visible in first and last shots only — subtle elsewhere
+- Total duration: ${shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0)} seconds
+- This is NOT a slideshow. Every frame must have motion, life, and intention.
+- THIS MUST BE A COMPLETELY UNIQUE VIDEO — never the same as any prior output.`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
