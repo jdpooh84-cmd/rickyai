@@ -1558,6 +1558,19 @@ Deno.serve(async (req) => {
       script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
       script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
 
+      // ═══ AI PROMPT FIXER — script_only mode ═══
+      for (let fixAttempt = 1; fixAttempt <= MAX_SELF_CORRECT_ATTEMPTS; fixAttempt++) {
+        const issues = diagnoseScript(script, preset, business, location);
+        if (issues.length === 0 || issues.filter(i => i.severity === "critical").length === 0) {
+          if (issues.length > 0) console.log(`[PromptFixer:script_only] ${issues.length} minor warnings, proceeding`);
+          break;
+        }
+        logPromptFixer(fixAttempt, issues, "FIXING (script_only)");
+        script = applyScriptFixes(script, issues, preset, business, location, strategyData);
+        script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+        script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+      }
+
       // Build cinematic visual script for script_only mode too
       const manusVisualScript = buildManusVisualScript(script, business, preset, "preview");
       script.manus_visual_script = manusVisualScript;
