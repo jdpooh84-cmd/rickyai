@@ -312,81 +312,43 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
 }
 
 function buildManusPromptText(script: any, biz: any, shots: any[], aspectRatio: string): string {
-  const shotDescriptions = shots.map((s: any) =>
-    `Shot ${s.index} (${s.estimated_duration_seconds}s): ${s.prompt_text}\nVO: "${s.voice_lines}"\nOn-screen: "${s.on_screen_text}"\nEmotional beat: ${s.emotional_beat || "engage"}\nDO NOT: ${s.negative_prompt || "no generic stock footage look"}`
-  ).join("\n\n");
-
-  const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  // SLIMMED PROMPT — reduced context load per Manus support recommendation
   const tone = biz.brand_tone || "friendly";
   const cat = biz.business_category || "local business";
   const city = biz.locations?.[0]?.city || "";
-  const competitors = biz.competitors || "";
+  const totalDur = shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0);
 
-  return `═══ AI VIDEO CREATION BRIEF — BESPOKE PRODUCTION ═══
-Generation ID: ${uniqueSeed}
-Format: ${aspectRatio} cinematic promotional video
-Client: ${biz.business_name}
-
-═══ BUSINESS INTELLIGENCE ═══
-Category: ${cat}
+  return `═══ VIDEO BRIEF — ${biz.business_name} ═══
+Format: ${aspectRatio} | Duration: ${totalDur}s | Style: cinematic, photorealistic
+Business: ${biz.business_name} (${cat}) in ${city}
+Tone: ${tone} | Audience: ${biz.target_audience || "local customers"}
 Services: ${biz.services || "various"}
-Target Market: ${biz.target_audience || "local customers"}
-Brand Voice: ${tone}
-${competitors ? `Competitors: ${competitors} — THIS VIDEO MUST DIFFERENTIATE from these brands` : ""}
-${biz.content_goals ? `Marketing Goals: ${biz.content_goals}` : ""}
+${biz.competitors ? `Differentiate from: ${biz.competitors}` : ""}
 
-═══ ZERO REDUNDANCY POLICY ═══
-You are PROHIBITED from:
-- Reusing ANY templates, recycled dialogue, or repetitive structural tropes
-- Starting with the same hook or visual approach as any standard promo
-- Using generic AI phrasings or crutch words
-- Producing anything that looks like a "template" video
-Each generation must be a CLEAN SLATE — 80%+ new thematic territory.
+RULES: Unique bespoke video. No templates. No generic stock footage look. Vary shot sizes. Natural motion. ${city} location ONLY.
 
-═══ CINEMATIC PROMPTING ═══
-For every shot, specify:
-1. SHOT SIZE: ECU, CU, MCU, MS, MWS, WS, EWS (vary between scenes!)
-2. CAMERA MOVEMENT: dolly, steadicam, crane, handheld, locked-off, tracking, orbit
-3. LIGHTING: Rembrandt, butterfly, split, practical, available, golden hour, blue hour
-4. DEPTH OF FIELD: shallow (f/1.4-2.8) or deep (f/8-16), rack focus, pull focus
-5. COLOR GRADE: specific look (warm amber, cool teal, desaturated earth, etc.)
+VOICEOVER: "${script.voiceover_script}"
 
-═══ NEGATIVE PROMPTING (WHAT TO AVOID) ═══
-- NO generic stock footage aesthetic or corporate feel
-- NO robotic, unnatural, or AI-looking movement
-- NO oversaturated "Instagram filter" color grading
-- NO cheesy text animations, star wipes, or lens flares
-- NO identical framing in consecutive shots
-- NO corporate jargon or generic "welcome to our business" messaging
-- NO default placeholder music or generic sound design
+SHOT LIST (render each scene individually):
+${shots.map((s: any) => `S${s.index} (${s.estimated_duration_seconds}s): ${s.shot_type} — ${s.subject}. Camera: ${s.camera_movement}. Light: ${s.lighting}. Text: "${s.on_screen_text}". VO: "${s.voice_lines}". Avoid: ${s.negative_prompt || "generic look"}`).join("\n")}
 
-═══ STYLING DIRECTIVE ═══
-Visual Aesthetic: Photorealistic, cinematic, natural motion
-Color Palette: Derived from ${biz.business_name}'s brand — ${tone === "luxury" ? "deep blacks, golds, rich textures" : tone === "fun" ? "vibrant saturated colors, high energy" : tone === "edgy" ? "high contrast, desaturated with accent pops" : "warm naturals, golden light, inviting warmth"}
-Texture: Real-world textures — wood grain, fabric, food surfaces, skin — no flat CGI surfaces
-Motion Quality: Smooth, professional, like a $50K commercial production
+Emotional arc: Intrigue → Discovery → Connection → Desire → Action. Each shot transitions seamlessly. Color grade consistent throughout.`;
+}
 
-═══ VOICEOVER SCRIPT (APPROVED — adapt for uniqueness) ═══
-"${script.voiceover_script}"
+// Build per-scene prompts for sub-task architecture (each scene = 1 Manus task)
+function buildPerScenePrompts(script: any, biz: any, shots: any[], aspectRatio: string): string[] {
+  const tone = biz.brand_tone || "friendly";
+  const city = biz.locations?.[0]?.city || "";
+  const context = `Business: ${biz.business_name} (${biz.business_category || "business"}) in ${city}. Tone: ${tone}. Style: cinematic, photorealistic.`;
 
-═══ CINEMATIC SHOT LIST ═══
-${shotDescriptions}
-
-═══ EMOTIONAL ARC ═══
-Opening (Shots 1-2): INTRIGUE → Hook the viewer instantly. Unexpected angle.
-Middle (Shots 3-${Math.max(3, shots.length - 2)}): DISCOVERY + CONNECTION → Reveal + human element
-Climax (Shot ${Math.max(4, shots.length - 1)}): DESIRE → Make viewer WANT this experience
-Close (Shot ${shots.length}): ACTION → Clear, memorable CTA with brand recall
-
-═══ PRE-VISUALIZATION NOTES ═══
-- Each shot must transition seamlessly into the next
-- Vary shot sizes: NEVER use the same framing twice in a row
-- Use at least 3 different camera movements across the video
-- Color grading must be consistent throughout — this is ONE cohesive piece
-- Brand signage/logo visible in first and last shots only — subtle elsewhere
-- Total duration: ${shots.reduce((s: number, sh: any) => s + sh.estimated_duration_seconds, 0)} seconds
-- This is NOT a slideshow. Every frame must have motion, life, and intention.
-- THIS MUST BE A COMPLETELY UNIQUE VIDEO — never the same as any prior output.`;
+  return shots.map((s: any) => {
+    return `${context}
+Render ONE scene (${s.estimated_duration_seconds}s, ${aspectRatio}):
+${s.shot_type} of ${s.subject}. Camera: ${s.camera_movement}. Lighting: ${s.lighting}.
+On-screen text: "${s.on_screen_text}". Voiceover: "${s.voice_lines}".
+Emotional beat: ${s.emotional_beat || "engage"}. Avoid: ${s.negative_prompt || "generic stock footage"}.
+Natural motion, no robotic movement, cinematic depth of field.`;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
