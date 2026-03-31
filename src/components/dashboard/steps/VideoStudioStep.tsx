@@ -16,6 +16,15 @@ interface Props { businessId: string | null; locationId: string | null; onComple
 
 type LengthMode = "short" | "standard" | "long" | "extended";
 type ManusModel = "default" | "veo3";
+type SpeedTier = "instant" | "standard" | "cinematic";
+
+const SPEED_TIERS: { key: SpeedTier; label: string; engine: string; speed: string; quality: string; emoji: string; desc: string }[] = [
+  { key: "instant", label: "Instant", engine: "Built-in Composer", speed: "10-30 sec", quality: "Good", emoji: "⚡", desc: "Ken Burns slideshow + captions + voiceover. Ready in seconds." },
+  { key: "standard", label: "Standard", engine: "HeyGen", speed: "1-3 min", quality: "Great", emoji: "🎬", desc: "AI-powered video with professional polish. Short wait." },
+  { key: "cinematic", label: "Cinematic", engine: "Manus AI", speed: "5-15 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production. Best quality — worth the wait." },
+];
+
+const MANUS_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 const STATE_KEY = "rickyai-video-studio-state";
 const MAX_REWRITES = 3;
@@ -60,6 +69,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [importingManus, setImportingManus] = useState(false);
   // Manus model selection
   const [manusModel, setManusModel] = useState<ManusModel>("default");
+  // Speed tier selection
+  const [speedTier, setSpeedTier] = useState<SpeedTier>("instant");
+  const jobStartTimeRef = useRef<number>(0);
 
   // Derive tier for Manus model gating
   const manusTier = useMemo(() => {
@@ -94,6 +106,25 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         if (data.status === "processing") {
           // Manus job dispatched to Make.com — keep polling, don't stop
           setGeneratedVideoScript(data.result_payload);
+
+          // ── AUTO-TIMEOUT: if 10 min elapsed, auto-fail and trigger fallback ──
+          if (jobStartTimeRef.current && Date.now() - jobStartTimeRef.current > MANUS_TIMEOUT_MS) {
+            clearInterval(interval);
+            console.warn("[VideoStudio] Manus AI timed out after 10 minutes — triggering fallback");
+            toast.warning("Manus AI took too long — generating instant fallback video instead ⚡");
+            // Mark job as failed
+            await supabase.from("video_generation_jobs").update({
+              status: "failed",
+              error_message: "Auto-timeout: Manus AI did not respond within 10 minutes",
+              updated_at: new Date().toISOString(),
+            }).eq("id", activeJobId);
+            setGeneratingVideo(false);
+            setJobStatus("failed");
+            // Auto-trigger instant fallback
+            handleProduceInstantFallback();
+            return;
+          }
+
           // Check if video_url was filled in by the callback
           if (data.video_url) {
             clearInterval(interval);
@@ -232,6 +263,62 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
 
+  // ── Instant fallback: client-side composer with approved script ──
+  const handleProduceInstantFallback = async () => {
+    if (!businessId || !approvedScript) return;
+    setGeneratingVideo(true);
+    setComposingVideo(true);
+    setJobStatus("composing_video");
+    setComposePct(0);
+    try {
+      // Fetch business media for real photos
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const { data: mediaItems } = await supabase.from("business_media")
+        .select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
+      const images = mediaItems?.map(m => m.public_url) || [];
+      // If no real images, create gradient placeholder
+      if (images.length === 0) {
+        const c = document.createElement("canvas"); c.width = 128; c.height = 128;
+        const cx = c.getContext("2d")!;
+        const g = cx.createLinearGradient(0, 0, 128, 128);
+        g.addColorStop(0, "#1a1a2e"); g.addColorStop(1, "#16213e");
+        cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
+        images.push(c.toDataURL());
+      }
+
+      const blob = await composeVideo({
+        sceneImages: images,
+        voiceoverUrl: null,
+        businessName: approvedScript.title || "Video",
+        title: approvedScript.title,
+        sceneCaptions: approvedScript.scenes?.map((s: any) => s.voiceover_line) || [],
+        durationPerScene: 5,
+        totalDurationSeconds: approvedScript.scenes?.length ? approvedScript.scenes.length * 5 : 30,
+        width: 1080,
+        height: 1920,
+        onProgress: setComposePct,
+      });
+      const url = URL.createObjectURL(blob);
+      setFinalVideoUrl(url);
+
+      // Upload to storage
+      const fileName = `videos/${user.id}/instant-${Date.now()}/final.webm`;
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+        setFinalVideoUrl(urlData.publicUrl);
+      }
+      toast.success("Your instant video is ready! ⚡");
+    } catch (err: any) {
+      console.error("[VideoStudio] Instant fallback failed:", err);
+      toast.error("Failed to compose video — please try again");
+    } finally {
+      setComposingVideo(false);
+      setGeneratingVideo(false);
+    }
+  };
+
   const handleProduceVideo = async () => {
     if (!businessId) {
       toast.error("Please set up your business profile first.");
@@ -242,20 +329,37 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       scriptPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+
+    // ── INSTANT TIER: skip server, compose client-side ──
+    if (speedTier === "instant") {
+      await handleProduceInstantFallback();
+      return;
+    }
+
     setGeneratingVideo(true);
     setFinalVideoUrl(null);
     composedRef.current = false;
     setJobStatus("queued");
     setComposePct(0);
     setGeneratedVideoScript(null);
+    jobStartTimeRef.current = Date.now(); // Start timeout clock
     try {
       const response = await supabase.functions.invoke("generate-video", {
-        body: { businessId, videoType: "promotional", lengthMode, approvedScript, manusModel, manusTier },
+        body: {
+          businessId,
+          videoType: "promotional",
+          lengthMode,
+          approvedScript,
+          manusModel: speedTier === "cinematic" ? manusModel : "default",
+          manusTier,
+          speedTier,
+        },
       });
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
         setActiveJobId(response.data.job_id);
-        toast.info("🎬 Video production started with your approved script!");
+        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "HeyGen (1-3 min)";
+        toast.info(`🎬 Video production started — ${tierLabel}`);
       } else {
         throw new Error("No job ID returned");
       }
@@ -276,6 +380,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setApprovedScript(null);
     setScriptApproved(false);
     setRewriteCount(0);
+    setSpeedTier("instant");
+    jobStartTimeRef.current = 0;
     setScriptVersions([]);
     removeLocalStorage(STATE_KEY);
   };
@@ -330,8 +436,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_script": return "✍️ Writing your script...";
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
-      case "rendering_video": return "🎬 Rendering with Manus AI...";
-      case "processing": return "🤖 Waiting for Manus AI to finish rendering... (this can take a few minutes)";
+      case "rendering_video": return speedTier === "cinematic" ? "🎬 Rendering with Manus AI..." : "🎬 Rendering with HeyGen...";
+      case "processing": return speedTier === "cinematic" 
+        ? "🤖 Waiting for Manus AI to finish rendering... (5-15 min, auto-fallback at 10 min)" 
+        : "🎬 Waiting for HeyGen to finish... (1-3 min)";
       case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
       default: return "Processing...";
     }
@@ -502,74 +610,93 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           )}
         </div>
 
-        {/* ═══ STEP 2.5: Manus Video Quality Selector ═══ */}
+        {/* ═══ STEP 2.5: Speed Tier Selector ═══ */}
         {scriptApproved && (
           <div className="glass rounded-2xl p-6">
             <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-              <Clapperboard className="w-4 h-4 text-primary" /> Choose Video Quality
+              <Clapperboard className="w-4 h-4 text-primary" /> Choose Production Speed
             </h4>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Standard (Default Model) */}
-              <button
-                onClick={() => setManusModel("default")}
-                className={`rounded-2xl p-4 text-left transition-all border ${
-                  manusModel === "default"
-                    ? "border-primary bg-primary/5 ring-2 ring-primary"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-bold text-foreground">Standard</span>
-                  {manusModel === "default" && <Check className="w-3 h-3 text-primary ml-auto" />}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Good for social media & quick promos</p>
-                <p className="text-[10px] text-muted-foreground">Supports 16:9, 9:16, and 1:1</p>
-                {manusTier === "free" && <p className="text-[10px] text-primary mt-1 font-semibold">≤15s recommended on Free tier</p>}
-                <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Included in your plan</p>
-              </button>
-
-              {/* Cinematic (Veo 3) */}
-              <button
-                onClick={() => {
-                  if (manusTier === "agency") {
-                    setManusModel("veo3");
-                  } else {
-                    toast.info("Cinematic (Veo 3) quality requires the Agency plan. Upgrade to unlock!");
-                  }
-                }}
-                className={`rounded-2xl p-4 text-left transition-all border relative ${
-                  manusModel === "veo3"
-                    ? "border-primary bg-primary/5 ring-2 ring-primary"
-                    : manusTier !== "agency"
-                    ? "border-border/50 opacity-70 cursor-not-allowed"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                {manusTier !== "agency" && (
-                  <div className="absolute top-2 right-2">
-                    <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex items-center gap-2 mb-2">
-                  <Film className="w-4 h-4 text-accent-foreground" />
-                  <span className="text-sm font-bold text-foreground">Cinematic (Veo 3)</span>
-                  {manusModel === "veo3" && <Check className="w-3 h-3 text-primary ml-auto" />}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Highest quality AI video</p>
-                <p className="text-[10px] text-muted-foreground">16:9 widescreen only</p>
-                <p className="text-[10px] text-muted-foreground">Best for TV-style commercials</p>
-                {manusTier !== "agency" ? (
-                  <p className="text-[10px] text-accent-foreground mt-1 font-semibold">🔒 Upgrade to Agency</p>
-                ) : (
-                  <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Unlocked on Agency</p>
-                )}
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {SPEED_TIERS.map(tier => {
+                const isLocked = tier.key === "cinematic" && manusTier === "free";
+                return (
+                  <button
+                    key={tier.key}
+                    onClick={() => {
+                      if (isLocked) {
+                        toast.info("Cinematic tier requires a paid plan. Upgrade to unlock!");
+                        return;
+                      }
+                      setSpeedTier(tier.key);
+                      if (tier.key === "cinematic") setManusModel("default");
+                    }}
+                    className={`rounded-2xl p-4 text-left transition-all border relative ${
+                      speedTier === tier.key
+                        ? "border-primary bg-primary/5 ring-2 ring-primary"
+                        : isLocked
+                        ? "border-border/50 opacity-60 cursor-not-allowed"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {isLocked && (
+                      <div className="absolute top-2 right-2">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="text-2xl mb-1">{tier.emoji}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-bold text-foreground">{tier.label}</span>
+                      {speedTier === tier.key && <Check className="w-3 h-3 text-primary" />}
+                    </div>
+                    <div className="text-xs font-semibold text-primary">{tier.speed}</div>
+                    <p className="text-[10px] text-muted-foreground mt-1">{tier.desc}</p>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium text-foreground/70">Quality: {tier.quality}</span>
+                      <span className="text-[10px] text-muted-foreground">• {tier.engine}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            {manusTier === "free" && manusModel === "default" && (
-              <p className="text-[10px] text-muted-foreground mt-3 text-center">
-                💡 Free tier: clips under 15 seconds recommended to stay within credit limits. Upgrade to Pro for longer videos.
-              </p>
+
+            {/* Cinematic sub-option: Veo 3 model selector */}
+            {speedTier === "cinematic" && manusTier === "agency" && (
+              <div className="mt-4 p-3 rounded-xl bg-secondary/30 border border-border">
+                <p className="text-[10px] font-semibold text-foreground mb-2">🎬 Cinematic Model:</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setManusModel("default")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${manusModel === "default" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"}`}>
+                    Standard
+                  </button>
+                  <button onClick={() => setManusModel("veo3")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${manusModel === "veo3" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"}`}>
+                    Veo 3 (Best)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Time expectation notice */}
+            {speedTier === "cinematic" && (
+              <div className="mt-3 p-2.5 rounded-xl bg-accent/10 border border-accent/20">
+                <p className="text-[10px] text-accent-foreground">
+                  ⏱ <strong>Cinematic videos take 5-15 minutes.</strong> If Manus AI doesn't respond within 10 minutes, we'll automatically create an instant fallback video so you're never stuck waiting.
+                </p>
+              </div>
+            )}
+            {speedTier === "standard" && (
+              <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-[10px] text-foreground/70">
+                  🎬 <strong>Standard videos take 1-3 minutes.</strong> HeyGen produces polished AI video quickly.
+                </p>
+              </div>
+            )}
+            {speedTier === "instant" && (
+              <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-[10px] text-foreground/70">
+                  ⚡ <strong>Instant — ready in seconds!</strong> Uses your real business photos with cinematic Ken Burns effects + on-screen captions.
+                </p>
+              </div>
             )}
           </div>
         )}
