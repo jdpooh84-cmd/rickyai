@@ -606,74 +606,93 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           )}
         </div>
 
-        {/* ═══ STEP 2.5: Manus Video Quality Selector ═══ */}
+        {/* ═══ STEP 2.5: Speed Tier Selector ═══ */}
         {scriptApproved && (
           <div className="glass rounded-2xl p-6">
             <h4 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-              <Clapperboard className="w-4 h-4 text-primary" /> Choose Video Quality
+              <Clapperboard className="w-4 h-4 text-primary" /> Choose Production Speed
             </h4>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Standard (Default Model) */}
-              <button
-                onClick={() => setManusModel("default")}
-                className={`rounded-2xl p-4 text-left transition-all border ${
-                  manusModel === "default"
-                    ? "border-primary bg-primary/5 ring-2 ring-primary"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-bold text-foreground">Standard</span>
-                  {manusModel === "default" && <Check className="w-3 h-3 text-primary ml-auto" />}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Good for social media & quick promos</p>
-                <p className="text-[10px] text-muted-foreground">Supports 16:9, 9:16, and 1:1</p>
-                {manusTier === "free" && <p className="text-[10px] text-primary mt-1 font-semibold">≤15s recommended on Free tier</p>}
-                <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Included in your plan</p>
-              </button>
-
-              {/* Cinematic (Veo 3) */}
-              <button
-                onClick={() => {
-                  if (manusTier === "agency") {
-                    setManusModel("veo3");
-                  } else {
-                    toast.info("Cinematic (Veo 3) quality requires the Agency plan. Upgrade to unlock!");
-                  }
-                }}
-                className={`rounded-2xl p-4 text-left transition-all border relative ${
-                  manusModel === "veo3"
-                    ? "border-primary bg-primary/5 ring-2 ring-primary"
-                    : manusTier !== "agency"
-                    ? "border-border/50 opacity-70 cursor-not-allowed"
-                    : "border-border hover:border-primary/50"
-                }`}
-              >
-                {manusTier !== "agency" && (
-                  <div className="absolute top-2 right-2">
-                    <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex items-center gap-2 mb-2">
-                  <Film className="w-4 h-4 text-accent-foreground" />
-                  <span className="text-sm font-bold text-foreground">Cinematic (Veo 3)</span>
-                  {manusModel === "veo3" && <Check className="w-3 h-3 text-primary ml-auto" />}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Highest quality AI video</p>
-                <p className="text-[10px] text-muted-foreground">16:9 widescreen only</p>
-                <p className="text-[10px] text-muted-foreground">Best for TV-style commercials</p>
-                {manusTier !== "agency" ? (
-                  <p className="text-[10px] text-accent-foreground mt-1 font-semibold">🔒 Upgrade to Agency</p>
-                ) : (
-                  <p className="text-[10px] text-primary/70 mt-1 font-medium">✅ Unlocked on Agency</p>
-                )}
-              </button>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {SPEED_TIERS.map(tier => {
+                const isLocked = tier.key === "cinematic" && manusTier === "free";
+                return (
+                  <button
+                    key={tier.key}
+                    onClick={() => {
+                      if (isLocked) {
+                        toast.info("Cinematic tier requires a paid plan. Upgrade to unlock!");
+                        return;
+                      }
+                      setSpeedTier(tier.key);
+                      if (tier.key === "cinematic") setManusModel("default");
+                    }}
+                    className={`rounded-2xl p-4 text-left transition-all border relative ${
+                      speedTier === tier.key
+                        ? "border-primary bg-primary/5 ring-2 ring-primary"
+                        : isLocked
+                        ? "border-border/50 opacity-60 cursor-not-allowed"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {isLocked && (
+                      <div className="absolute top-2 right-2">
+                        <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="text-2xl mb-1">{tier.emoji}</div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-bold text-foreground">{tier.label}</span>
+                      {speedTier === tier.key && <Check className="w-3 h-3 text-primary" />}
+                    </div>
+                    <div className="text-xs font-semibold text-primary">{tier.speed}</div>
+                    <p className="text-[10px] text-muted-foreground mt-1">{tier.desc}</p>
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-[10px] font-medium text-foreground/70">Quality: {tier.quality}</span>
+                      <span className="text-[10px] text-muted-foreground">• {tier.engine}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            {manusTier === "free" && manusModel === "default" && (
-              <p className="text-[10px] text-muted-foreground mt-3 text-center">
-                💡 Free tier: clips under 15 seconds recommended to stay within credit limits. Upgrade to Pro for longer videos.
-              </p>
+
+            {/* Cinematic sub-option: Veo 3 model selector */}
+            {speedTier === "cinematic" && manusTier === "agency" && (
+              <div className="mt-4 p-3 rounded-xl bg-secondary/30 border border-border">
+                <p className="text-[10px] font-semibold text-foreground mb-2">🎬 Cinematic Model:</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setManusModel("default")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${manusModel === "default" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"}`}>
+                    Standard
+                  </button>
+                  <button onClick={() => setManusModel("veo3")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${manusModel === "veo3" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"}`}>
+                    Veo 3 (Best)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Time expectation notice */}
+            {speedTier === "cinematic" && (
+              <div className="mt-3 p-2.5 rounded-xl bg-accent/10 border border-accent/20">
+                <p className="text-[10px] text-accent-foreground">
+                  ⏱ <strong>Cinematic videos take 5-15 minutes.</strong> If Manus AI doesn't respond within 10 minutes, we'll automatically create an instant fallback video so you're never stuck waiting.
+                </p>
+              </div>
+            )}
+            {speedTier === "standard" && (
+              <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-[10px] text-foreground/70">
+                  🎬 <strong>Standard videos take 1-3 minutes.</strong> HeyGen produces polished AI video quickly.
+                </p>
+              </div>
+            )}
+            {speedTier === "instant" && (
+              <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                <p className="text-[10px] text-foreground/70">
+                  ⚡ <strong>Instant — ready in seconds!</strong> Uses your real business photos with cinematic Ken Burns effects + on-screen captions.
+                </p>
+              </div>
             )}
           </div>
         )}
