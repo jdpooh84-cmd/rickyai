@@ -69,6 +69,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [importingManus, setImportingManus] = useState(false);
   // Manus model selection
   const [manusModel, setManusModel] = useState<ManusModel>("default");
+  // Speed tier selection
+  const [speedTier, setSpeedTier] = useState<SpeedTier>("instant");
+  const jobStartTimeRef = useRef<number>(0);
 
   // Derive tier for Manus model gating
   const manusTier = useMemo(() => {
