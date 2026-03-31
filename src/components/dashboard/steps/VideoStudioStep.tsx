@@ -106,6 +106,25 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         if (data.status === "processing") {
           // Manus job dispatched to Make.com — keep polling, don't stop
           setGeneratedVideoScript(data.result_payload);
+
+          // ── AUTO-TIMEOUT: if 10 min elapsed, auto-fail and trigger fallback ──
+          if (jobStartTimeRef.current && Date.now() - jobStartTimeRef.current > MANUS_TIMEOUT_MS) {
+            clearInterval(interval);
+            console.warn("[VideoStudio] Manus AI timed out after 10 minutes — triggering fallback");
+            toast.warning("Manus AI took too long — generating instant fallback video instead ⚡");
+            // Mark job as failed
+            await supabase.from("video_generation_jobs").update({
+              status: "failed",
+              error_message: "Auto-timeout: Manus AI did not respond within 10 minutes",
+              updated_at: new Date().toISOString(),
+            }).eq("id", activeJobId);
+            setGeneratingVideo(false);
+            setJobStatus("failed");
+            // Auto-trigger instant fallback
+            handleProduceInstantFallback();
+            return;
+          }
+
           // Check if video_url was filled in by the callback
           if (data.video_url) {
             clearInterval(interval);
