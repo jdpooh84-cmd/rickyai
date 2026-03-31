@@ -263,6 +263,62 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
 
+  // ── Instant fallback: client-side composer with approved script ──
+  const handleProduceInstantFallback = async () => {
+    if (!businessId || !approvedScript) return;
+    setGeneratingVideo(true);
+    setComposingVideo(true);
+    setJobStatus("composing_video");
+    setComposePct(0);
+    try {
+      // Fetch business media for real photos
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+      const { data: mediaItems } = await supabase.from("business_media")
+        .select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
+      const images = mediaItems?.map(m => m.public_url) || [];
+      // If no real images, create gradient placeholder
+      if (images.length === 0) {
+        const c = document.createElement("canvas"); c.width = 128; c.height = 128;
+        const cx = c.getContext("2d")!;
+        const g = cx.createLinearGradient(0, 0, 128, 128);
+        g.addColorStop(0, "#1a1a2e"); g.addColorStop(1, "#16213e");
+        cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
+        images.push(c.toDataURL());
+      }
+
+      const blob = await composeVideo({
+        sceneImages: images,
+        voiceoverUrl: null,
+        businessName: approvedScript.title || "Video",
+        title: approvedScript.title,
+        sceneCaptions: approvedScript.scenes?.map((s: any) => s.voiceover_line) || [],
+        durationPerScene: 5,
+        totalDurationSeconds: approvedScript.scenes?.length ? approvedScript.scenes.length * 5 : 30,
+        width: 1080,
+        height: 1920,
+        onProgress: setComposePct,
+      });
+      const url = URL.createObjectURL(blob);
+      setFinalVideoUrl(url);
+
+      // Upload to storage
+      const fileName = `videos/${user.id}/instant-${Date.now()}/final.webm`;
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+        setFinalVideoUrl(urlData.publicUrl);
+      }
+      toast.success("Your instant video is ready! ⚡");
+    } catch (err: any) {
+      console.error("[VideoStudio] Instant fallback failed:", err);
+      toast.error("Failed to compose video — please try again");
+    } finally {
+      setComposingVideo(false);
+      setGeneratingVideo(false);
+    }
+  };
+
   const handleProduceVideo = async () => {
     if (!businessId) {
       toast.error("Please set up your business profile first.");
@@ -273,20 +329,37 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       scriptPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
+
+    // ── INSTANT TIER: skip server, compose client-side ──
+    if (speedTier === "instant") {
+      await handleProduceInstantFallback();
+      return;
+    }
+
     setGeneratingVideo(true);
     setFinalVideoUrl(null);
     composedRef.current = false;
     setJobStatus("queued");
     setComposePct(0);
     setGeneratedVideoScript(null);
+    jobStartTimeRef.current = Date.now(); // Start timeout clock
     try {
       const response = await supabase.functions.invoke("generate-video", {
-        body: { businessId, videoType: "promotional", lengthMode, approvedScript, manusModel, manusTier },
+        body: {
+          businessId,
+          videoType: "promotional",
+          lengthMode,
+          approvedScript,
+          manusModel: speedTier === "cinematic" ? manusModel : "default",
+          manusTier,
+          speedTier,
+        },
       });
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
         setActiveJobId(response.data.job_id);
-        toast.info("🎬 Video production started with your approved script!");
+        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "HeyGen (1-3 min)";
+        toast.info(`🎬 Video production started — ${tierLabel}`);
       } else {
         throw new Error("No job ID returned");
       }
