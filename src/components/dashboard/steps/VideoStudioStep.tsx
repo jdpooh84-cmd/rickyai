@@ -16,6 +16,15 @@ interface Props { businessId: string | null; locationId: string | null; onComple
 
 type LengthMode = "short" | "standard" | "long" | "extended";
 type ManusModel = "default" | "veo3";
+type SpeedTier = "instant" | "standard" | "cinematic";
+
+const SPEED_TIERS: { key: SpeedTier; label: string; engine: string; speed: string; quality: string; emoji: string; desc: string }[] = [
+  { key: "instant", label: "Instant", engine: "Built-in Composer", speed: "10-30 sec", quality: "Good", emoji: "⚡", desc: "Ken Burns slideshow + captions + voiceover. Ready in seconds." },
+  { key: "standard", label: "Standard", engine: "HeyGen", speed: "1-3 min", quality: "Great", emoji: "🎬", desc: "AI-powered video with professional polish. Short wait." },
+  { key: "cinematic", label: "Cinematic", engine: "Manus AI", speed: "5-15 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production. Best quality — worth the wait." },
+];
+
+const MANUS_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 const STATE_KEY = "rickyai-video-studio-state";
 const MAX_REWRITES = 3;
