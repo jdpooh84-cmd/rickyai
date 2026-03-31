@@ -1294,12 +1294,25 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
       if (webhookRow?.webhook_url) {
         console.log(`[pipeline] 🚀 Dispatching to Make.com webhook: ${webhookRow.webhook_url.substring(0, 60)}...`);
+        // Build per-scene sub-task prompts for Make.com to dispatch individually
+        const perScenePrompts = buildPerScenePrompts(script, business, manusVisualScript.shots, preset.ratio);
+        
         const webhookPayload = {
           job_id: jobId,
           user_id: userId,
           business_id: businessId,
           business_name: business.business_name,
+          // Full prompt (legacy — for single-task mode)
           manus_prompt: manusPromptPreview,
+          // NEW: Per-scene sub-task prompts (recommended by Manus support)
+          scene_prompts: perScenePrompts.map((prompt, i) => ({
+            scene_index: i + 1,
+            prompt,
+            duration_seconds: script.scenes[i]?.duration_seconds || preset.clipDuration,
+            image_url: sceneImageUrls[i] || null,
+            voiceover_line: script.scenes[i]?.voiceover_line || "",
+          })),
+          total_scenes: perScenePrompts.length,
           manus_visual_script: manusVisualScript,
           scene_images: sceneImageUrls,
           voiceover_url: voiceoverUrl,
@@ -1307,6 +1320,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           model: selectedManusModel,
           aspect_ratio: preset.ratio,
           target_duration_seconds: preset.targetSeconds,
+          // Sub-task architecture flag — tells Make.com to dispatch each scene separately
+          use_subtasks: true,
           callback_url: `${supabaseUrl}/functions/v1/video-callback`,
         };
         try {
