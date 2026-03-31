@@ -434,8 +434,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_script": return "✍️ Writing your script...";
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
-      case "rendering_video": return "🎬 Rendering with Manus AI...";
-      case "processing": return "🤖 Waiting for Manus AI to finish rendering... (this can take a few minutes)";
+      case "rendering_video": return speedTier === "cinematic" ? "🎬 Rendering with Manus AI..." : "🎬 Rendering with HeyGen...";
+      case "processing": return speedTier === "cinematic" 
+        ? "🤖 Waiting for Manus AI to finish rendering... (5-15 min, auto-fallback at 10 min)" 
+        : "🎬 Waiting for HeyGen to finish... (1-3 min)";
       case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
       default: return "Processing...";
     }
