@@ -16,8 +16,7 @@ import {
   CheckCircle, Target, ArrowRight, RefreshCw
 } from "lucide-react";
 // Using inline layout instead of StepLayout (different required props)
-import StepLayout from "./StepLayout";
-import {
+// Using inline layout instead of StepLayout
   ATTRIBUTION_MODELS, CAMPAIGN_TYPES, OUTCOME_FIELDS,
   calculatePerformanceScore, generateInsights, detectDataGaps,
   type CampaignOutcome, type AttributionModel,
