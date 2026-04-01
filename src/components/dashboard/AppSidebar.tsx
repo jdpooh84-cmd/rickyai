@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
