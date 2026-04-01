@@ -84,12 +84,19 @@ Deno.serve(async (req) => {
     // Use the merged video URL if provided, otherwise the raw video URL
     const finalVideoUrl = merged_video_url || video_url || null;
 
+    // Detect if URL is a Manus task page vs direct .mp4
+    const isManusTaskPage = finalVideoUrl
+      ? /manus\.(im|ai)\/app\//.test(finalVideoUrl) || /share\.manus\.(im|ai)/.test(finalVideoUrl)
+      : false;
+    const videoType = isManusTaskPage ? "manus_page" : "direct";
+
     // Update the job
     const existingPayload = (job.result_payload as Record<string, any>) || {};
     const updatedPayload = {
       ...existingPayload,
       ...(metadata || {}),
       video_url: finalVideoUrl,
+      video_type: videoType,
       voiceover_url: voiceover_url || existingPayload.voiceover_url,
       merged_video_url: merged_video_url || null,
       total_duration_seconds: duration_seconds || existingPayload.total_duration_seconds,
@@ -99,7 +106,7 @@ Deno.serve(async (req) => {
         merge: merged_video_url ? "completed" : "not_merged",
       },
       message: status === "completed"
-        ? `✅ Video ready! ${duration_seconds ? `(${duration_seconds}s)` : ""}`
+        ? `✅ Video ready! ${isManusTaskPage ? "(Manus viewer)" : ""} ${duration_seconds ? `(${duration_seconds}s)` : ""}`
         : `❌ Video production failed: ${error_message || "unknown error"}`,
       callback_received_at: new Date().toISOString(),
     };
