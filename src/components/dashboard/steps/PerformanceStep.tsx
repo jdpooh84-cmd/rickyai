@@ -15,6 +15,7 @@ import {
   BarChart3, Plus, TrendingUp, TrendingDown, Lightbulb, AlertTriangle,
   CheckCircle, Target, ArrowRight, RefreshCw
 } from "lucide-react";
+// Using inline layout instead of StepLayout (different required props)
 import StepLayout from "./StepLayout";
 import {
   ATTRIBUTION_MODELS, CAMPAIGN_TYPES, OUTCOME_FIELDS,
