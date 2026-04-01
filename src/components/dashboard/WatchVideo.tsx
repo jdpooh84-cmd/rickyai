@@ -19,12 +19,61 @@ interface Props {
   onBack?: () => void;
 }
 
+const isManusPageUrl = (url: string) =>
+  /manus\.(im|ai)\/app\//.test(url) || /share\.manus\.(im|ai)/.test(url);
+
+const ManusEmbed = ({ url, voiceoverUrl }: { url: string; voiceoverUrl?: string | null }) => {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioFailed, setAudioFailed] = useState(false);
+
+  const toggleAudio = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audioPlaying) { audio.pause(); setAudioPlaying(false); }
+    else { audio.play().catch(() => setAudioFailed(true)); setAudioPlaying(true); }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ minHeight: 300 }}>
+        <iframe
+          src={url}
+          className="w-full border-0"
+          style={{ height: 350 }}
+          allow="autoplay; fullscreen"
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          title="Manus AI Video"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+          <Play className="w-3 h-3" /> Open in Manus
+        </a>
+        {voiceoverUrl && !audioFailed && (
+          <>
+            <button onClick={toggleAudio} className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-accent text-accent-foreground hover:bg-accent/80">
+              {audioPlaying ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+              {audioPlaying ? "Mute Voiceover" : "Play Voiceover"}
+            </button>
+            <audio ref={audioRef} src={voiceoverUrl} preload="auto" onError={() => setAudioFailed(true)} onEnded={() => setAudioPlaying(false)} />
+          </>
+        )}
+        {voiceoverUrl && audioFailed && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <VolumeX className="w-3 h-3" /> Voiceover unavailable
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const VideoPlayer = ({ videoUrl, voiceoverUrl, title }: { videoUrl: string; voiceoverUrl?: string | null; title: string }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioFailed, setAudioFailed] = useState(false);
 
-  // Sync audio playback with video
   useEffect(() => {
     const video = videoRef.current;
     const audio = audioRef.current;
