@@ -275,6 +275,68 @@ export type Database = {
         }
         Relationships: []
       }
+      attribution_touchpoints: {
+        Row: {
+          business_id: string
+          created_at: string
+          credit_first_touch: number | null
+          credit_last_touch: number | null
+          credit_linear: number | null
+          credit_owner_confirmed: number | null
+          credit_time_decay: number | null
+          id: string
+          occurred_at: string | null
+          outcome_id: string | null
+          position_in_journey: number | null
+          touchpoint_content: string | null
+          touchpoint_source: string | null
+          touchpoint_type: string
+          user_id: string
+        }
+        Insert: {
+          business_id: string
+          created_at?: string
+          credit_first_touch?: number | null
+          credit_last_touch?: number | null
+          credit_linear?: number | null
+          credit_owner_confirmed?: number | null
+          credit_time_decay?: number | null
+          id?: string
+          occurred_at?: string | null
+          outcome_id?: string | null
+          position_in_journey?: number | null
+          touchpoint_content?: string | null
+          touchpoint_source?: string | null
+          touchpoint_type: string
+          user_id: string
+        }
+        Update: {
+          business_id?: string
+          created_at?: string
+          credit_first_touch?: number | null
+          credit_last_touch?: number | null
+          credit_linear?: number | null
+          credit_owner_confirmed?: number | null
+          credit_time_decay?: number | null
+          id?: string
+          occurred_at?: string | null
+          outcome_id?: string | null
+          position_in_journey?: number | null
+          touchpoint_content?: string | null
+          touchpoint_source?: string | null
+          touchpoint_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attribution_touchpoints_outcome_id_fkey"
+            columns: ["outcome_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_outcomes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_media: {
         Row: {
           business_id: string
@@ -397,6 +459,161 @@ export type Database = {
           youtube_url?: string | null
         }
         Relationships: []
+      }
+      campaign_outcomes: {
+        Row: {
+          appointment_requests: number | null
+          attribution_model: string | null
+          attribution_score: number | null
+          bookings: number | null
+          business_id: string
+          calls_received: number | null
+          campaign_goal: string | null
+          campaign_name: string
+          campaign_type: string
+          clicks: number | null
+          content_format: string | null
+          content_post_id: string | null
+          created_at: string
+          cta_used: string | null
+          customer_feedback: string | null
+          felt_successful: boolean | null
+          form_submissions: number | null
+          id: string
+          launched_at: string | null
+          lead_captures: number | null
+          location_id: string | null
+          manual_notes: string | null
+          offer: string | null
+          optimization_signals: Json | null
+          platform: string | null
+          purchases: number | null
+          repeat_purchases: number | null
+          replies: number | null
+          revenue_cents: number | null
+          status: string
+          strategy_output_id: string | null
+          target_audience: string | null
+          updated_at: string
+          user_id: string
+          video_job_id: string | null
+          views: number | null
+          what_customers_mentioned: string | null
+          what_failed: Json | null
+          what_worked: Json | null
+        }
+        Insert: {
+          appointment_requests?: number | null
+          attribution_model?: string | null
+          attribution_score?: number | null
+          bookings?: number | null
+          business_id: string
+          calls_received?: number | null
+          campaign_goal?: string | null
+          campaign_name: string
+          campaign_type?: string
+          clicks?: number | null
+          content_format?: string | null
+          content_post_id?: string | null
+          created_at?: string
+          cta_used?: string | null
+          customer_feedback?: string | null
+          felt_successful?: boolean | null
+          form_submissions?: number | null
+          id?: string
+          launched_at?: string | null
+          lead_captures?: number | null
+          location_id?: string | null
+          manual_notes?: string | null
+          offer?: string | null
+          optimization_signals?: Json | null
+          platform?: string | null
+          purchases?: number | null
+          repeat_purchases?: number | null
+          replies?: number | null
+          revenue_cents?: number | null
+          status?: string
+          strategy_output_id?: string | null
+          target_audience?: string | null
+          updated_at?: string
+          user_id: string
+          video_job_id?: string | null
+          views?: number | null
+          what_customers_mentioned?: string | null
+          what_failed?: Json | null
+          what_worked?: Json | null
+        }
+        Update: {
+          appointment_requests?: number | null
+          attribution_model?: string | null
+          attribution_score?: number | null
+          bookings?: number | null
+          business_id?: string
+          calls_received?: number | null
+          campaign_goal?: string | null
+          campaign_name?: string
+          campaign_type?: string
+          clicks?: number | null
+          content_format?: string | null
+          content_post_id?: string | null
+          created_at?: string
+          cta_used?: string | null
+          customer_feedback?: string | null
+          felt_successful?: boolean | null
+          form_submissions?: number | null
+          id?: string
+          launched_at?: string | null
+          lead_captures?: number | null
+          location_id?: string | null
+          manual_notes?: string | null
+          offer?: string | null
+          optimization_signals?: Json | null
+          platform?: string | null
+          purchases?: number | null
+          repeat_purchases?: number | null
+          replies?: number | null
+          revenue_cents?: number | null
+          status?: string
+          strategy_output_id?: string | null
+          target_audience?: string | null
+          updated_at?: string
+          user_id?: string
+          video_job_id?: string | null
+          views?: number | null
+          what_customers_mentioned?: string | null
+          what_failed?: Json | null
+          what_worked?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_outcomes_content_post_id_fkey"
+            columns: ["content_post_id"]
+            isOneToOne: false
+            referencedRelation: "content_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_outcomes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_outcomes_strategy_output_id_fkey"
+            columns: ["strategy_output_id"]
+            isOneToOne: false
+            referencedRelation: "strategy_outputs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_outcomes_video_job_id_fkey"
+            columns: ["video_job_id"]
+            isOneToOne: false
+            referencedRelation: "video_generation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_flags: {
         Row: {
