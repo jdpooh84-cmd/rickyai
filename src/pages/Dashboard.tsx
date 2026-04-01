@@ -29,6 +29,7 @@ import CreateVideoFlow from "@/components/dashboard/CreateVideoFlow";
 import ExternalAppConnections from "@/components/dashboard/steps/ExternalAppConnections";
 import AddOnPaywall from "@/components/dashboard/AddOnPaywall";
 import WatchVideo from "@/components/dashboard/WatchVideo";
+import PerformanceStep from "@/components/dashboard/steps/PerformanceStep";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { ChevronDown, LogOut, Check } from "lucide-react";
@@ -132,6 +133,7 @@ const Dashboard = () => {
     }
 
     if (activeSection === "score") return <GamificationPanel />;
+    if (activeSection === "performance") return <PerformanceStep businessId={selectedBusiness} locationId={selectedLocation} />;
     if (activeSection === "community") return <CommunityForum />;
     if (activeSection === "marketplace") return <StrategyMarketplace />;
     if (activeSection === "ready") return <ReadyToPost />;

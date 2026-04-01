@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -58,6 +58,7 @@ const phases = [
 ];
 
 const extras = [
+  { id: "performance", icon: TrendingUp, title: "Performance" },
   { id: "watch", icon: Play, title: "Watch Videos" },
   { id: "ready", icon: Check, title: "Ready to Post" },
   { id: "connect-tools", icon: Key, title: "Connect Tools" },
