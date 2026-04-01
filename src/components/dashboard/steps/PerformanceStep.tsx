@@ -465,7 +465,7 @@ const PerformanceStep = ({ businessId, locationId }: Props) => {
           </Card>
         </TabsContent>
       </Tabs>
-    </StepLayout>
+    </div>
   );
 };
 
