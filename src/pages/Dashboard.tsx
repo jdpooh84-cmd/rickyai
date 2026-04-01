@@ -21,6 +21,7 @@ import CampaignBlueprintStep from "@/components/dashboard/steps/CampaignBlueprin
 import OmniOptimizeStep from "@/components/dashboard/steps/OmniOptimizeStep";
 import FederalContractingStep from "@/components/dashboard/steps/FederalContractingStep";
 import GrantIntelStep from "@/components/dashboard/steps/GrantIntelStep";
+import GrantConsultantStep from "@/components/dashboard/steps/GrantConsultantStep";
 import GamificationPanel from "@/components/dashboard/GamificationPanel";
 import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
@@ -141,6 +142,7 @@ const Dashboard = () => {
     if (activeSection === "connect-tools") return <ExternalAppConnections />;
     if (activeSection === "federal-contracting") return <AddOnPaywall addOnKey="federal_contracting"><FederalContractingStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
     if (activeSection === "grant-intel") return <AddOnPaywall addOnKey="grant_intel"><GrantIntelStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
+    if (activeSection === "grant-consultant") return <AddOnPaywall addOnKey="grant_intel"><GrantConsultantStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
