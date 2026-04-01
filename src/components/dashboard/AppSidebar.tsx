@@ -64,6 +64,7 @@ const extras = [
   { id: "connect-tools", icon: Key, title: "Connect Tools" },
   { id: "federal-contracting", icon: Building2, title: "Grant: Fed Contracts" },
   { id: "grant-intel", icon: Compass, title: "Grant: Intel Pack" },
+  { id: "grant-consultant", icon: FileText, title: "Grant: Consultant" },
   { id: "score", icon: Trophy, title: "Growth Score" },
   { id: "community", icon: MessageSquare, title: "Community" },
   { id: "marketplace", icon: ShoppingBag, title: "Marketplace" },

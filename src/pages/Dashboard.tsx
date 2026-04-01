@@ -142,6 +142,7 @@ const Dashboard = () => {
     if (activeSection === "connect-tools") return <ExternalAppConnections />;
     if (activeSection === "federal-contracting") return <AddOnPaywall addOnKey="federal_contracting"><FederalContractingStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
     if (activeSection === "grant-intel") return <AddOnPaywall addOnKey="grant_intel"><GrantIntelStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
+    if (activeSection === "grant-consultant") return <AddOnPaywall addOnKey="grant_intel"><GrantConsultantStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
