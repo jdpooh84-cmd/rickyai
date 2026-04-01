@@ -58,6 +58,7 @@ const phases = [
 ];
 
 const extras = [
+  { id: "performance", icon: TrendingUp, title: "Performance" },
   { id: "watch", icon: Play, title: "Watch Videos" },
   { id: "ready", icon: Check, title: "Ready to Post" },
   { id: "connect-tools", icon: Key, title: "Connect Tools" },
