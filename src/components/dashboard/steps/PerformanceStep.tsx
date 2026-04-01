@@ -129,11 +129,11 @@ const PerformanceStep = ({ businessId, locationId }: Props) => {
   const insights = generateInsights(outcomes);
 
   return (
-    <StepLayout
-      stepNumber={0}
-      title="Performance & Attribution"
-      description="See what's working, what's not, and what Ricky will improve next. Track real campaign results to make every future campaign smarter."
-    >
+    <div className="max-w-3xl mx-auto pb-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold font-display text-foreground mb-2">📊 Performance & Attribution</h1>
+        <p className="text-muted-foreground">See what's working, what's not, and what Ricky will improve next. Track real campaign results to make every future campaign smarter.</p>
+      </div>
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">What's Working</TabsTrigger>
