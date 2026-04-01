@@ -133,6 +133,7 @@ const Dashboard = () => {
     }
 
     if (activeSection === "score") return <GamificationPanel />;
+    if (activeSection === "performance") return <PerformanceStep businessId={selectedBusiness} locationId={selectedLocation} />;
     if (activeSection === "community") return <CommunityForum />;
     if (activeSection === "marketplace") return <StrategyMarketplace />;
     if (activeSection === "ready") return <ReadyToPost />;
