@@ -214,7 +214,11 @@ const WatchVideo = ({ onBack }: Props) => {
               </div>
 
               {/* Video Player with synced voiceover */}
-              {hasVideo && (
+              {hasVideo && isManusPageUrl(job.video_url!) && (
+                <ManusEmbed url={job.video_url!} voiceoverUrl={voiceoverUrl} />
+              )}
+
+              {hasVideo && !isManusPageUrl(job.video_url!) && (
                 <VideoPlayer videoUrl={job.video_url!} voiceoverUrl={voiceoverUrl} title={result?.title || "Video"} />
               )}
 
