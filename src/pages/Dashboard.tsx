@@ -21,6 +21,7 @@ import CampaignBlueprintStep from "@/components/dashboard/steps/CampaignBlueprin
 import OmniOptimizeStep from "@/components/dashboard/steps/OmniOptimizeStep";
 import FederalContractingStep from "@/components/dashboard/steps/FederalContractingStep";
 import GrantIntelStep from "@/components/dashboard/steps/GrantIntelStep";
+import GrantConsultantStep from "@/components/dashboard/steps/GrantConsultantStep";
 import GamificationPanel from "@/components/dashboard/GamificationPanel";
 import CommunityForum from "@/components/dashboard/CommunityForum";
 import StrategyMarketplace from "@/components/dashboard/StrategyMarketplace";
