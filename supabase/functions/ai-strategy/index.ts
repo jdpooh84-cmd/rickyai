@@ -247,7 +247,7 @@ Return JSON:
 {
   "market_position": "leader|challenger|follower|nicher",
   "competitors": [
-    {"name": "...", "strengths": ["..."], "weaknesses": ["..."], "threat_level": "high|medium|low", "content_gap": "what content they have that this business lacks"}
+    {"name": "...", "local_address": "...street or neighborhood in the SAME city...", "strengths": ["..."], "weaknesses": ["..."], "threat_level": "high|medium|low", "content_gap": "what content they have that this business lacks", "is_independent": true}
   ],
   "opportunities": ["...5 specific opportunities based on local market gaps..."],
   "threats": ["...3 market threats..."],
