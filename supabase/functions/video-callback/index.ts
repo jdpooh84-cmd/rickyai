@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     console.log(`[video-callback] Received callback for job ${job_id}: status=${status}`);
 
     // Use the merged video URL if provided, otherwise the raw video URL
-    const finalVideoUrl = merged_video_url || video_url || null;
+    const finalVideoUrl = direct_mp4_url || merged_video_url || video_url || null;
 
     // Detect if URL is a Manus task page vs direct .mp4
     const isManusTaskPage = finalVideoUrl
