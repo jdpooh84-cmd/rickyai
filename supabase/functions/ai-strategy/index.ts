@@ -188,10 +188,16 @@ Location: ${location ? `${location.city}, ${location.state || ""} ${location.cou
 - AEO (Answer Engine Optimization): does the site answer the questions customers actually ask? FAQ schema, featured-snippet readiness
 - SGE (AI Overview Visibility): likelihood of appearing in Google AI Overviews, entity authority signals, structured data
 
+CRITICAL LOCAL COMPETITOR RULES:
+- When analyzing competitive landscape, ONLY reference competitors with PHYSICAL LOCATIONS in the SAME CITY.
+- For chains/franchises: reference the LOCAL branch (e.g. "Domino's on Shore Dr, Virginia Beach") not corporate HQ.
+- All local SEO analysis must use the business's actual city, neighborhood, and street-level geography.
+- "Near me" keywords and local pack analysis must be scoped to the business's actual metro area.
+
 For LOCAL businesses: emphasize Google Business Profile completeness, local pack rankings, NAP consistency, review velocity, and neighborhood-level search terms.
 For ENTERPRISE businesses: emphasize domain authority, topical authority clusters, programmatic SEO, and brand SERP ownership.
 ${industryContext} Return valid JSON only.`,
-        user: `Perform a full Omni Compete analysis for this business across SEO, GEO, AEO, and SGE pillars. Identify what makes this business UNIQUE — signature products, preparation methods, presentation styles, local reputation. These differentiators should inform every recommendation.
+        user: `Perform a full Omni Compete analysis for this business across SEO, GEO, AEO, and SGE pillars. Identify what makes this business UNIQUE — signature products, preparation methods, presentation styles, local reputation. These differentiators should inform every recommendation. All competitor references must be LOCAL to the same city — not corporate headquarters in other states.
 
 Return JSON:
 {
@@ -222,16 +228,26 @@ ${businessContext}`
 - CAO (Content Asset Optimization): what content assets competitors have that this business lacks — videos, blogs, guides, case studies, testimonials
 - AEO (Answer Engine Optimization): what questions local customers are asking that nobody is answering well
 
+CRITICAL COMPETITOR RULES:
+- ONLY list competitors that have a PHYSICAL STOREFRONT or OFFICE in the SAME CITY as this business.
+- For franchise/chain businesses: list the LOCAL franchise location (e.g. "Papa John's - Kempsville Rd, Virginia Beach") NOT the corporate headquarters.
+- For independent local businesses: list them by their local name and approximate neighborhood/street.
+- NEVER list a competitor by corporate HQ address if their HQ is in a different city. Only the LOCAL branch matters.
+- Prioritize independent, locally-owned competitors first, then local franchise locations of chains.
+- Include the approximate street/neighborhood for each competitor so the business owner recognizes them as actual nearby rivals.
+
 For LOCAL businesses: focus on hyperlocal signals — neighborhood Facebook groups, local review sites, community events, seasonal trends, "near me" search patterns.
 For ENTERPRISE businesses: focus on market share signals, industry publications, analyst coverage, and competitive content moats.
 ${industryContext} Return valid JSON only.`,
         user: `Perform a full Omni Scout analysis for this business covering LMO, CAO, and AEO pillars. Scout the local market landscape. Identify what makes this business's PRODUCTS and SERVICES unique — specific ingredients, preparation methods, signature items, presentation styles.
 
+IMPORTANT: Every competitor you list MUST have a physical location in the SAME CITY as this business. Use the business address and location data below to identify the exact city and neighborhood. Do NOT list businesses headquartered in other cities — only list competitors the owner would actually drive past on their way to work.
+
 Return JSON:
 {
   "market_position": "leader|challenger|follower|nicher",
   "competitors": [
-    {"name": "...", "strengths": ["..."], "weaknesses": ["..."], "threat_level": "high|medium|low", "content_gap": "what content they have that this business lacks"}
+    {"name": "...", "local_address": "...street or neighborhood in the SAME city...", "strengths": ["..."], "weaknesses": ["..."], "threat_level": "high|medium|low", "content_gap": "what content they have that this business lacks", "is_independent": true}
   ],
   "opportunities": ["...5 specific opportunities based on local market gaps..."],
   "threats": ["...3 market threats..."],
