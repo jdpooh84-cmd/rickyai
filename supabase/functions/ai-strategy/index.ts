@@ -222,10 +222,20 @@ ${businessContext}`
 - CAO (Content Asset Optimization): what content assets competitors have that this business lacks — videos, blogs, guides, case studies, testimonials
 - AEO (Answer Engine Optimization): what questions local customers are asking that nobody is answering well
 
+CRITICAL COMPETITOR RULES:
+- ONLY list competitors that have a PHYSICAL STOREFRONT or OFFICE in the SAME CITY as this business.
+- For franchise/chain businesses: list the LOCAL franchise location (e.g. "Papa John's - Kempsville Rd, Virginia Beach") NOT the corporate headquarters.
+- For independent local businesses: list them by their local name and approximate neighborhood/street.
+- NEVER list a competitor by corporate HQ address if their HQ is in a different city. Only the LOCAL branch matters.
+- Prioritize independent, locally-owned competitors first, then local franchise locations of chains.
+- Include the approximate street/neighborhood for each competitor so the business owner recognizes them as actual nearby rivals.
+
 For LOCAL businesses: focus on hyperlocal signals — neighborhood Facebook groups, local review sites, community events, seasonal trends, "near me" search patterns.
 For ENTERPRISE businesses: focus on market share signals, industry publications, analyst coverage, and competitive content moats.
 ${industryContext} Return valid JSON only.`,
         user: `Perform a full Omni Scout analysis for this business covering LMO, CAO, and AEO pillars. Scout the local market landscape. Identify what makes this business's PRODUCTS and SERVICES unique — specific ingredients, preparation methods, signature items, presentation styles.
+
+IMPORTANT: Every competitor you list MUST have a physical location in the SAME CITY as this business. Use the business address and location data below to identify the exact city and neighborhood. Do NOT list businesses headquartered in other cities — only list competitors the owner would actually drive past on their way to work.
 
 Return JSON:
 {
