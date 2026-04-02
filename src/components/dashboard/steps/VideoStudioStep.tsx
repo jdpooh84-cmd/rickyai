@@ -909,7 +909,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </p>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ═══ SCRIPT DETAILS (after completion) ═══ */}
         {generatedVideoScript && !generatingVideo && !composingVideo && (
