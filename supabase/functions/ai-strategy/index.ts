@@ -188,10 +188,16 @@ Location: ${location ? `${location.city}, ${location.state || ""} ${location.cou
 - AEO (Answer Engine Optimization): does the site answer the questions customers actually ask? FAQ schema, featured-snippet readiness
 - SGE (AI Overview Visibility): likelihood of appearing in Google AI Overviews, entity authority signals, structured data
 
+CRITICAL LOCAL COMPETITOR RULES:
+- When analyzing competitive landscape, ONLY reference competitors with PHYSICAL LOCATIONS in the SAME CITY.
+- For chains/franchises: reference the LOCAL branch (e.g. "Domino's on Shore Dr, Virginia Beach") not corporate HQ.
+- All local SEO analysis must use the business's actual city, neighborhood, and street-level geography.
+- "Near me" keywords and local pack analysis must be scoped to the business's actual metro area.
+
 For LOCAL businesses: emphasize Google Business Profile completeness, local pack rankings, NAP consistency, review velocity, and neighborhood-level search terms.
 For ENTERPRISE businesses: emphasize domain authority, topical authority clusters, programmatic SEO, and brand SERP ownership.
 ${industryContext} Return valid JSON only.`,
-        user: `Perform a full Omni Compete analysis for this business across SEO, GEO, AEO, and SGE pillars. Identify what makes this business UNIQUE — signature products, preparation methods, presentation styles, local reputation. These differentiators should inform every recommendation.
+        user: `Perform a full Omni Compete analysis for this business across SEO, GEO, AEO, and SGE pillars. Identify what makes this business UNIQUE — signature products, preparation methods, presentation styles, local reputation. These differentiators should inform every recommendation. All competitor references must be LOCAL to the same city — not corporate headquarters in other states.
 
 Return JSON:
 {
