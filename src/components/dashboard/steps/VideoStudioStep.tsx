@@ -799,7 +799,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         </div>
 
         {/* ═══ FINISHED VIDEO ═══ */}
-        {finalVideoUrl && !generatingVideo && !composingVideo && (
+        {finalVideoUrl && !generatingVideo && !composingVideo && (() => {
+          const isManusPage = /manus\.(im|ai)\/app\//.test(finalVideoUrl) || /share\.manus\.(im|ai)/.test(finalVideoUrl);
+          return (
           <div className="glass rounded-2xl p-6 ring-2 ring-primary/30">
             <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
               <Play className="w-4 h-4 text-primary" /> Your Finished Video
@@ -817,14 +819,48 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </div>
             )}
 
-            <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
-              <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
-            </video>
+            {isManusPage ? (
+              <div className="space-y-3">
+                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
+                  <Clapperboard className="w-10 h-10 text-primary mx-auto mb-2" />
+                  <p className="text-sm font-semibold text-foreground mb-1">🎬 Your Manus AI video is ready!</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Manus produced your cinematic video. Click below to view it on Manus's viewer page — you can download the .mp4 from there.
+                  </p>
+                  <a href={finalVideoUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
+                    <Play className="w-4 h-4" /> Watch on Manus AI
+                  </a>
+                </div>
+                {generatedVideoScript?.voiceover_url && (
+                  <div className="p-3 rounded-xl bg-secondary/30 border border-border">
+                    <p className="text-[10px] font-semibold text-foreground mb-1">🎙️ Play voiceover alongside the video:</p>
+                    <audio controls className="w-full">
+                      <source src={generatedVideoScript.voiceover_url} type="audio/mpeg" />
+                    </audio>
+                    <p className="text-[10px] text-muted-foreground mt-1">Tip: Open the Manus video, then hit play on this audio at the same time.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
+                  <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
+                </video>
+              </>
+            )}
 
             <div className="flex gap-2 mt-3">
-              <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
-                <Download className="w-4 h-4" /> Download Video
-              </a>
+              {isManusPage ? (
+                <a href={finalVideoUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                  <Link2 className="w-4 h-4" /> Open Video
+                </a>
+              ) : (
+                <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                  <Download className="w-4 h-4" /> Download Video
+                </a>
+              )}
               <button onClick={resetFlow} className="px-4 py-2 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80">
                 Make Another
               </button>
@@ -873,7 +909,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </p>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ═══ SCRIPT DETAILS (after completion) ═══ */}
         {generatedVideoScript && !generatingVideo && !composingVideo && (
