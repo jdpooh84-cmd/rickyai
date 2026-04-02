@@ -36,16 +36,20 @@ const ManusEmbed = ({ url, voiceoverUrl }: { url: string; voiceoverUrl?: string 
 
   return (
     <div className="space-y-2">
-      <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ minHeight: 300 }}>
-        <iframe
-          src={url}
-          className="w-full border-0"
-          style={{ height: 350 }}
-          allow="autoplay; fullscreen"
-          sandbox="allow-scripts allow-same-origin allow-popups"
-          title="Manus AI Video"
-        />
-      </div>
+      {/* Manus pages block iframe embedding, so show a rich clickable card instead */}
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative flex flex-col items-center justify-center w-full rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/30 hover:border-primary/60 transition-all cursor-pointer group"
+        style={{ minHeight: 220 }}
+      >
+        <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-3 group-hover:bg-primary/30 transition-colors">
+          <Play className="w-8 h-8 text-primary" />
+        </div>
+        <p className="text-sm font-semibold text-foreground">View Your Cinematic Video</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Opens in Manus AI viewer →</p>
+      </a>
       <div className="flex items-center gap-2">
         <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
           <Play className="w-3 h-3" /> Open in Manus
