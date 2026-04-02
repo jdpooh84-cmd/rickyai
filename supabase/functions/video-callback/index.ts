@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
       job_id,
       status,
       video_url,
+      direct_mp4_url,
       voiceover_url,
       merged_video_url,
       thumbnail_url,
