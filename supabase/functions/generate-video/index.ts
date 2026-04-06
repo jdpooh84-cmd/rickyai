@@ -974,6 +974,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     if (!business) throw new Error("Business not found");
     const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
     const location = locations?.[0];
+    const businessContext = { ...business, locations: location ? [location] : [] };
 
     // ── Load saved strategy data (for script enrichment) ──
     const { data: strategyRows } = await supabase.from("strategy_outputs").select("output_data").eq("business_id", businessId).eq("user_id", userId).order("step_number", { ascending: true }).limit(10);
