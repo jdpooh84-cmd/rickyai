@@ -125,12 +125,24 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             return;
           }
 
-          // Check if video_url was filled in by the callback
+          // Check if video_url was filled in by the callback — only stop if it's a real playable file
           if (data.video_url) {
-            clearInterval(interval);
-            setGeneratingVideo(false);
-            setFinalVideoUrl(data.video_url);
-            toast.success("Your video is ready from Manus AI! 🎬");
+            const url = data.video_url as string;
+            const isPlayable = /\.(mp4|webm|mov)(\?|$)/i.test(url) ||
+              /supabase\.co\/storage\/v1\/object\/public\/media\//i.test(url) ||
+              /s3\.amazonaws\.com\//i.test(url);
+            const isManusPage = /manus\.(im|ai)\/app\//i.test(url) || /share\.manus\.(im|ai)/.test(url);
+
+            if (isPlayable) {
+              clearInterval(interval);
+              setGeneratingVideo(false);
+              setFinalVideoUrl(url);
+              toast.success("Your video is ready from Manus AI! 🎬");
+            } else if (isManusPage) {
+              // Manus viewer page — show link but keep polling for the real MP4
+              setGeneratedVideoScript((prev: any) => ({ ...prev, manus_task_url: url }));
+              // Don't stop polling — Make.com should upload the MP4 and call back again
+            }
           }
           // Otherwise keep polling — Make.com hasn't called back yet
         } else if (data.status === "completed" || data.status === "media_ready") {
