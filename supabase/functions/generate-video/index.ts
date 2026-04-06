@@ -974,6 +974,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     if (!business) throw new Error("Business not found");
     const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
     const location = locations?.[0];
+    const businessContext = { ...business, locations: location ? [location] : [] };
 
     // ── Load saved strategy data (for script enrichment) ──
     const { data: strategyRows } = await supabase.from("strategy_outputs").select("output_data").eq("business_id", businessId).eq("user_id", userId).order("step_number", { ascending: true }).limit(10);
@@ -1095,7 +1096,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ═══ BUILD MANUS VISUAL SCRIPT (cinematic shot list) ═══
-    const manusVisualScript = buildManusVisualScript(script, business, preset, jobId);
+    const manusVisualScript = buildManusVisualScript(script, businessContext, preset, jobId);
     script.manus_visual_script = manusVisualScript;
 
     console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words, fallback=${usedFallbackScript}`);
@@ -1121,6 +1122,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in old storage`);
 
     const sceneImageUrls: string[] = [];
+    const sceneImageInputs: (string | null)[] = [];
     const sceneImageIsReal: boolean[] = [];
     const sceneMotionPrompts: string[] = [];
     const sceneVideoClipUrls: string[] = []; // pre-existing video clips from library
@@ -1135,21 +1137,24 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       const videoMatch = pickMediaForScene(businessVideos, shotType, usedMediaIds);
       if (videoMatch) {
         sceneVideoClipUrls.push(videoMatch.public_url);
-        sceneImageUrls.push(videoMatch.public_url); // placeholder for tracking
-        sceneImageIsReal.push(true);
-        sceneMotionPrompts.push(""); // no motion needed for video
+        sceneImageInputs.push(null);
+        sceneImageIsReal.push(false);
+        sceneMotionPrompts.push("");
         console.log(`[pipeline] Scene ${i + 1}: using uploaded video clip (${videoMatch.file_name})`);
       } else {
         try {
           const result = await getSceneImage(supabase, userId, jobId, i, scene, business, lovableKey, imageCreditsExhausted, existingRealImages, businessImages, usedMediaIds);
           sceneImageUrls.push(result.url);
+          sceneImageInputs.push(result.url);
           sceneImageIsReal.push(result.isReal);
           sceneMotionPrompts.push(result.motionPrompt);
         } catch (e: any) {
           if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
           const motionPrompt = getMotionPrompt(shotType, i);
           if (existingRealImages.length > 0) {
-            sceneImageUrls.push(existingRealImages[i % existingRealImages.length]);
+            const fallbackUrl = existingRealImages[i % existingRealImages.length];
+            sceneImageUrls.push(fallbackUrl);
+            sceneImageInputs.push(fallbackUrl);
             sceneImageIsReal.push(true);
             sceneMotionPrompts.push(motionPrompt);
           } else {
@@ -1158,6 +1163,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
             await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
             const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
             sceneImageUrls.push(u.publicUrl);
+            sceneImageInputs.push(u.publicUrl);
             sceneImageIsReal.push(false);
             sceneMotionPrompts.push(motionPrompt);
           }
@@ -1165,7 +1171,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       }
 
       await updateJob({
-        result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "images", message: `🎨 Photos: ${sceneImageUrls.length}/${script.scenes.length}` },
+        result_payload: { ...script, scene_images: sceneImageUrls, video_clips: sceneVideoClipUrls, pipeline_step: "images", message: `🎨 Assets prepared: ${i + 1}/${script.scenes.length}` },
       });
     }
 
@@ -1262,8 +1268,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       await updateJob({
         status: "rendering_video",
         result_payload: {
-          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
-          pipeline_step: "manus", message: `🤖 Preparing Manus AI video prompt (${selectedManusModel === "veo3" ? "Veo 3 Cinematic" : "Standard"})...`,
+          ...script,
+          scene_images: sceneImageUrls,
+          voiceover_url: voiceoverUrl,
+          video_clips: sceneVideoClipUrls,
+          pipeline_step: "manus",
+          message: `🤖 Preparing Manus AI video prompt (${selectedManusModel === "veo3" ? "Veo 3 Cinematic" : "Standard"})...`,
         },
       });
 
@@ -1294,22 +1304,19 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
       if (webhookRow?.webhook_url) {
         console.log(`[pipeline] 🚀 Dispatching to Make.com webhook: ${webhookRow.webhook_url.substring(0, 60)}...`);
-        // Build per-scene sub-task prompts for Make.com to dispatch individually
-        const perScenePrompts = buildPerScenePrompts(script, business, manusVisualScript.shots, preset.ratio);
-        
+        const perScenePrompts = buildPerScenePrompts(script, businessContext, manusVisualScript.shots, preset.ratio);
+
         const webhookPayload = {
           job_id: jobId,
           user_id: userId,
           business_id: businessId,
           business_name: business.business_name,
-          // Full prompt (legacy — for single-task mode)
           manus_prompt: manusPromptPreview,
-          // NEW: Per-scene sub-task prompts (recommended by Manus support)
           scene_prompts: perScenePrompts.map((prompt, i) => ({
             scene_index: i + 1,
             prompt,
             duration_seconds: script.scenes[i]?.duration_seconds || preset.clipDuration,
-            image_url: sceneImageUrls[i] || null,
+            image_url: sceneImageInputs[i] || null,
             voiceover_line: script.scenes[i]?.voiceover_line || "",
           })),
           total_scenes: perScenePrompts.length,
@@ -1320,7 +1327,6 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           model: selectedManusModel,
           aspect_ratio: preset.ratio,
           target_duration_seconds: preset.targetSeconds,
-          // Sub-task architecture flag — tells Make.com to dispatch each scene separately
           use_subtasks: true,
           callback_url: `${supabaseUrl}/functions/v1/video-callback`,
         };
@@ -1393,12 +1399,20 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       statusMessage += ` 🎙️ ${voiceoverMessage}`;
     }
 
+    const finalReadyVideoUrl = finalStatus === "processing" ? null : (videoClips[0] || null);
+    const postMediaUrl = finalStatus === "processing"
+      ? (sceneImageUrls[0] || null)
+      : (finalReadyVideoUrl || sceneImageUrls[0] || null);
+    const postMediaType = finalStatus === "processing"
+      ? (sceneImageUrls.length > 0 ? "image" : null)
+      : (finalReadyVideoUrl || hasClips ? "video" : "image");
+
     const resultPayload = {
       ...script,
       scene_images: sceneImageUrls,
       voiceover_url: voiceoverUrl,
       video_clips: videoClips,
-      video_url: videoClips[0] || null,
+      video_url: finalReadyVideoUrl,
       total_duration_seconds: totalDuration,
       is_fallback: isFallback,
       usedFallbackScript,
@@ -1415,9 +1429,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       },
       pipeline_steps: {
         script: "completed",
-        images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
+        images: hasClips || realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
         voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
-        manus: preferredVideoGen === "manus" ? (manusPromptPreview ? "prompt_ready" : "not_configured") : "not_selected",
+        manus: preferredVideoGen === "manus" ? (finalStatus === "processing" ? "processing" : manusPromptPreview ? "completed" : "not_configured") : "not_selected",
       },
       message: statusMessage,
     };
@@ -1425,7 +1439,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     await updateJob({
       status: finalStatus,
       result_payload: resultPayload,
-      video_url: videoClips[0] || null,
+      video_url: finalReadyVideoUrl,
       ...(finalStatus === "failed" ? { error_message: statusMessage } : {}),
     });
 
@@ -1438,14 +1452,14 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         title: script.title,
         caption: script.caption || script.description,
         hashtags: script.hashtags || [],
-        media_url: videoClips[0] || sceneImageUrls[0] || null,
-        media_type: hasClips ? "video" : "image",
+        media_url: postMediaUrl,
+        media_type: postMediaType,
         platform: script.target_platform || "instagram",
         video_script: script.voiceover_script,
         voiceover_script: script.voiceover_script,
         shot_list: script.scenes,
         cta: script.cta,
-        status: "media_ready",
+        status: finalStatus === "processing" ? "processing" : "media_ready",
         production_tool: preferredVideoGen === "manus" ? "manus_ai" : "rickyai_slideshow",
         thumbnail_url: sceneImageUrls[0] || null,
       }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
