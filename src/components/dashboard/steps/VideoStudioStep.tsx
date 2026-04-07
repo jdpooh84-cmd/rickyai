@@ -3,7 +3,7 @@ import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2, Lock, Zap, Clapperboard } from "lucide-react";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2, Lock, Zap, Clapperboard, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -276,12 +276,16 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
   // ── Instant fallback: client-side composer with approved script ──
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
+
   const handleProduceInstantFallback = async () => {
     if (!businessId || !approvedScript) return;
     setGeneratingVideo(true);
     setComposingVideo(true);
     setJobStatus("composing_video");
     setComposePct(0);
+    setSavedToLibrary(false);
     try {
       // Fetch business media for real photos
       const { data: { user } } = await supabase.auth.getUser();
@@ -311,15 +315,35 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         height: 1920,
         onProgress: setComposePct,
       });
-      const url = URL.createObjectURL(blob);
-      setFinalVideoUrl(url);
+      const localUrl = URL.createObjectURL(blob);
+      setFinalVideoUrl(localUrl);
 
-      // Upload to storage
-      const fileName = `videos/${user.id}/instant-${Date.now()}/final.webm`;
+      // Upload to storage + create job record so it appears in Watch Videos
+      const jobId = crypto.randomUUID();
+      const fileName = `videos/${user.id}/${jobId}/final.webm`;
       const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
         setFinalVideoUrl(urlData.publicUrl);
+
+        // Create a video_generation_jobs record
+        await supabase.from("video_generation_jobs").insert({
+          id: jobId,
+          user_id: user.id,
+          business_id: businessId,
+          location_id: locationId,
+          provider: "instant_composer",
+          status: "completed",
+          video_url: urlData.publicUrl,
+          request_payload: { speedTier: "instant", lengthMode, title: approvedScript.title },
+          result_payload: {
+            title: approvedScript.title,
+            voiceover_script: approvedScript.scenes?.map((s: any) => s.voiceover_line).join(" "),
+            scene_images: images,
+            caption: approvedScript.description || approvedScript.title,
+          },
+        });
+        setSavedToLibrary(true);
       }
       toast.success("Your instant video is ready! ⚡");
     } catch (err: any) {
@@ -328,6 +352,52 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     } finally {
       setComposingVideo(false);
       setGeneratingVideo(false);
+    }
+  };
+
+  // Save a blob-URL video to library after the fact
+  const handleSaveToLibrary = async () => {
+    if (!finalVideoUrl || !businessId || savedToLibrary) return;
+    setSavingToLibrary(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      // Fetch the blob from the object URL
+      const resp = await fetch(finalVideoUrl);
+      const blob = await resp.blob();
+
+      const jobId = crypto.randomUUID();
+      const ext = blob.type.includes("webm") ? "webm" : "mp4";
+      const fileName = `videos/${user.id}/${jobId}/final.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: blob.type, upsert: true });
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+      setFinalVideoUrl(urlData.publicUrl);
+
+      await supabase.from("video_generation_jobs").insert({
+        id: jobId,
+        user_id: user.id,
+        business_id: businessId,
+        location_id: locationId,
+        provider: "instant_composer",
+        status: "completed",
+        video_url: urlData.publicUrl,
+        request_payload: { speedTier: "instant", lengthMode, title: approvedScript?.title || "Video" },
+        result_payload: {
+          title: approvedScript?.title || "Instant Video",
+          caption: approvedScript?.description || "",
+        },
+      });
+
+      setSavedToLibrary(true);
+      toast.success("Video saved to your library! 📚");
+    } catch (err: any) {
+      console.error("[VideoStudio] Save to library failed:", err);
+      toast.error("Failed to save — please try again");
+    } finally {
+      setSavingToLibrary(false);
     }
   };
 
@@ -393,6 +463,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setScriptApproved(false);
     setRewriteCount(0);
     setSpeedTier("instant");
+    setSavedToLibrary(false);
+    setSavingToLibrary(false);
     jobStartTimeRef.current = 0;
     setScriptVersions([]);
     removeLocalStorage(STATE_KEY);
@@ -862,7 +934,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </>
             )}
 
-            <div className="flex gap-2 mt-3">
+            <div className="flex flex-wrap gap-2 mt-3">
               {isManusPage ? (
                 <a href={finalVideoUrl} target="_blank" rel="noopener noreferrer"
                   className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
@@ -872,6 +944,18 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
                   <Download className="w-4 h-4" /> Download Video
                 </a>
+              )}
+              {!savedToLibrary && !isManusPage && (
+                <button onClick={handleSaveToLibrary} disabled={savingToLibrary}
+                  className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:bg-accent/80 disabled:opacity-50 flex items-center gap-2">
+                  {savingToLibrary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingToLibrary ? "Saving..." : "Save to Library"}
+                </button>
+              )}
+              {savedToLibrary && (
+                <span className="px-4 py-2 rounded-xl bg-green-500/10 text-green-400 text-sm font-medium flex items-center gap-2">
+                  <Check className="w-4 h-4" /> Saved to Library
+                </span>
               )}
               <button onClick={resetFlow} className="px-4 py-2 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80">
                 Make Another
