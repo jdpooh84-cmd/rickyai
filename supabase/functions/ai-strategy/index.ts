@@ -104,6 +104,12 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── ADMIN BYPASS: admins get access to ALL steps ──
+    if (isAdmin) {
+      allowedSteps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+      console.log(`[ai-strategy] Admin bypass — granting access to all steps for user ${user.id}`);
+    }
+
     // Also allow access during trial
     const { data: profile } = await supabase
       .from("profiles")
@@ -112,9 +118,11 @@ Deno.serve(async (req) => {
       .single();
     const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
 
-    if (!trialActive && !allowedSteps.includes(step)) {
+    if (!isAdmin && !trialActive && !allowedSteps.includes(step)) {
+      console.log(`[ai-strategy] Access denied: user=${user.id}, step=${step}, allowedSteps=${allowedSteps}, trialActive=${trialActive}`);
       throw new Error(`Step ${step} is not available on your current plan. Please upgrade to access this feature.`);
     }
+    console.log(`[ai-strategy] Access granted: user=${user.id}, step=${step}, isAdmin=${isAdmin}, trialActive=${trialActive}`);
 
     // Fetch business data
     const { data: business } = await supabase
