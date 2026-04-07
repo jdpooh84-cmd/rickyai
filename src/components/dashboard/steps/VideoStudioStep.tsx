@@ -463,6 +463,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setScriptApproved(false);
     setRewriteCount(0);
     setSpeedTier("instant");
+    setSavedToLibrary(false);
+    setSavingToLibrary(false);
     jobStartTimeRef.current = 0;
     setScriptVersions([]);
     removeLocalStorage(STATE_KEY);
