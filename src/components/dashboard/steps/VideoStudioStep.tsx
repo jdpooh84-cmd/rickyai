@@ -75,13 +75,14 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
   // Derive tier for Manus model gating
   const manusTier = useMemo(() => {
+    if (subscription.is_admin) return "agency"; // Admins get full access
     const plan = subscription.plan;
     if (plan === "agency") return "agency";
     if (plan === "growth") return "pro";
     if (plan === "business") return "pro";
     if (plan === "creator") return "free";
     return "free";
-  }, [subscription.plan]);
+  }, [subscription.plan, subscription.is_admin]);
 
   // Persist state
   useEffect(() => {
