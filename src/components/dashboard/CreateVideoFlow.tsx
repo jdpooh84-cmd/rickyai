@@ -328,7 +328,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
           </div>
           <h2 className="text-2xl font-bold text-foreground">{getStatusLabel()}</h2>
           <p className="text-muted-foreground text-sm">
-            Creating content for {businessName}. This takes about 60 seconds.
+            Creating content for {businessName}. Cinematic videos may take 3–5 minutes.
           </p>
         </div>
 
