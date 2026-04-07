@@ -40,6 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     trialEndsAt: null,
     activeAddOns: [],
     loading: true,
+    isAdmin: false,
   });
 
   const checkSubscription = useCallback(async () => {
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         trialEndsAt: data.trial_ends_at ?? null,
         activeAddOns,
         loading: false,
+        isAdmin: data.is_admin ?? false,
       });
     } catch (err) {
       console.error("Failed to check subscription:", err);
@@ -120,7 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, activeAddOns: [], loading: false });
+    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, activeAddOns: [], loading: false, isAdmin: false });
   };
 
   return (
