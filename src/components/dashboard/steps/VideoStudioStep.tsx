@@ -932,7 +932,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </>
             )}
 
-            <div className="flex gap-2 mt-3">
+            <div className="flex flex-wrap gap-2 mt-3">
               {isManusPage ? (
                 <a href={finalVideoUrl} target="_blank" rel="noopener noreferrer"
                   className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
@@ -942,6 +942,18 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
                   <Download className="w-4 h-4" /> Download Video
                 </a>
+              )}
+              {!savedToLibrary && !isManusPage && (
+                <button onClick={handleSaveToLibrary} disabled={savingToLibrary}
+                  className="px-4 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-medium hover:bg-accent/80 disabled:opacity-50 flex items-center gap-2">
+                  {savingToLibrary ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {savingToLibrary ? "Saving..." : "Save to Library"}
+                </button>
+              )}
+              {savedToLibrary && (
+                <span className="px-4 py-2 rounded-xl bg-green-500/10 text-green-400 text-sm font-medium flex items-center gap-2">
+                  <Check className="w-4 h-4" /> Saved to Library
+                </span>
               )}
               <button onClick={resetFlow} className="px-4 py-2 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80">
                 Make Another
