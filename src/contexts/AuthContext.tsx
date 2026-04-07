@@ -11,6 +11,7 @@ interface SubscriptionState {
   trialEndsAt: string | null;
   activeAddOns: AddOnKey[];
   loading: boolean;
+  isAdmin: boolean;
 }
 
 interface AuthContextType {
