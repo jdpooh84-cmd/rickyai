@@ -46,16 +46,10 @@ Deno.serve(async (req) => {
       chatAiUrl = "https://api.openai.com/v1/chat/completions";
       chatAiModel = "gpt-4o";
       chatAiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-    } else if (isAdmin) {
+    } else if (isAdmin || userKeys?.length) {
+      // Admin or user with any connected key: route through Lovable AI gateway
       const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("Platform AI key not configured.");
-      chatAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else if (!userKeys?.length) {
-      throw new Error("No AI provider connected. Go to Settings → Connect and add your API key to use Ricky chat.");
-    } else {
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("No compatible AI provider. Add a ChatGPT key in Settings → Connect.");
-      // If they have some key connected, allow chat (it's a lightweight feature)
+      if (!lovableKey) throw new Error("AI gateway not configured.");
       chatAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
     }
 

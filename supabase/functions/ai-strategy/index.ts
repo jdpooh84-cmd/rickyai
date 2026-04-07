@@ -49,20 +49,12 @@ Deno.serve(async (req) => {
       aiUrl = "https://api.openai.com/v1/chat/completions";
       aiModel = "gpt-4o";
       aiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-    } else if (userClaudeKey) {
-      // Claude uses a different API format — for simplicity, treat like OpenAI-compatible
-      aiUrl = AI_URL;
-      aiModel = AI_MODEL;
+    } else if (userClaudeKey || userGeminiKey) {
+      // Users with Claude or Gemini keys: route through Lovable AI gateway
       const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
+      if (!lovableKey) throw new Error("AI gateway not configured. Please contact support.");
       aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else if (userGeminiKey) {
-      // Use Gemini via user's key — for now route through platform gateway
-      aiUrl = AI_URL;
-      aiModel = AI_MODEL;
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
-      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+      console.log(`[ai-strategy] BYOLLM: user ${user.id} has ${userClaudeKey ? "claude" : "gemini"} key, routing via gateway`);
     } else if (isAdmin) {
       // Admin can use platform keys
       const lovableKey = Deno.env.get("LOVABLE_API_KEY");
