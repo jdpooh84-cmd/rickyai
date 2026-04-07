@@ -276,12 +276,16 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
   // ── Instant fallback: client-side composer with approved script ──
+  const [savedToLibrary, setSavedToLibrary] = useState(false);
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
+
   const handleProduceInstantFallback = async () => {
     if (!businessId || !approvedScript) return;
     setGeneratingVideo(true);
     setComposingVideo(true);
     setJobStatus("composing_video");
     setComposePct(0);
+    setSavedToLibrary(false);
     try {
       // Fetch business media for real photos
       const { data: { user } } = await supabase.auth.getUser();
@@ -311,15 +315,35 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         height: 1920,
         onProgress: setComposePct,
       });
-      const url = URL.createObjectURL(blob);
-      setFinalVideoUrl(url);
+      const localUrl = URL.createObjectURL(blob);
+      setFinalVideoUrl(localUrl);
 
-      // Upload to storage
-      const fileName = `videos/${user.id}/instant-${Date.now()}/final.webm`;
+      // Upload to storage + create job record so it appears in Watch Videos
+      const jobId = crypto.randomUUID();
+      const fileName = `videos/${user.id}/${jobId}/final.webm`;
       const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
         setFinalVideoUrl(urlData.publicUrl);
+
+        // Create a video_generation_jobs record
+        await supabase.from("video_generation_jobs").insert({
+          id: jobId,
+          user_id: user.id,
+          business_id: businessId,
+          location_id: locationId,
+          provider: "instant_composer",
+          status: "completed",
+          video_url: urlData.publicUrl,
+          request_payload: { speedTier: "instant", lengthMode, title: approvedScript.title },
+          result_payload: {
+            title: approvedScript.title,
+            voiceover_script: approvedScript.scenes?.map((s: any) => s.voiceover_line).join(" "),
+            scene_images: images,
+            caption: approvedScript.description || approvedScript.title,
+          },
+        });
+        setSavedToLibrary(true);
       }
       toast.success("Your instant video is ready! ⚡");
     } catch (err: any) {
@@ -328,6 +352,52 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     } finally {
       setComposingVideo(false);
       setGeneratingVideo(false);
+    }
+  };
+
+  // Save a blob-URL video to library after the fact
+  const handleSaveToLibrary = async () => {
+    if (!finalVideoUrl || !businessId || savedToLibrary) return;
+    setSavingToLibrary(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not logged in");
+
+      // Fetch the blob from the object URL
+      const resp = await fetch(finalVideoUrl);
+      const blob = await resp.blob();
+
+      const jobId = crypto.randomUUID();
+      const ext = blob.type.includes("webm") ? "webm" : "mp4";
+      const fileName = `videos/${user.id}/${jobId}/final.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: blob.type, upsert: true });
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+      setFinalVideoUrl(urlData.publicUrl);
+
+      await supabase.from("video_generation_jobs").insert({
+        id: jobId,
+        user_id: user.id,
+        business_id: businessId,
+        location_id: locationId,
+        provider: "instant_composer",
+        status: "completed",
+        video_url: urlData.publicUrl,
+        request_payload: { speedTier: "instant", lengthMode, title: approvedScript?.title || "Video" },
+        result_payload: {
+          title: approvedScript?.title || "Instant Video",
+          caption: approvedScript?.description || "",
+        },
+      });
+
+      setSavedToLibrary(true);
+      toast.success("Video saved to your library! 📚");
+    } catch (err: any) {
+      console.error("[VideoStudio] Save to library failed:", err);
+      toast.error("Failed to save — please try again");
+    } finally {
+      setSavingToLibrary(false);
     }
   };
 
