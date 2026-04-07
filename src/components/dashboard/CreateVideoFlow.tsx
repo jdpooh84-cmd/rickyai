@@ -229,7 +229,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
           <div>
             <label className="text-xs font-semibold text-foreground mb-1 block">Business Name *</label>
             <input value={businessName} onChange={e => setBusinessName(e.target.value)}
-              placeholder="e.g., Donato's Pizza" className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent" />
+              placeholder="e.g., Sunrise Auto Spa" className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

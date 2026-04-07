@@ -213,7 +213,7 @@ Return JSON:
   ],
   "top_priorities": ["...top 3 things to fix first..."],
   "competitive_edge": "What makes this business truly different — specific products, methods, or reputation signals",
-  "unique_details": ["...3-5 signature details that set this business apart (e.g. 'circle pizza with small square-cut slices', 'family recipes since 1963')..."],
+  "unique_details": ["...3-5 signature details that set this business apart (e.g. 'proprietary method since 1963', 'hand-crafted signature product', 'award-winning customer service')..."],
   "seo_health": {"grade": "A-F", "key_issues": ["..."], "quick_wins": ["..."], "local_pack_status": "appearing|not-appearing|unknown", "nap_consistent": true},
   "geo_readiness": {"grade": "A-F", "citation_hooks": ["...content that AI would cite..."], "entity_signals": ["...missing authority signals..."], "ai_citation_score": 0-100},
   "aeo_coverage": {"grade": "A-F", "questions_to_answer": ["...top 5 customer questions this business should answer on their site..."], "schema_status": "has-faq|needs-faq|none"},
