@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
     }
 
-    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
+    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport, customPrompt, mode } = await req.json();
 
     // --- Tier enforcement ---
     // Check subscription to determine which steps the user can access
@@ -110,7 +110,8 @@ Deno.serve(async (req) => {
       .single();
     const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
 
-    if (!isAdmin && !trialActive && !allowedSteps.includes(step)) {
+    if (step === 99) { /* Video script generation — always allowed */ }
+    else if (!isAdmin && !trialActive && !allowedSteps.includes(step)) {
       console.log(`[ai-strategy] Access denied: user=${user.id}, step=${step}, allowedSteps=${allowedSteps}, trialActive=${trialActive}`);
       throw new Error(`Step ${step} is not available on your current plan. Please upgrade to access this feature.`);
     }
@@ -652,6 +653,25 @@ ${businessContext}`
 
 ${businessContext}`
       },
+      99: {
+        system: `You are a video production expert. Given a business profile and user request, generate a structured video script. Return valid JSON with: title, description, cta (call to action text), and scenes (array of 4 objects, each with: voiceover_line, text_overlay, duration_seconds). The 4 scenes should follow this structure: Hook (5s), Value (15s), Proof (15s), CTA (10s). Total ~45 seconds. Match the brand tone. Be specific to the business.`,
+        user: `The business owner wants this video: "${customPrompt || 'A promotional video for our business'}"
+
+${businessContext}
+
+Return JSON:
+{
+  "title": "...",
+  "description": "...",
+  "cta": "...",
+  "scenes": [
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 5},
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 15},
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 15},
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 10}
+  ]
+}`
+      },
     };
 
     const stepConfig = stepPrompts[step];
@@ -754,6 +774,13 @@ ${businessContext}`
       outputData = JSON.parse(content);
     } catch {
       outputData = { raw: content };
+    }
+
+    // For video script requests, return as { script: ... } and skip saving to strategy_outputs
+    if (step === 99) {
+      return new Response(JSON.stringify({ script: outputData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Save to strategy_outputs
