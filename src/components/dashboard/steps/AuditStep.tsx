@@ -9,6 +9,8 @@ const AuditStep = ({ businessId, locationId, onComplete }: Props) => {
   const { data, loading, generate, loadExisting } = useStrategyStep(5);
   useEffect(() => { if (businessId) loadExisting(businessId); }, [businessId]);
   const handleGenerate = async () => { if (!businessId) return; const r = await generate(businessId, locationId); if (r) onComplete?.(); };
+  const rawContentScore = data?.content_score ?? data?.overall_score ?? data?.rmo_analysis?.reputation_score ?? data?.seo_audit?.on_page_score ?? data?.cro_analysis?.conversion_readiness;
+  const contentScore = Number.isFinite(Number(rawContentScore)) ? Math.max(0, Math.min(100, Math.round(Number(rawContentScore)))) : 0;
 
   return (
     <StepLayout title="Audit" description="Content strategy audit with a 4-week action calendar."
@@ -17,7 +19,7 @@ const AuditStep = ({ businessId, locationId, onComplete }: Props) => {
         <div className="space-y-6">
           <div className="glass rounded-2xl p-6 text-center">
             <p className="text-xs text-muted-foreground mb-1">Content Score</p>
-            <span className="text-5xl font-bold font-display text-primary">{data.content_score}</span>
+            <span className="text-5xl font-bold font-display text-primary">{contentScore}</span>
             <span className="text-lg text-muted-foreground">/100</span>
           </div>
 
