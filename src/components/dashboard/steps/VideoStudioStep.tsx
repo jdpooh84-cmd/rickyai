@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
 import { composeVideo } from "@/lib/videoComposer";
+import { buildPromoTemplate, renderPromoVideo } from "@/lib/videoTemplate";
 import demoVideoAsset from "@/assets/demo-business-promo.mp4.asset.json";
 import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/persistence";
 
