@@ -304,37 +304,23 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setComposePct(0);
     setSavedToLibrary(false);
     try {
-      // Fetch business media for real photos
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
+
+      // Fetch business media for real photos
       const { data: mediaItems } = await supabase.from("business_media")
         .select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
       const images = mediaItems?.map(m => m.public_url) || [];
-      // If no real images, create gradient placeholder
-      if (images.length === 0) {
-        const c = document.createElement("canvas"); c.width = 128; c.height = 128;
-        const cx = c.getContext("2d")!;
-        const g = cx.createLinearGradient(0, 0, 128, 128);
-        g.addColorStop(0, "#1a1a2e"); g.addColorStop(1, "#16213e");
-        cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
-        images.push(c.toDataURL());
-      }
 
-      const blob = await composeVideo({
-        sceneImages: images,
-        voiceoverUrl: null,
-        businessName: approvedScript.title || "Video",
-        title: approvedScript.title,
-        sceneCaptions: approvedScript.scenes?.map((s: any) => s.voiceover_line) || [],
-        durationPerScene: 5,
-        totalDurationSeconds: approvedScript.scenes?.length ? approvedScript.scenes.length * 5 : 30,
-        width: 1080,
-        height: 1920,
-        onProgress: setComposePct,
-      });
+      // Build fixed 4-block promo template — falls back to gradient if no images
+      const template = buildPromoTemplate(approvedScript, approvedScript.title || "Video", images);
+
+      // Render using the template pipeline
+      const blob = await renderPromoVideo(template, setComposePct);
       const localUrl = URL.createObjectURL(blob);
       setFinalVideoUrl(localUrl);
 
+      // Upload to storage
       const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const contentType = blob.type.includes("mp4") ? "video/mp4" : "video/webm";
       const jobId = crypto.randomUUID();
@@ -343,14 +329,12 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
         setFinalVideoUrl(urlData.publicUrl);
-
-        // Create a video_generation_jobs record
         await supabase.from("video_generation_jobs").insert({
           id: jobId,
           user_id: user.id,
           business_id: businessId,
           location_id: locationId,
-          provider: "instant_composer",
+          provider: "instant_template",
           status: "completed",
           video_url: urlData.publicUrl,
           request_payload: { speedTier: "instant", lengthMode, title: approvedScript.title },
@@ -359,13 +343,14 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             voiceover_script: approvedScript.scenes?.map((s: any) => s.voiceover_line).join(" "),
             scene_images: images,
             caption: approvedScript.description || approvedScript.title,
+            template_type: "4-block-promo",
           },
         });
         setSavedToLibrary(true);
       }
       toast.success("Your instant video is ready! ⚡");
     } catch (err: any) {
-      console.error("[VideoStudio] Instant fallback failed:", err);
+      console.error("[VideoStudio] Instant template failed:", err);
       toast.error("Failed to compose video — please try again");
     } finally {
       setComposingVideo(false);
