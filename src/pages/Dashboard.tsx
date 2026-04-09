@@ -82,6 +82,10 @@ const Dashboard = () => {
     if (!user) return;
     // Reset onboarding flag
     await supabase.from("profiles").update({ onboarding_completed: false }).eq("user_id", user.id);
+    // Delete user's businesses, locations, and strategy outputs so fresh data is entered
+    await supabase.from("strategy_outputs").delete().eq("user_id", user.id);
+    await supabase.from("locations").delete().eq("user_id", user.id);
+    await supabase.from("businesses").delete().eq("user_id", user.id);
     // Clear local storage
     localStorage.removeItem(DASHBOARD_STATE_KEY);
     localStorage.removeItem("rickyai-business-selection");
@@ -91,6 +95,7 @@ const Dashboard = () => {
     setActiveSection("");
     setOnboardingChecked(false);
     setShowOnboarding(true);
+    refreshBusinessData();
     toast.success("Reset complete — starting fresh onboarding!");
   };
 
@@ -114,9 +119,9 @@ const Dashboard = () => {
   const handleOnboardingComplete = (businessId: string, locationId: string | null) => {
     setShowOnboarding(false);
     refreshBusinessData();
-    // Mark steps 1 and 2 as complete since they filled out business info
-    setCompletedSteps(prev => [...new Set([...prev, 1, 2])]);
-    setActiveStep(8); // Jump to Video Studio
+    // Start at step 1 (Connect) so user walks through the full flow
+    setCompletedSteps([]);
+    setActiveStep(1);
   };
 
   const renderContent = () => {
