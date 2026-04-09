@@ -19,7 +19,6 @@ type SpeedTier = "instant" | "standard" | "cinematic";
 
 const SPEED_TIERS: { key: SpeedTier; label: string; engine: string; speed: string; quality: string; emoji: string; desc: string }[] = [
   { key: "instant", label: "Instant", engine: "Built-in Composer", speed: "10-30 sec", quality: "Good", emoji: "⚡", desc: "Ken Burns slideshow + captions + voiceover. Ready in seconds." },
-  { key: "standard", label: "Standard", engine: "HeyGen", speed: "1-3 min", quality: "Great", emoji: "🎬", desc: "AI-powered video with professional polish. Short wait." },
   { key: "cinematic", label: "Cinematic", engine: "Manus AI", speed: "5-15 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production. Best quality — worth the wait." },
 ];
 
@@ -196,17 +195,19 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
               const { data: { session } } = await supabase.auth.getSession();
               if (session) {
-                const fileName = `videos/${session.user.id}/${activeJobId}/final.webm`;
-                const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
-                if (!uploadErr) {
-                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                  setFinalVideoUrl(urlData.publicUrl);
-                  setSavedToLibrary(true);
-                  await supabase.from("video_generation_jobs").update({
-                    video_url: urlData.publicUrl,
-                    updated_at: new Date().toISOString(),
-                  }).eq("id", activeJobId);
-                }
+              const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+              const contentType = blob.type.includes("mp4") ? "video/mp4" : "video/webm";
+              const fileName = `videos/${session.user.id}/${activeJobId}/final.${ext}`;
+              const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType, upsert: true });
+              if (!uploadErr) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+                setFinalVideoUrl(urlData.publicUrl);
+                setSavedToLibrary(true);
+                await supabase.from("video_generation_jobs").update({
+                  video_url: urlData.publicUrl,
+                  updated_at: new Date().toISOString(),
+                }).eq("id", activeJobId);
+              }
               }
               toast.success("Your video is ready! 🎬");
             } catch (err: any) {
@@ -333,10 +334,11 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       const localUrl = URL.createObjectURL(blob);
       setFinalVideoUrl(localUrl);
 
-      // Upload to storage + create job record so it appears in Watch Videos
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+      const contentType = blob.type.includes("mp4") ? "video/mp4" : "video/webm";
       const jobId = crypto.randomUUID();
-      const fileName = `videos/${user.id}/${jobId}/final.webm`;
-      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+      const fileName = `videos/${user.id}/${jobId}/final.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType, upsert: true });
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
         setFinalVideoUrl(urlData.publicUrl);
@@ -383,7 +385,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       const blob = await resp.blob();
 
       const jobId = crypto.randomUUID();
-      const ext = blob.type.includes("webm") ? "webm" : "mp4";
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const fileName = `videos/${user.id}/${jobId}/final.${ext}`;
       const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: blob.type, upsert: true });
       if (uploadErr) throw uploadErr;
@@ -456,7 +458,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
         setActiveJobId(response.data.job_id);
-        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "HeyGen (1-3 min)";
+        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "Instant";
         toast.info(`🎬 Video production started — ${tierLabel}`);
       } else {
         throw new Error("No job ID returned");
@@ -536,10 +538,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_script": return "✍️ Writing your script...";
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
-      case "rendering_video": return speedTier === "cinematic" ? "🎬 Rendering with Manus AI..." : "🎬 Rendering with HeyGen...";
+      case "rendering_video": return "🎬 Rendering video...";
       case "processing": return speedTier === "cinematic" 
         ? "🤖 Waiting for Manus AI to finish rendering... (5-15 min, auto-fallback at 10 min)" 
-        : "🎬 Waiting for HeyGen to finish... (1-3 min)";
+        : "🎬 Rendering video...";
       case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
       default: return "Processing...";
     }
@@ -781,13 +783,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <div className="mt-3 p-2.5 rounded-xl bg-accent/10 border border-accent/20">
                 <p className="text-[10px] text-accent-foreground">
                   ⏱ <strong>Cinematic videos take 5-15 minutes.</strong> If Manus AI doesn't respond within 10 minutes, we'll automatically create an instant fallback video so you're never stuck waiting.
-                </p>
-              </div>
-            )}
-            {speedTier === "standard" && (
-              <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-[10px] text-foreground/70">
-                  🎬 <strong>Standard videos take 1-3 minutes.</strong> HeyGen produces polished AI video quickly.
                 </p>
               </div>
             )}
