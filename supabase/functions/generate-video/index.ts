@@ -1251,11 +1251,10 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     console.log(`[pipeline] Preferred video generator: ${preferredVideoGen}`);
 
     // ════════════════════════════════════════════════════════════════════
-    // STEP 4a: MANUS AI SHIM (if user chose Manus)
+    // STEP 4a: MANUS AI — DIRECT API CALL (no Make.com middleman)
     // ════════════════════════════════════════════════════════════════════
     let manusPromptPreview: string | null = null;
     if (preferredVideoGen === "manus") {
-      // Extract Manus model/tier from job request payload
       const reqPayload = (jobRow?.request_payload as any) || {};
       const selectedManusModel = reqPayload.manusModel || "default";
       const selectedManusTier = reqPayload.manusTier || "free";
@@ -1271,80 +1270,70 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           voiceover_url: voiceoverUrl,
           video_clips: sceneVideoClipUrls,
           pipeline_step: "manus",
-          message: `🤖 Preparing Manus AI video prompt (${selectedManusModel === "veo3" ? "Veo 3 Cinematic" : "Standard"})...`,
+          message: `🤖 Submitting to Manus AI (${selectedManusModel === "veo3" ? "Veo 3 Cinematic" : "Standard"})...`,
         },
       });
 
       // Build tier-gated Manus prompt
       const basePrompt = manusVisualScript.manus_prompt;
-
       if (selectedManusTier === "free") {
-        // Free: default model, 16:9 or 9:16 only, ≤15s
         manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Keep total video length under 15 seconds to stay within credit limits.`;
       } else if (selectedManusTier === "agency" && selectedManusModel === "veo3") {
-        // Agency + Veo 3: cinematic quality, 16:9 only, full duration
         manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds.`;
       } else {
-        // Pro / Business: default model, user-selected format, full duration
         manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds.`;
       }
 
-      console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel}):`);
-      console.log(manusPromptPreview.substring(0, 500) + "...");
+      console.log(`[pipeline] Manus prompt (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel})`);
 
-      // ── DISPATCH TO MAKE.COM WEBHOOK ──
-      const { data: webhookRow } = await supabase
-        .from("webhook_config")
-        .select("webhook_url")
-        .eq("scenario_type", "manus_production")
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (webhookRow?.webhook_url) {
-        console.log(`[pipeline] 🚀 Dispatching to Make.com webhook: ${webhookRow.webhook_url.substring(0, 60)}...`);
-        const perScenePrompts = buildPerScenePrompts(script, businessContext, manusVisualScript.shots, preset.ratio);
-
-        const webhookPayload = {
-          job_id: jobId,
-          user_id: userId,
-          business_id: businessId,
-          business_name: business.business_name,
-          manus_prompt: manusPromptPreview,
-          scene_prompts: perScenePrompts.map((prompt, i) => ({
-            scene_index: i + 1,
-            prompt,
-            duration_seconds: script.scenes[i]?.duration_seconds || preset.clipDuration,
-            image_url: sceneImageInputs[i] || null,
-            voiceover_line: script.scenes[i]?.voiceover_line || "",
-          })),
-          total_scenes: perScenePrompts.length,
-          manus_visual_script: manusVisualScript,
-          scene_images: sceneImageUrls,
-          voiceover_url: voiceoverUrl,
-          tier: selectedManusTier,
-          model: selectedManusModel,
-          aspect_ratio: preset.ratio,
-          target_duration_seconds: preset.targetSeconds,
-          use_subtasks: true,
-          callback_url: `${supabaseUrl}/functions/v1/video-callback`,
-        };
+      // ── DIRECT MANUS API DISPATCH (replaces Make.com webhook) ──
+      const manusApiKey = Deno.env.get("MANUS_API_KEY");
+      if (manusApiKey) {
         try {
-          const webhookRes = await fetch(webhookRow.webhook_url, {
+          console.log(`[pipeline] 🚀 Calling Manus API directly...`);
+          const manusRes = await fetch("https://api.manus.im/v1/tasks", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(webhookPayload),
+            headers: {
+              "Authorization": `Bearer ${manusApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: manusPromptPreview,
+            }),
           });
-          if (webhookRes.ok) {
-            console.log(`[pipeline] ✅ Make.com webhook accepted (${webhookRes.status})`);
+
+          if (manusRes.ok) {
+            const manusData = await manusRes.json();
+            const manusTaskId = manusData.task_id || manusData.id;
+            console.log(`[pipeline] ✅ Manus task created: ${manusTaskId}`);
+
+            // Save manus_task_id so check-video-status can poll it
+            await updateJob({
+              status: "processing",
+              pipeline_stage: "polling_manus",
+              manus_task_id: manusTaskId,
+              fallback_ready: true,
+              result_payload: {
+                ...script,
+                scene_images: sceneImageUrls,
+                voiceover_url: voiceoverUrl,
+                video_clips: sceneVideoClipUrls,
+                manus_task_id: manusTaskId,
+                pipeline_step: "manus_polling",
+                message: `🤖 Manus AI rendering in progress (task: ${manusTaskId?.substring(0, 8)}...)`,
+              },
+            });
           } else {
-            const errText = await webhookRes.text();
-            console.error(`[pipeline] ⚠️ Make.com webhook returned ${webhookRes.status}: ${errText}`);
+            const errText = await manusRes.text();
+            console.error(`[pipeline] ⚠️ Manus API returned ${manusRes.status}: ${errText}`);
+            // Fall through to completed with images — frontend will use browser composer
           }
-        } catch (webhookErr: any) {
-          console.error(`[pipeline] ⚠️ Make.com webhook dispatch failed:`, webhookErr.message);
+        } catch (manusErr: any) {
+          console.error(`[pipeline] ⚠️ Manus API call failed:`, manusErr.message);
+          // Fall through — images are ready, browser composer will handle it
         }
       } else {
-        console.log(`[pipeline] ⚠️ No active manus_production webhook configured — prompt stored but not dispatched`);
+        console.log(`[pipeline] ⚠️ No MANUS_API_KEY configured — images ready for browser composer fallback`);
       }
     }
 
