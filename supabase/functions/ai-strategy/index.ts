@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
     }
 
-    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
+    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport, customPrompt, mode } = await req.json();
 
     // --- Tier enforcement ---
     // Check subscription to determine which steps the user can access
@@ -110,7 +110,8 @@ Deno.serve(async (req) => {
       .single();
     const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
 
-    if (!isAdmin && !trialActive && !allowedSteps.includes(step)) {
+    if (step === 99) { /* Video script generation — always allowed */ }
+    else if (!isAdmin && !trialActive && !allowedSteps.includes(step)) {
       console.log(`[ai-strategy] Access denied: user=${user.id}, step=${step}, allowedSteps=${allowedSteps}, trialActive=${trialActive}`);
       throw new Error(`Step ${step} is not available on your current plan. Please upgrade to access this feature.`);
     }
