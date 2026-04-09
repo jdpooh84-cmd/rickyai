@@ -1396,8 +1396,13 @@ export type Database = {
           business_id: string
           created_at: string
           error_message: string | null
+          fallback_ready: boolean
           id: string
+          last_polled_at: string | null
           location_id: string | null
+          manus_task_id: string | null
+          pipeline_stage: string
+          poll_attempts: number
           provider: string
           request_payload: Json
           result_payload: Json | null
@@ -1410,8 +1415,13 @@ export type Database = {
           business_id: string
           created_at?: string
           error_message?: string | null
+          fallback_ready?: boolean
           id?: string
+          last_polled_at?: string | null
           location_id?: string | null
+          manus_task_id?: string | null
+          pipeline_stage?: string
+          poll_attempts?: number
           provider?: string
           request_payload?: Json
           result_payload?: Json | null
@@ -1424,8 +1434,13 @@ export type Database = {
           business_id?: string
           created_at?: string
           error_message?: string | null
+          fallback_ready?: boolean
           id?: string
+          last_polled_at?: string | null
           location_id?: string | null
+          manus_task_id?: string | null
+          pipeline_stage?: string
+          poll_attempts?: number
           provider?: string
           request_payload?: Json
           result_payload?: Json | null

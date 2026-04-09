@@ -983,7 +983,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     // ════════════════════════════════════════════════════════════════════
     // STEP 1: SCRIPT — use approved script if provided, else generate
     // ════════════════════════════════════════════════════════════════════
-    await updateJob({ status: "generating_script", result_payload: { pipeline_step: "script", message: "✍️ Loading your approved script..." } });
+    await updateJob({ status: "generating_script", pipeline_stage: "generating_images", result_payload: { pipeline_step: "script", message: "✍️ Loading your approved script..." } });
 
     let script: any;
     let usedFallbackScript = false;
@@ -1102,6 +1102,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     // ════════════════════════════════════════════════════════════════════
     await updateJob({
       status: "generating_images",
+      pipeline_stage: "generating_images",
       result_payload: { ...script, scene_images: [], video_clips: [], pipeline_step: "images", message: "🎨 Finding best photos..." },
     });
 
@@ -1262,6 +1263,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       console.log(`[pipeline] 🤖 Manus AI selected — model=${selectedManusModel}, tier=${selectedManusTier}`);
       await updateJob({
         status: "rendering_video",
+        pipeline_stage: "submitted_to_manus",
+        fallback_ready: true,
         result_payload: {
           ...script,
           scene_images: sceneImageUrls,
@@ -1433,6 +1436,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
     await updateJob({
       status: finalStatus,
+      pipeline_stage: finalStatus === "processing" ? "polling_manus" : finalStatus === "completed" ? "completed" : "failed",
+      fallback_ready: sceneImageUrls.length > 0,
       result_payload: resultPayload,
       video_url: finalReadyVideoUrl,
       ...(finalStatus === "failed" ? { error_message: statusMessage } : {}),

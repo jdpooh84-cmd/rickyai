@@ -96,7 +96,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("video_generation_jobs")
-        .select("status, result_payload, video_url, error_message")
+        .select("status, result_payload, video_url, error_message, pipeline_stage, fallback_ready, poll_attempts")
         .eq("id", activeJobId)
         .single();
 
@@ -105,26 +105,34 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         if (data.result_payload) setGeneratedVideoScript(data.result_payload);
 
         if (data.status === "processing") {
-          // Manus job dispatched to Make.com — keep polling, don't stop
+          // Manus job dispatched — keep polling, don't stop
           setGeneratedVideoScript(data.result_payload);
 
-          // ── AUTO-TIMEOUT: if 10 min elapsed, auto-fail and trigger fallback ──
-          if (jobStartTimeRef.current && Date.now() - jobStartTimeRef.current > MANUS_TIMEOUT_MS) {
+          // ── AUTO-FALLBACK: if fallback_ready and exceeded timeout OR 40+ poll attempts ──
+          const timedOut = jobStartTimeRef.current && Date.now() - jobStartTimeRef.current > MANUS_TIMEOUT_MS;
+          const tooManyPolls = (data.poll_attempts || 0) >= 40;
+
+          if ((data as any).fallback_ready && (timedOut || tooManyPolls)) {
             clearInterval(interval);
-            console.warn("[VideoStudio] Manus AI timed out after 10 minutes — triggering fallback");
-            toast.warning("Manus AI took too long — generating instant fallback video instead ⚡");
-            // Mark job as failed
+            console.warn("[VideoStudio] Manus AI timed out — auto-triggering browser fallback (fallback_ready=true)");
+            toast.warning("Cinematic video is still processing — generating instant draft now ⚡");
+            // Update job pipeline_stage
             await supabase.from("video_generation_jobs").update({
-              status: "failed",
-              error_message: "Auto-timeout: Manus AI did not respond within 10 minutes",
+              pipeline_stage: "composing_browser",
               updated_at: new Date().toISOString(),
             }).eq("id", activeJobId);
             setGeneratingVideo(false);
-            setJobStatus("failed");
-            // Auto-trigger instant fallback
+            setJobStatus("composing_browser");
+            // Auto-trigger instant fallback using scene images already generated
             handleProduceInstantFallback();
             return;
           }
+
+          // Increment poll_attempts on the server
+          await supabase.from("video_generation_jobs").update({
+            poll_attempts: (data.poll_attempts || 0) + 1,
+            last_polled_at: new Date().toISOString(),
+          }).eq("id", activeJobId);
 
           // Check if video_url was filled in by the callback — only stop if it's a real playable file
           if (data.video_url) {
