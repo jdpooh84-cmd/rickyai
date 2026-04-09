@@ -94,6 +94,13 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     if (!activeJobId) return;
     composedRef.current = false; // Reset for new job
     const interval = setInterval(async () => {
+      // Call check-video-status edge function which polls Manus API directly
+      try {
+        await supabase.functions.invoke("check-video-status", { body: { jobId: activeJobId } });
+      } catch (e) {
+        console.warn("[VideoStudio] check-video-status call failed, reading DB directly:", e);
+      }
+
       const { data } = await supabase
         .from("video_generation_jobs")
         .select("status, result_payload, video_url, error_message, pipeline_stage, fallback_ready, poll_attempts")
@@ -105,7 +112,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         if (data.result_payload) setGeneratedVideoScript(data.result_payload);
 
         if (data.status === "processing") {
-          // Manus job dispatched — keep polling, don't stop
           setGeneratedVideoScript(data.result_payload);
 
           // ── AUTO-FALLBACK: if fallback_ready and exceeded timeout OR 40+ poll attempts ──
@@ -114,46 +120,32 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
           if ((data as any).fallback_ready && (timedOut || tooManyPolls)) {
             clearInterval(interval);
-            console.warn("[VideoStudio] Manus AI timed out — auto-triggering browser fallback (fallback_ready=true)");
+            console.warn("[VideoStudio] Manus AI timed out — auto-triggering browser fallback");
             toast.warning("Cinematic video is still processing — generating instant draft now ⚡");
-            // Update job pipeline_stage
             await supabase.from("video_generation_jobs").update({
               pipeline_stage: "composing_browser",
               updated_at: new Date().toISOString(),
             }).eq("id", activeJobId);
             setGeneratingVideo(false);
             setJobStatus("composing_browser");
-            // Auto-trigger instant fallback using scene images already generated
             handleProduceInstantFallback();
             return;
           }
 
-          // Increment poll_attempts on the server
-          await supabase.from("video_generation_jobs").update({
-            poll_attempts: (data.poll_attempts || 0) + 1,
-            last_polled_at: new Date().toISOString(),
-          }).eq("id", activeJobId);
-
-          // Check if video_url was filled in by the callback — only stop if it's a real playable file
+          // Check if video_url was filled by Manus polling
           if (data.video_url) {
             const url = data.video_url as string;
             const isPlayable = /\.(mp4|webm|mov)(\?|$)/i.test(url) ||
               /supabase\.co\/storage\/v1\/object\/public\/media\//i.test(url) ||
               /s3\.amazonaws\.com\//i.test(url);
-            const isManusPage = /manus\.(im|ai)\/app\//i.test(url) || /share\.manus\.(im|ai)/.test(url);
 
             if (isPlayable) {
               clearInterval(interval);
               setGeneratingVideo(false);
               setFinalVideoUrl(url);
-              toast.success("Your video is ready from Manus AI! 🎬");
-            } else if (isManusPage) {
-              // Manus viewer page — show link but keep polling for the real MP4
-              setGeneratedVideoScript((prev: any) => ({ ...prev, manus_task_url: url }));
-              // Don't stop polling — Make.com should upload the MP4 and call back again
+              toast.success("Your cinematic video is ready! 🎬");
             }
           }
-          // Otherwise keep polling — Make.com hasn't called back yet
         } else if (data.status === "completed" || data.status === "media_ready") {
           clearInterval(interval);
           setGeneratingVideo(false);
@@ -214,7 +206,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           toast.error(data.error_message || "Production failed — try again");
         }
       }
-    }, 3000);
+    }, speedTier === "cinematic" ? 20000 : 5000); // Poll every 20s for Manus, 5s for others
     return () => clearInterval(interval);
   }, [activeJobId]);
 
