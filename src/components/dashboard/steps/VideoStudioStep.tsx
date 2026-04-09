@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
-import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
 import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2, Lock, Zap, Clapperboard, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -43,7 +42,13 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     generatedVideoScript: null as any,
     approvedScript: null as any,
     scriptApproved: false,
+    finalVideoUrl: null as string | null,
+    savedToLibrary: false,
   });
+  const persistedFinalVideoUrl =
+    typeof persisted.finalVideoUrl === "string" && !persisted.finalVideoUrl.startsWith("blob:")
+      ? persisted.finalVideoUrl
+      : null;
   const [lengthMode, setLengthMode] = useState<LengthMode>(persisted.lengthMode);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persisted.generatedVideoScript);
@@ -51,7 +56,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [jobStatus, setJobStatus] = useState<string>("queued");
   const [composingVideo, setComposingVideo] = useState(false);
   const [composePct, setComposePct] = useState(0);
-  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(persistedFinalVideoUrl);
+  const [savedToLibrary, setSavedToLibrary] = useState(Boolean(persisted.savedToLibrary && persistedFinalVideoUrl));
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const composedRef = useRef(false);
 
@@ -86,8 +93,15 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
   // Persist state
   useEffect(() => {
-    writeLocalStorage(STATE_KEY, { lengthMode, generatedVideoScript, approvedScript, scriptApproved });
-  }, [lengthMode, generatedVideoScript, approvedScript, scriptApproved]);
+    writeLocalStorage(STATE_KEY, {
+      lengthMode,
+      generatedVideoScript,
+      approvedScript,
+      scriptApproved,
+      finalVideoUrl: finalVideoUrl && !finalVideoUrl.startsWith("blob:") ? finalVideoUrl : null,
+      savedToLibrary,
+    });
+  }, [lengthMode, generatedVideoScript, approvedScript, scriptApproved, finalVideoUrl, savedToLibrary]);
 
   // ── Poll active video generation job ──
   useEffect(() => {
@@ -143,6 +157,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               clearInterval(interval);
               setGeneratingVideo(false);
               setFinalVideoUrl(url);
+              setSavedToLibrary(true);
               toast.success("Your cinematic video is ready! 🎬");
             }
           }
@@ -156,6 +171,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
           if (data.video_url) {
             setFinalVideoUrl(data.video_url);
+            setSavedToLibrary(true);
             toast.success("Your video is ready! 🎬");
           } else if ((clips.length > 0 || images.length > 0) && !composedRef.current) {
             composedRef.current = true;
@@ -185,6 +201,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 if (!uploadErr) {
                   const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
                   setFinalVideoUrl(urlData.publicUrl);
+                  setSavedToLibrary(true);
                   await supabase.from("video_generation_jobs").update({
                     video_url: urlData.publicUrl,
                     updated_at: new Date().toISOString(),
@@ -277,9 +294,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   };
 
   // ── Instant fallback: client-side composer with approved script ──
-  const [savedToLibrary, setSavedToLibrary] = useState(false);
-  const [savingToLibrary, setSavingToLibrary] = useState(false);
-
   const handleProduceInstantFallback = async () => {
     if (!businessId || !approvedScript) return;
     setGeneratingVideo(true);
@@ -421,6 +435,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
     setGeneratingVideo(true);
     setFinalVideoUrl(null);
+    setSavedToLibrary(false);
     composedRef.current = false;
     setJobStatus("queued");
     setComposePct(0);
@@ -1084,9 +1099,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         {/* ═══ MEDIA LIBRARY ═══ */}
         <MediaLibrary businessId={businessId} />
 
-        {/* Guide + External Connections */}
+        {/* Guide */}
         <VideoStudioGuide onDownloadGuide={handleDownloadGuide} />
-        <ExternalAppConnections />
       </div>
     </StepLayout>
   );
