@@ -119,7 +119,12 @@ async function stitchVideoClips(
     }
   }
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  // Prefer MP4 (H.264) for iOS/Safari compatibility, fall back to WebM
+  const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
+    ? "video/mp4;codecs=avc1"
+    : MediaRecorder.isTypeSupported("video/mp4")
+    ? "video/mp4"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
@@ -247,7 +252,12 @@ async function composeFromImages(
     }
   }
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  // Prefer MP4 (H.264) for iOS/Safari compatibility, fall back to WebM
+  const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
+    ? "video/mp4;codecs=avc1"
+    : MediaRecorder.isTypeSupported("video/mp4")
+    ? "video/mp4"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
