@@ -1343,7 +1343,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
 
     if (preferredVideoGen === "manus") {
-      console.log("[pipeline] Manus AI selected — video will be delivered via Make.com webhook callback");
+      console.log("[pipeline] Manus AI selected — video will be delivered via direct API polling");
     } else {
       console.log("[pipeline] Slideshow mode — no external video generator");
     }
@@ -1362,7 +1362,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     let isFallback = false;
 
     if (preferredVideoGen === "manus" && manusPromptPreview) {
-      statusMessage = `🤖 Manus AI prompt ready! Your video will be delivered via Make.com when processing completes.`;
+      statusMessage = `🤖 Manus AI rendering in progress! Auto-fallback to instant video if it takes too long.`;
       finalStatus = "processing";
     } else if (hasClips) {
       statusMessage = `🎬 ${videoClips.length} video clips ready (${totalDuration}s)!`;
