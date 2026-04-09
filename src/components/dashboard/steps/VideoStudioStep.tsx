@@ -297,15 +297,24 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
   // ── Instant fallback: client-side composer with approved script ──
   const handleProduceInstantFallback = async () => {
-    if (!businessId || !approvedScript) return;
+    if (!businessId || !approvedScript) {
+      toast.error("Please generate and approve a script first.");
+      return;
+    }
     setGeneratingVideo(true);
     setComposingVideo(true);
     setJobStatus("composing_video");
     setComposePct(0);
     setSavedToLibrary(false);
+    setFinalVideoUrl(null);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in");
+
+      // Fetch business info for branding
+      const { data: biz } = await supabase.from("businesses")
+        .select("business_name").eq("id", businessId).single();
+      const bizName = biz?.business_name || approvedScript.title || "Video";
 
       // Fetch business media for real photos
       const { data: mediaItems } = await supabase.from("business_media")
@@ -313,10 +322,19 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       const images = mediaItems?.map(m => m.public_url) || [];
 
       // Build fixed 4-block promo template — falls back to gradient if no images
-      const template = buildPromoTemplate(approvedScript, approvedScript.title || "Video", images);
+      const template = buildPromoTemplate(approvedScript, bizName, images);
+
+      toast.info("🎬 Rendering your video — this takes about 60 seconds...");
 
       // Render using the template pipeline
-      const blob = await renderPromoVideo(template, setComposePct);
+      const blob = await renderPromoVideo(template, (pct) => {
+        setComposePct(pct);
+      });
+
+      if (blob.size < 1000) {
+        throw new Error("Video render produced an empty file — your browser may not support video recording. Try Chrome.");
+      }
+
       const localUrl = URL.createObjectURL(blob);
       setFinalVideoUrl(localUrl);
 
@@ -336,6 +354,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           location_id: locationId,
           provider: "instant_template",
           status: "completed",
+          pipeline_stage: "completed",
           video_url: urlData.publicUrl,
           request_payload: { speedTier: "instant", lengthMode, title: approvedScript.title },
           result_payload: {
@@ -347,11 +366,15 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           },
         });
         setSavedToLibrary(true);
+        toast.success("Your video is ready and saved! 🎬");
+      } else {
+        console.warn("[VideoStudio] Upload failed, video available locally:", uploadErr);
+        toast.success("Video rendered! Save it to your library below. ⚡");
       }
-      toast.success("Your instant video is ready! ⚡");
     } catch (err: any) {
       console.error("[VideoStudio] Instant template failed:", err);
-      toast.error("Failed to compose video — please try again");
+      toast.error(err.message || "Failed to compose video — try Chrome browser");
+      setFinalVideoUrl(null);
     } finally {
       setComposingVideo(false);
       setGeneratingVideo(false);
