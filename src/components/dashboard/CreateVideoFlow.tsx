@@ -141,7 +141,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
           location_name: `${city.trim()} Office`,
           city: city.trim(),
           state: state.trim() || null,
-          country: "US",
+          country: null,
           is_primary: true,
         })
         .select("id")
@@ -234,7 +234,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-foreground mb-1 block">City *</label>
-              <input value={city} onChange={e => setCity(e.target.value)} placeholder="Virginia Beach"
+              <input value={city} onChange={e => setCity(e.target.value)} placeholder="e.g., Miami"
                 className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
             <div>
@@ -245,7 +245,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
           </div>
           <div>
             <label className="text-xs font-semibold text-foreground mb-1 block">What do you do?</label>
-            <input value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g., Pizza Restaurant, Hair Salon, Plumber"
+            <input value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g., Hair Salon, Auto Spa, Restaurant"
               className="w-full px-3 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent" />
           </div>
           <div>

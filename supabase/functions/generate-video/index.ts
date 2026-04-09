@@ -793,22 +793,17 @@ function getMotionPrompt(shotType: string, index: number): string {
   return pool[index % pool.length];
 }
 
-async function findAllExistingImages(supabase: any, userId: string): Promise<string[]> {
+async function findAllExistingImages(supabase: any, userId: string, jobId: string): Promise<string[]> {
+  // ONLY look in the CURRENT job's folder — never reuse images from other businesses/jobs
   const urls: string[] = [];
-  const { data: folders } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
-  if (!folders?.length) return urls;
-  for (const folder of folders) {
-    if (!folder.name) continue;
-    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 20 });
-    if (!images) continue;
-    for (const img of images) {
-      if (img.name?.includes("placeholder")) continue;
-      if (/\.(png|jpg|jpeg)$/i.test(img.name || "")) {
-        const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${folder.name}/${img.name}`);
-        if (urlData?.publicUrl) urls.push(urlData.publicUrl);
-      }
+  const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${jobId}`, { limit: 20 });
+  if (!images?.length) return urls;
+  for (const img of images) {
+    if (img.name?.includes("placeholder")) continue;
+    if (/\.(png|jpg|jpeg)$/i.test(img.name || "")) {
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${jobId}/${img.name}`);
+      if (urlData?.publicUrl) urls.push(urlData.publicUrl);
     }
-    if (urls.length >= 10) break;
   }
   return urls;
 }
@@ -1118,8 +1113,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const businessImages = businessMedia.filter(m => m.file_type === "image");
     console.log(`[pipeline] Business media library: ${businessImages.length} images, ${businessVideos.length} videos`);
 
-    const existingRealImages = await findAllExistingImages(supabase, userId);
-    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in old storage`);
+    const existingRealImages = await findAllExistingImages(supabase, userId, jobId);
+    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos for this job`);
 
     const sceneImageUrls: string[] = [];
     const sceneImageInputs: (string | null)[] = [];
