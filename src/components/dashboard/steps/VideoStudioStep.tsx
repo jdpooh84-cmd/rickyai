@@ -206,7 +206,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           toast.error(data.error_message || "Production failed — try again");
         }
       }
-    }, 3000);
+    }, speedTier === "cinematic" ? 20000 : 5000); // Poll every 20s for Manus, 5s for others
     return () => clearInterval(interval);
   }, [activeJobId]);
 
