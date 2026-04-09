@@ -19,7 +19,6 @@ type SpeedTier = "instant" | "standard" | "cinematic";
 
 const SPEED_TIERS: { key: SpeedTier; label: string; engine: string; speed: string; quality: string; emoji: string; desc: string }[] = [
   { key: "instant", label: "Instant", engine: "Built-in Composer", speed: "10-30 sec", quality: "Good", emoji: "⚡", desc: "Ken Burns slideshow + captions + voiceover. Ready in seconds." },
-  { key: "standard", label: "Standard", engine: "HeyGen", speed: "1-3 min", quality: "Great", emoji: "🎬", desc: "AI-powered video with professional polish. Short wait." },
   { key: "cinematic", label: "Cinematic", engine: "Manus AI", speed: "5-15 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production. Best quality — worth the wait." },
 ];
 
@@ -196,17 +195,19 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
               const { data: { session } } = await supabase.auth.getSession();
               if (session) {
-                const fileName = `videos/${session.user.id}/${activeJobId}/final.webm`;
-                const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
-                if (!uploadErr) {
-                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                  setFinalVideoUrl(urlData.publicUrl);
-                  setSavedToLibrary(true);
-                  await supabase.from("video_generation_jobs").update({
-                    video_url: urlData.publicUrl,
-                    updated_at: new Date().toISOString(),
-                  }).eq("id", activeJobId);
-                }
+              const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+              const contentType = blob.type.includes("mp4") ? "video/mp4" : "video/webm";
+              const fileName = `videos/${session.user.id}/${activeJobId}/final.${ext}`;
+              const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType, upsert: true });
+              if (!uploadErr) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
+                setFinalVideoUrl(urlData.publicUrl);
+                setSavedToLibrary(true);
+                await supabase.from("video_generation_jobs").update({
+                  video_url: urlData.publicUrl,
+                  updated_at: new Date().toISOString(),
+                }).eq("id", activeJobId);
+              }
               }
               toast.success("Your video is ready! 🎬");
             } catch (err: any) {
@@ -333,10 +334,11 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       const localUrl = URL.createObjectURL(blob);
       setFinalVideoUrl(localUrl);
 
-      // Upload to storage + create job record so it appears in Watch Videos
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+      const contentType = blob.type.includes("mp4") ? "video/mp4" : "video/webm";
       const jobId = crypto.randomUUID();
-      const fileName = `videos/${user.id}/${jobId}/final.webm`;
-      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
+      const fileName = `videos/${user.id}/${jobId}/final.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType, upsert: true });
       if (!uploadErr) {
         const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
         setFinalVideoUrl(urlData.publicUrl);
