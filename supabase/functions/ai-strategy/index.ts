@@ -776,6 +776,13 @@ Return JSON:
       outputData = { raw: content };
     }
 
+    // For video script requests, return as { script: ... } and skip saving to strategy_outputs
+    if (step === 99) {
+      return new Response(JSON.stringify({ script: outputData }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Save to strategy_outputs
     const { error: upsertError } = await supabase
       .from("strategy_outputs")
