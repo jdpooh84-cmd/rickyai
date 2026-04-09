@@ -1,7 +1,7 @@
 /**
  * Client-side video composer: takes scene images OR video clips + optional audio
  * and produces a real video using Canvas + MediaRecorder.
- * Optimized for speed: reduced resolution, lower FPS, setTimeout-based loop.
+ * Supports both image slideshows (Ken Burns) and Runway clip stitching.
  */
 
 /** Draw a styled on-screen caption/subtitle at the bottom of the canvas */
@@ -12,6 +12,7 @@ function drawCaption(ctx: CanvasRenderingContext2D, text: string, width: number,
   const maxWidth = width - padding * 2;
   ctx.font = `bold ${fontSize}px sans-serif`;
 
+  // Word-wrap
   const words = text.split(" ");
   const lines: string[] = [];
   let currentLine = "";
@@ -30,10 +31,17 @@ function drawCaption(ctx: CanvasRenderingContext2D, text: string, width: number,
   const blockHeight = lines.length * lineHeight + padding;
   const yStart = height - blockHeight - Math.round(height * 0.12);
 
+  // Semi-transparent background
   ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
   const bgPad = Math.round(padding * 0.6);
-  ctx.fillRect(padding - bgPad, yStart - bgPad, maxWidth + bgPad * 2, blockHeight + bgPad);
+  const bgX = padding - bgPad;
+  const bgY = yStart - bgPad;
+  const bgW = maxWidth + bgPad * 2;
+  const bgH = blockHeight + bgPad;
+  // Simple rect fallback (roundRect not available everywhere)
+  ctx.fillRect(bgX, bgY, bgW, bgH);
 
+  // Text
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.font = `bold ${fontSize}px sans-serif`;
@@ -70,16 +78,17 @@ export async function composeVideo(options: ComposeOptions): Promise<Blob> {
     sceneCaptions,
     durationPerScene = 4,
     totalDurationSeconds,
-    // Render at half resolution for 4x speed boost — upscaled on playback
-    width = 540,
-    height = 960,
+    width = 1080,
+    height = 1920,
     onProgress,
   } = options;
 
+  // If we have Runway clips, stitch them together
   if (videoClips && videoClips.length > 0) {
     return stitchVideoClips(videoClips, voiceoverUrl, businessName, sceneCaptions, width, height, onProgress);
   }
 
+  // Otherwise fall back to image slideshow
   return composeFromImages(sceneImages, voiceoverUrl, businessName, title, sceneCaptions, durationPerScene, totalDurationSeconds, width, height, onProgress);
 }
 
@@ -97,8 +106,10 @@ async function stitchVideoClips(
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  const stream = canvas.captureStream(24);
+  const stream = canvas.captureStream(30);
 
+  // Add voiceover audio track if available
+  let ttsUtteranceQueue: string[] = [];
   if (voiceoverUrl) {
     try {
       const audioEl = new Audio(voiceoverUrl);
@@ -117,18 +128,30 @@ async function stitchVideoClips(
     } catch {
       console.warn("Could not add voiceover audio");
     }
+  } else if (sceneCaptions && sceneCaptions.length > 0 && typeof window !== "undefined" && "speechSynthesis" in window) {
+    // Browser TTS fallback — queue captions for speech during playback
+    ttsUtteranceQueue = [...sceneCaptions];
+    try {
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      // Create an oscillator at zero volume just to get an audio track on the stream
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(dest);
+      osc.start();
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+    } catch {
+      // silent fallback
+    }
   }
 
-  // Prefer MP4 (H.264) for iOS/Safari compatibility, fall back to WebM
-  const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
-    ? "video/mp4;codecs=avc1"
-    : MediaRecorder.isTypeSupported("video/mp4")
-    ? "video/mp4"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_000_000 });
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
   const chunks: Blob[] = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
@@ -140,10 +163,20 @@ async function stitchVideoClips(
     for (let i = 0; i < clipUrls.length; i++) {
       onProgress?.(Math.round((i / clipUrls.length) * 100));
 
+      // Speak the caption for this clip using browser TTS
+      if (ttsUtteranceQueue[i] && "speechSynthesis" in window) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(ttsUtteranceQueue[i]);
+          utterance.rate = 0.9;
+          utterance.pitch = 1;
+          window.speechSynthesis.speak(utterance);
+        } catch { /* ignore TTS errors */ }
+      }
+
       try {
         const video = document.createElement("video");
         video.crossOrigin = "anonymous";
-        video.muted = true;
+        video.muted = true; // we use our own audio track
         video.playsInline = true;
 
         await new Promise<void>((res, rej) => {
@@ -156,21 +189,38 @@ async function stitchVideoClips(
         video.currentTime = 0;
         await video.play();
 
+        // Draw frames from this clip until it ends
         await new Promise<void>((res) => {
           function drawClipFrame() {
-            if (video.ended || video.paused) { res(); return; }
+            if (video.ended || video.paused) {
+              res();
+              return;
+            }
+
             ctx.fillStyle = "#000";
             ctx.fillRect(0, 0, width, height);
+
+            // Cover-fit the video
             const vw = video.videoWidth;
             const vh = video.videoHeight;
             const vRatio = vw / vh;
             const cRatio = width / height;
             let dw = width, dh = height, dx = 0, dy = 0;
-            if (vRatio > cRatio) { dw = height * vRatio; dx = (width - dw) / 2; }
-            else { dh = width / vRatio; dy = (height - dh) / 2; }
+            if (vRatio > cRatio) {
+              dw = height * vRatio;
+              dx = (width - dw) / 2;
+            } else {
+              dh = width / vRatio;
+              dy = (height - dh) / 2;
+            }
             ctx.drawImage(video, dx, dy, dw, dh);
+
+            // Draw on-screen caption for this clip
             const caption = sceneCaptions?.[i];
-            if (caption) drawCaption(ctx, caption, width, height);
+            if (caption) {
+              drawCaption(ctx, caption, width, height);
+            }
+
             requestAnimationFrame(drawClipFrame);
           }
           video.onended = () => res();
@@ -181,13 +231,14 @@ async function stitchVideoClips(
         video.src = "";
       } catch (err) {
         console.error(`Clip ${i + 1} playback failed:`, err);
+        // Draw a black frame for this clip duration
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = "#fff";
         ctx.font = `${Math.round(width * 0.04)}px sans-serif`;
         ctx.textAlign = "center";
         ctx.fillText(`Scene ${i + 1}`, width / 2, height / 2);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 3000));
       }
     }
 
@@ -210,7 +261,6 @@ async function composeFromImages(
 ): Promise<Blob> {
   if (sceneImages.length === 0) throw new Error("No scene images to compose");
 
-  // Load all images in parallel
   const loadedImages = await Promise.all(
     sceneImages.map(
       url => new Promise<HTMLImageElement>((resolve, reject) => {
@@ -228,9 +278,7 @@ async function composeFromImages(
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  // Use 15fps for image slideshow — half the frames, 2x faster render
-  const fps = 15;
-  const stream = canvas.captureStream(fps);
+  const stream = canvas.captureStream(30);
 
   let audioElement: HTMLAudioElement | null = null;
   if (voiceoverUrl) {
@@ -252,37 +300,23 @@ async function composeFromImages(
     }
   }
 
-  // Prefer MP4 (H.264) for iOS/Safari compatibility, fall back to WebM
-  const mimeType = MediaRecorder.isTypeSupported("video/mp4;codecs=avc1")
-    ? "video/mp4;codecs=avc1"
-    : MediaRecorder.isTypeSupported("video/mp4")
-    ? "video/mp4"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
-  // Lower bitrate for smaller canvas = faster encoding
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_000_000 });
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 });
   const chunks: Blob[] = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
+  const fallbackSceneDuration = durationPerScene;
   const derivedSceneDuration = totalDurationSeconds && sceneImages.length > 0
-    ? Math.max(durationPerScene, Math.ceil(totalDurationSeconds / sceneImages.length))
-    : durationPerScene;
+    ? Math.max(fallbackSceneDuration, Math.ceil(totalDurationSeconds / sceneImages.length))
+    : fallbackSceneDuration;
   const totalDuration = sceneImages.length * derivedSceneDuration;
+  const fps = 30;
   const totalFrames = totalDuration * fps;
   const framesPerScene = derivedSceneDuration * fps;
-  const transitionFrames = Math.min(8, Math.floor(framesPerScene / 4));
-
-  // Pre-compute per-scene crop values so we don't recalculate every frame
-  const sceneCrops = loadedImages.map(img => {
-    const imgRatio = img.width / img.height;
-    const canvasRatio = width / height;
-    let sx = 0, sy = 0, sw = img.width, sh = img.height;
-    if (imgRatio > canvasRatio) { sw = img.height * canvasRatio; sx = (img.width - sw) / 2; }
-    else { sh = img.width / canvasRatio; sy = (img.height - sh) / 2; }
-    return { sx, sy, sw, sh };
-  });
+  const transitionFrames = Math.min(15, Math.floor(framesPerScene / 4));
 
   return new Promise<Blob>((resolve, reject) => {
     recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
@@ -291,7 +325,6 @@ async function composeFromImages(
     if (audioElement) audioElement.play().catch(() => {});
 
     let frame = 0;
-    const frameInterval = 1000 / fps; // ~66ms at 15fps
 
     function drawFrame() {
       if (frame >= totalFrames) {
@@ -307,18 +340,25 @@ async function composeFromImages(
       ctx.fillRect(0, 0, width, height);
 
       const img = loadedImages[sceneIndex];
-      const crop = sceneCrops[sceneIndex];
+      const imgRatio = img.width / img.height;
+      const canvasRatio = width / height;
+      let sx = 0, sy = 0, sw = img.width, sh = img.height;
+      if (imgRatio > canvasRatio) {
+        sw = img.height * canvasRatio;
+        sx = (img.width - sw) / 2;
+      } else {
+        sh = img.width / canvasRatio;
+        sy = (img.height - sh) / 2;
+      }
 
-      // Subtle Ken Burns zoom
       const zoomProgress = frameInScene / framesPerScene;
-      const zoom = 1 + zoomProgress * 0.04;
+      const zoom = 1 + zoomProgress * 0.05;
 
       ctx.save();
       ctx.translate(width / 2, height / 2);
       ctx.scale(zoom, zoom);
       ctx.translate(-width / 2, -height / 2);
 
-      // Cross-fade transitions
       let alpha = 1;
       if (frameInScene < transitionFrames && sceneIndex > 0) {
         alpha = frameInScene / transitionFrames;
@@ -326,7 +366,7 @@ async function composeFromImages(
         alpha = (framesPerScene - frameInScene) / transitionFrames;
       }
       ctx.globalAlpha = alpha;
-      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, width, height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
       ctx.globalAlpha = 1;
       ctx.restore();
 
@@ -343,17 +383,15 @@ async function composeFromImages(
       ctx.textAlign = "center";
       ctx.fillText(businessName, width / 2, height - Math.round(height * 0.05));
 
-      // Scene caption
+      // On-screen caption/subtitle for this scene
       const caption = sceneCaptions?.[sceneIndex];
-      if (caption) drawCaption(ctx, caption, width, height);
+      if (caption) {
+        drawCaption(ctx, caption, width, height);
+      }
 
-      // Title overlay on first scene
+      // Title overlay
       if (sceneIndex === 0 && frameInScene < fps * 2 && title) {
-        const titleAlpha = frameInScene < fps * 0.5
-          ? frameInScene / (fps * 0.5)
-          : frameInScene > fps * 1.5
-            ? (fps * 2 - frameInScene) / (fps * 0.5)
-            : 1;
+        const titleAlpha = frameInScene < fps * 0.5 ? frameInScene / (fps * 0.5) : frameInScene > fps * 1.5 ? (fps * 2 - frameInScene) / (fps * 0.5) : 1;
         ctx.globalAlpha = titleAlpha;
         ctx.font = `bold ${Math.round(width * 0.06)}px sans-serif`;
         ctx.fillStyle = "#ffffff";
@@ -363,14 +401,10 @@ async function composeFromImages(
       }
 
       frame++;
-      // Report progress every 15 frames (~1 second at 15fps)
-      if (frame % fps === 0) onProgress?.(Math.round((frame / totalFrames) * 100));
-
-      // Use setTimeout instead of rAF — not throttled when tab loses focus
-      setTimeout(drawFrame, frameInterval);
+      if (frame % 30 === 0) onProgress?.(Math.round((frame / totalFrames) * 100));
+      requestAnimationFrame(drawFrame);
     }
 
-    // Kick off the render loop
-    setTimeout(drawFrame, 0);
+    requestAnimationFrame(drawFrame);
   });
 }

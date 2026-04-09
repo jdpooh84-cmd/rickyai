@@ -107,12 +107,6 @@ export const useBusinessData = () => {
           setSelectedLocation(primary?.id || locs.find(l => l.business_id === currentBizId)?.id || null);
         }
       }
-    } else {
-      // All businesses were deleted (e.g. reset) — clear state
-      setBusinesses([]);
-      setLocations([]);
-      setSelectedBusiness(null);
-      setSelectedLocation(null);
     }
   };
 

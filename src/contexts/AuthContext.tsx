@@ -11,7 +11,6 @@ interface SubscriptionState {
   trialEndsAt: string | null;
   activeAddOns: AddOnKey[];
   loading: boolean;
-  isAdmin: boolean;
 }
 
 interface AuthContextType {
@@ -40,7 +39,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     trialEndsAt: null,
     activeAddOns: [],
     loading: true,
-    isAdmin: false,
   });
 
   const checkSubscription = useCallback(async () => {
@@ -60,7 +58,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         trialEndsAt: data.trial_ends_at ?? null,
         activeAddOns,
         loading: false,
-        isAdmin: data.is_admin ?? false,
       });
     } catch (err) {
       console.error("Failed to check subscription:", err);
@@ -99,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Periodic refresh every 60s
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(checkSubscription, 300_000); // 5 min
+    const interval = setInterval(checkSubscription, 60_000);
     return () => clearInterval(interval);
   }, [user, checkSubscription]);
 
@@ -122,7 +119,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, activeAddOns: [], loading: false, isAdmin: false });
+    setSubscription({ subscribed: false, plan: null, subscriptionEnd: null, trialActive: false, trialEndsAt: null, activeAddOns: [], loading: false });
   };
 
   return (

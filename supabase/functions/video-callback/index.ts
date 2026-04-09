@@ -5,16 +5,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/** Check if a URL points to a directly playable media file */
-const isPlayableUrl = (url: string): boolean =>
-  /\.(mp4|webm|mov)(\?|$)/i.test(url) ||
-  /supabase\.co\/storage\/v1\/object\/public\/media\//i.test(url) ||
-  /s3\.amazonaws\.com\//i.test(url);
-
-/** Check if a URL is a Manus viewer page (not a direct file) */
-const isManusPageUrl = (url: string): boolean =>
-  /manus\.(im|ai)\/app\//i.test(url) || /share\.manus\.(im|ai)/.test(url);
-
+/**
+ * video-callback — Webhook endpoint for Make.com to POST finished video results back.
+ *
+ * Expected payload from Make.com:
+ * {
+ *   job_id: string,              // video_generation_jobs.id
+ *   status: "completed" | "failed",
+ *   video_url?: string,          // Final Manus/assembled video URL
+ *   voiceover_url?: string,      // ElevenLabs MP3 URL (if Make merged audio)
+ *   merged_video_url?: string,   // Final video with audio merged
+ *   thumbnail_url?: string,
+ *   error_message?: string,
+ *   duration_seconds?: number,
+ *   metadata?: Record<string, any>
+ * }
+ */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -44,7 +50,6 @@ Deno.serve(async (req) => {
       error_message,
       duration_seconds,
       metadata,
-      manus_task_url,
     } = body;
 
     if (!job_id) {
@@ -77,28 +82,22 @@ Deno.serve(async (req) => {
 
     console.log(`[video-callback] Received callback for job ${job_id}: status=${status}`);
 
-    // Determine the best playable URL — prioritize direct MP4/storage URLs
-    const candidateUrls = [direct_mp4_url, merged_video_url, video_url].filter(Boolean);
-    const playableUrl = candidateUrls.find(u => isPlayableUrl(u)) || null;
-    
-    // Manus viewer page URL (for fallback "Watch on Manus" button)
-    const manusViewerUrl = manus_task_url || candidateUrls.find(u => isManusPageUrl(u)) || null;
+    // Use the merged video URL if provided, otherwise the raw video URL
+    const finalVideoUrl = direct_mp4_url || merged_video_url || video_url || null;
 
-    // The final video URL is ONLY a playable direct file, never a viewer page
-    const finalVideoUrl = playableUrl;
-
-    const videoType = finalVideoUrl ? "direct" : manusViewerUrl ? "manus_page" : "none";
-
-    console.log(`[video-callback] URL resolution: playable=${finalVideoUrl}, manus_page=${manusViewerUrl}, type=${videoType}`);
+    // Detect if URL is a Manus task page vs direct .mp4
+    const isManusTaskPage = finalVideoUrl
+      ? /manus\.(im|ai)\/app\//.test(finalVideoUrl) || /share\.manus\.(im|ai)/.test(finalVideoUrl)
+      : false;
+    const videoType = isManusTaskPage ? "manus_page" : "direct";
 
     // Update the job
     const existingPayload = (job.result_payload as Record<string, any>) || {};
     const updatedPayload = {
       ...existingPayload,
       ...(metadata || {}),
-      video_url: finalVideoUrl || manusViewerUrl,
+      video_url: finalVideoUrl,
       video_type: videoType,
-      manus_task_url: manusViewerUrl,
       voiceover_url: voiceover_url || existingPayload.voiceover_url,
       merged_video_url: merged_video_url || null,
       total_duration_seconds: duration_seconds || existingPayload.total_duration_seconds,
@@ -108,26 +107,16 @@ Deno.serve(async (req) => {
         merge: merged_video_url ? "completed" : "not_merged",
       },
       message: status === "completed"
-        ? finalVideoUrl
-          ? `✅ Video ready! ${duration_seconds ? `(${duration_seconds}s)` : ""}`
-          : manusViewerUrl
-            ? `✅ Video ready on Manus AI viewer — waiting for direct MP4 upload`
-            : `⚠️ Completed but no playable video URL received`
+        ? `✅ Video ready! ${isManusTaskPage ? "(Manus viewer)" : ""} ${duration_seconds ? `(${duration_seconds}s)` : ""}`
         : `❌ Video production failed: ${error_message || "unknown error"}`,
       callback_received_at: new Date().toISOString(),
     };
 
-    // Only mark as fully "completed" if we have a playable URL
-    // If we only have a Manus page, mark as "processing" so the UI keeps polling
-    const resolvedStatus = status === "completed" && !finalVideoUrl && manusViewerUrl
-      ? "processing"  // Keep polling — Make.com still needs to upload the MP4
-      : status;
-
     const { error: updateErr } = await supabase
       .from("video_generation_jobs")
       .update({
-        status: resolvedStatus,
-        video_url: finalVideoUrl || manusViewerUrl,
+        status,
+        video_url: finalVideoUrl,
         result_payload: updatedPayload,
         error_message: status === "failed" ? (error_message || "Production failed") : null,
         updated_at: new Date().toISOString(),
@@ -139,9 +128,9 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to update job: ${updateErr.message}`);
     }
 
-    // Only update content_posts and business_media when we have a REAL playable URL
-    if (resolvedStatus === "completed" && finalVideoUrl) {
-      // Update content_posts
+    // If completed with a video URL, also update content_posts and business_media
+    if (status === "completed" && finalVideoUrl) {
+      // Update content_posts — find the post linked to this job's business
       const { error: postErr } = await supabase
         .from("content_posts")
         .update({
@@ -180,20 +169,16 @@ Deno.serve(async (req) => {
         console.error("[video-callback] business_media insert error:", mediaErr);
       }
 
-      console.log(`[video-callback] ✅ Job ${job_id} completed with playable URL. Saved to content_posts and business_media.`);
-    } else if (resolvedStatus === "processing" && manusViewerUrl) {
-      console.log(`[video-callback] ⏳ Job ${job_id} has Manus viewer URL but no direct MP4 yet. Keeping as processing.`);
+      console.log(`[video-callback] ✅ Job ${job_id} completed. Video saved to content_posts and business_media.`);
     } else {
-      console.log(`[video-callback] Job ${job_id} marked as ${resolvedStatus}.`);
+      console.log(`[video-callback] Job ${job_id} marked as ${status}.`);
     }
 
     return new Response(JSON.stringify({
       success: true,
       job_id,
-      status: resolvedStatus,
+      status,
       video_url: finalVideoUrl,
-      manus_task_url: manusViewerUrl,
-      video_type: videoType,
     }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

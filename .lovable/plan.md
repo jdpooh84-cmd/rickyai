@@ -1,38 +1,65 @@
 
+Goal: make Step 8 reliably produce a real 45–60 second video in-app, and be honest when it cannot.
 
-## Make RickyAI Universal: Remove Industry-Specific and Location-Specific Hardcoding
+What I found
+- The latest failed job never reached Runway. It failed earlier while generating the script because the backend AI gateway returned `402 Not enough credits`.
+- Even when the job succeeds, the current Runway call can only create a single 5-second clip:
+  - it sends only the first scene image to Runway
+  - it sets `duration: 5`
+  - it only renders up to 4 scene images
+- So the current pipeline cannot produce a 45–60 second final video, even with the aspect-ratio fix.
+- The Step 8 UI also does not poll the job after starting it, so it cannot show the finished video in-place the way the onboarding flow does.
 
-### Problem
-The app has pizza-specific and Virginia Beach-specific references baked into several files. A business owner in Tokyo, Lagos, or London would see irrelevant US pizza content.
+What needs to change
+1. Make the Video Studio UI actually wait for the job and display the finished video
+- Reuse the polling pattern already used in `CreateVideoFlow`
+- Show statuses like script, scene prep, clip rendering, stitching, ready
+- Surface exact blocking errors in the UI instead of only a toast
 
-### Files to Change
+2. Replace the single-clip Runway call with a multi-clip pipeline
+- Generate a 45–60 second plan as 6–12 short scenes
+- Render one Runway clip per scene
+- Store all clip URLs
+- Stitch them into one final MP4 in the backend/client flow
+- Save the final MP4 back to storage and show it in-app
 
-**1. `src/pages/DemoVideoShowcase.tsx`** — The biggest offender
-- Replace "Donato's Pizza" branding with generic "Sample Business — Video Package"
-- Remove the Virginia Beach address and pizza-specific caption/hashtags
-- Replace with a generic sample caption template showing placeholders like `[Your City]`, `[Your Business Name]`
-- Change download filenames from `donatos-pizza-*.mp4` to `sample-video-*.mp4`
-- Keep the actual video files (they're real demo content) but frame them as "sample output"
+3. Remove the hidden “credits” blocker from the Runway path
+- Right now the pipeline still depends on Lovable AI credits for script + image generation
+- For a true Runway-first path, add a no-credit fallback that builds scene prompts from the business profile and selected platform using deterministic templates instead of paid AI text generation
+- If richer AI scripting is available, use it; if not, continue with the template-based prompt builder so the job can still reach Runway
 
-**2. `src/App.tsx`**
-- Change route from `/demo/donatos` to `/demo/video-package`
+4. Enforce the user’s duration requirement
+- Add a minimum final duration rule of 45 seconds
+- Map production modes to real target durations, for example:
+  - quick: 45 sec
+  - standard: 60 sec
+  - longform: 90+ sec
+- Ensure scene counts and per-scene durations add up to the requested runtime
 
-**3. `src/components/dashboard/CreateVideoFlow.tsx`**
-- Change placeholder from `"e.g., Donato's Pizza"` to `"e.g., Sunrise Auto Spa"`
+5. Finish the delivery flow
+- Save the final MP4 to the job record and `content_posts`
+- Show “Post manually” links/buttons for the chosen platform(s)
+- Keep captions, hashtags, and thumbnail attached to the finished asset
 
-**4. `src/components/dashboard/MediaLibrary.tsx`**
-- Broaden the shot-type regex: remove pizza-specific terms (`calzone`, `pepperoni`), keep generic `food` keyword, add business-neutral terms like `product`, `service`, `interior`, `exterior`
+Recommended implementation order
+1. Fix Step 8 to poll and render job progress/results in-app
+2. Refactor `generate-video` to create multiple Runway clips instead of one 5-second clip
+3. Add final assembly into one 45–60 second MP4
+4. Add the no-credit template prompt path so Runway can still work when AI credits are exhausted
+5. Update Watch Video / Ready to Post to always prefer the final MP4
 
-**5. `supabase/functions/ai-strategy/index.ts`**
-- Replace the pizza example in `unique_details` from `"circle pizza with small square-cut slices"` to something universal like `"hand-crafted signature product"` or `"proprietary method since 1963"`
+Technical notes
+- `supabase/functions/generate-video/index.ts` is the main blocker:
+  - it currently slices scenes to 4
+  - uses only `sceneImageUrls[0]`
+  - sends `duration: 5`
+- `src/components/dashboard/steps/VideoStudioStep.tsx` starts generation but does not monitor the job
+- `src/components/dashboard/CreateVideoFlow.tsx` already contains a useful polling pattern that can be adapted
+- The current “completed with images only” state should be changed so it is clearly marked as incomplete when no final video exists
 
-### What's Already Fine (No Changes Needed)
-- Landing page (HeroSection, StepsOverview, PricingSection) — already generic
-- All dashboard steps — already industry-agnostic
-- Currency: uses `$` in a few places but those are in US federal contracting and pricing contexts which are appropriate
-- Date formatting: uses `toLocaleDateString()` which respects the user's browser locale automatically
-- AI prompts: already say "local to the same city" not "local to Virginia Beach"
-
-### Summary
-5 files changed, all removing hardcoded pizza/Virginia Beach references and replacing with universal placeholders. No structural changes, no new features — just making the existing content work for any business anywhere.
-
+Expected result after this work
+- Clicking Produce Video in Step 8 starts a visible pipeline
+- The app either:
+  - returns a real 45–60 second MP4 generated through Runway and playable inside the app, or
+  - shows a precise blocking reason such as exhausted AI credits or Runway render failure
+- No more “success” state when only still images were produced

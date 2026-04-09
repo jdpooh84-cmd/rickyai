@@ -49,12 +49,20 @@ Deno.serve(async (req) => {
       aiUrl = "https://api.openai.com/v1/chat/completions";
       aiModel = "gpt-4o";
       aiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-    } else if (userClaudeKey || userGeminiKey) {
-      // Users with Claude or Gemini keys: route through Lovable AI gateway
+    } else if (userClaudeKey) {
+      // Claude uses a different API format — for simplicity, treat like OpenAI-compatible
+      aiUrl = AI_URL;
+      aiModel = AI_MODEL;
       const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("AI gateway not configured. Please contact support.");
+      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
       aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-      console.log(`[ai-strategy] BYOLLM: user ${user.id} has ${userClaudeKey ? "claude" : "gemini"} key, routing via gateway`);
+    } else if (userGeminiKey) {
+      // Use Gemini via user's key — for now route through platform gateway
+      aiUrl = AI_URL;
+      aiModel = AI_MODEL;
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
+      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
     } else if (isAdmin) {
       // Admin can use platform keys
       const lovableKey = Deno.env.get("LOVABLE_API_KEY");
@@ -64,7 +72,7 @@ Deno.serve(async (req) => {
       throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
     }
 
-    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport, customPrompt, mode } = await req.json();
+    const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
 
     // --- Tier enforcement ---
     // Check subscription to determine which steps the user can access
@@ -96,12 +104,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── ADMIN BYPASS: admins get access to ALL steps ──
-    if (isAdmin) {
-      allowedSteps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-      console.log(`[ai-strategy] Admin bypass — granting access to all steps for user ${user.id}`);
-    }
-
     // Also allow access during trial
     const { data: profile } = await supabase
       .from("profiles")
@@ -110,12 +112,9 @@ Deno.serve(async (req) => {
       .single();
     const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
 
-    if (step === 99) { /* Video script generation — always allowed */ }
-    else if (!isAdmin && !trialActive && !allowedSteps.includes(step)) {
-      console.log(`[ai-strategy] Access denied: user=${user.id}, step=${step}, allowedSteps=${allowedSteps}, trialActive=${trialActive}`);
+    if (!trialActive && !allowedSteps.includes(step)) {
       throw new Error(`Step ${step} is not available on your current plan. Please upgrade to access this feature.`);
     }
-    console.log(`[ai-strategy] Access granted: user=${user.id}, step=${step}, isAdmin=${isAdmin}, trialActive=${trialActive}`);
 
     // Fetch business data
     const { data: business } = await supabase
@@ -214,7 +213,7 @@ Return JSON:
   ],
   "top_priorities": ["...top 3 things to fix first..."],
   "competitive_edge": "What makes this business truly different — specific products, methods, or reputation signals",
-  "unique_details": ["...3-5 signature details that set this business apart (e.g. 'proprietary method since 1963', 'hand-crafted signature product', 'award-winning customer service')..."],
+  "unique_details": ["...3-5 signature details that set this business apart (e.g. 'circle pizza with small square-cut slices', 'family recipes since 1963')..."],
   "seo_health": {"grade": "A-F", "key_issues": ["..."], "quick_wins": ["..."], "local_pack_status": "appearing|not-appearing|unknown", "nap_consistent": true},
   "geo_readiness": {"grade": "A-F", "citation_hooks": ["...content that AI would cite..."], "entity_signals": ["...missing authority signals..."], "ai_citation_score": 0-100},
   "aeo_coverage": {"grade": "A-F", "questions_to_answer": ["...top 5 customer questions this business should answer on their site..."], "schema_status": "has-faq|needs-faq|none"},
@@ -653,25 +652,6 @@ ${businessContext}`
 
 ${businessContext}`
       },
-      99: {
-        system: `You are a video production expert. Given a business profile and user request, generate a structured video script. Return valid JSON with: title, description, cta (call to action text), and scenes (array of 4 objects, each with: voiceover_line, text_overlay, duration_seconds). The 4 scenes should follow this structure: Hook (5s), Value (15s), Proof (15s), CTA (10s). Total ~45 seconds. Match the brand tone. Be specific to the business.`,
-        user: `The business owner wants this video: "${customPrompt || 'A promotional video for our business'}"
-
-${businessContext}
-
-Return JSON:
-{
-  "title": "...",
-  "description": "...",
-  "cta": "...",
-  "scenes": [
-    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 5},
-    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 15},
-    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 15},
-    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 10}
-  ]
-}`
-      },
     };
 
     const stepConfig = stepPrompts[step];
@@ -774,13 +754,6 @@ Return JSON:
       outputData = JSON.parse(content);
     } catch {
       outputData = { raw: content };
-    }
-
-    // For video script requests, return as { script: ... } and skip saving to strategy_outputs
-    if (step === 99) {
-      return new Response(JSON.stringify({ script: outputData }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     // Save to strategy_outputs

@@ -82,29 +82,15 @@ const Dashboard = () => {
     if (!user) return;
     // Reset onboarding flag
     await supabase.from("profiles").update({ onboarding_completed: false }).eq("user_id", user.id);
-    // Delete ALL dependent data in correct order (FK constraints)
-    await Promise.all([
-      supabase.from("attribution_touchpoints").delete().eq("user_id", user.id),
-      supabase.from("content_posts").delete().eq("user_id", user.id),
-      supabase.from("video_generation_jobs").delete().eq("user_id", user.id),
-      supabase.from("business_media").delete().eq("user_id", user.id),
-      supabase.from("campaign_outcomes").delete().eq("user_id", user.id),
-      supabase.from("strategy_outputs").delete().eq("user_id", user.id),
-    ]);
-    // Now safe to delete locations and businesses
-    await supabase.from("locations").delete().eq("user_id", user.id);
-    await supabase.from("businesses").delete().eq("user_id", user.id);
-    // Clear ALL local storage caches (strategy, scripts, video state, etc.)
-    const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith("rickyai-"));
-    keysToRemove.forEach(k => localStorage.removeItem(k));
+    // Clear local storage
     localStorage.removeItem(DASHBOARD_STATE_KEY);
+    localStorage.removeItem("rickyai-business-selection");
     // Reset state
     setCompletedSteps([]);
     setActiveStep(1);
     setActiveSection("");
     setOnboardingChecked(false);
     setShowOnboarding(true);
-    refreshBusinessData();
     toast.success("Reset complete — starting fresh onboarding!");
   };
 
@@ -128,9 +114,9 @@ const Dashboard = () => {
   const handleOnboardingComplete = (businessId: string, locationId: string | null) => {
     setShowOnboarding(false);
     refreshBusinessData();
-    // Start at step 1 (Connect) so user walks through the full flow
-    setCompletedSteps([]);
-    setActiveStep(1);
+    // Mark steps 1 and 2 as complete since they filled out business info
+    setCompletedSteps(prev => [...new Set([...prev, 1, 2])]);
+    setActiveStep(8); // Jump to Video Studio
   };
 
   const renderContent = () => {

@@ -17,9 +17,7 @@ const SHOT_TYPES = ["food", "people", "environment"] as const;
 
 function guessShotType(name: string): string {
   const n = name.toLowerCase();
-  if (/food|menu|product|service|display|showcase|item/.test(n)) return "product";
-  if (/exterior|storefront|building|outside|entrance|facade/.test(n)) return "exterior";
-  if (/interior|inside|workspace|studio|office|shop|store/.test(n)) return "interior";
+  if (/pizza|burger|food|wing|salad|menu|calzone|pepperoni|cheese/.test(n)) return "food";
   if (/people|team|family|staff|customer|crowd/.test(n)) return "people";
   return "environment";
 }

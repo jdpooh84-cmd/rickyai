@@ -193,9 +193,7 @@ const WatchVideo = ({ onBack }: Props) => {
         {jobs.map(job => {
           const result = job.result_payload as any;
           const sceneImages = result?.scene_images || [];
-          const hasPlayableVideo = !!job.video_url && !isManusPageUrl(job.video_url);
-          const hasManusPage = !!job.video_url && isManusPageUrl(job.video_url);
-          const hasVideo = hasPlayableVideo || hasManusPage;
+          const hasVideo = !!job.video_url;
           const hasImages = sceneImages.length > 0;
           const voiceoverUrl = result?.voiceover_url || null;
 
