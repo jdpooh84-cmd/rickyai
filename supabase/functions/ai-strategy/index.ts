@@ -653,6 +653,25 @@ ${businessContext}`
 
 ${businessContext}`
       },
+      99: {
+        system: `You are a video production expert. Given a business profile and user request, generate a structured video script. Return valid JSON with: title, description, cta (call to action text), and scenes (array of 4 objects, each with: voiceover_line, text_overlay, duration_seconds). The 4 scenes should follow this structure: Hook (5s), Value (15s), Proof (15s), CTA (10s). Total ~45 seconds. Match the brand tone. Be specific to the business.`,
+        user: `The business owner wants this video: "${customPrompt || 'A promotional video for our business'}"
+
+${businessContext}
+
+Return JSON:
+{
+  "title": "...",
+  "description": "...",
+  "cta": "...",
+  "scenes": [
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 5},
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 15},
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 15},
+    {"voiceover_line": "...", "text_overlay": "...", "duration_seconds": 10}
+  ]
+}`
+      },
     };
 
     const stepConfig = stepPrompts[step];
