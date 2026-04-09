@@ -385,7 +385,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       const blob = await resp.blob();
 
       const jobId = crypto.randomUUID();
-      const ext = blob.type.includes("webm") ? "webm" : "mp4";
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const fileName = `videos/${user.id}/${jobId}/final.${ext}`;
       const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: blob.type, upsert: true });
       if (uploadErr) throw uploadErr;
@@ -458,7 +458,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
         setActiveJobId(response.data.job_id);
-        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "HeyGen (1-3 min)";
+        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "Instant";
         toast.info(`🎬 Video production started — ${tierLabel}`);
       } else {
         throw new Error("No job ID returned");
@@ -538,10 +538,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_script": return "✍️ Writing your script...";
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
-      case "rendering_video": return speedTier === "cinematic" ? "🎬 Rendering with Manus AI..." : "🎬 Rendering with HeyGen...";
+      case "rendering_video": return "🎬 Rendering video...";
       case "processing": return speedTier === "cinematic" 
         ? "🤖 Waiting for Manus AI to finish rendering... (5-15 min, auto-fallback at 10 min)" 
-        : "🎬 Waiting for HeyGen to finish... (1-3 min)";
+        : "🎬 Rendering video...";
       case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
       default: return "Processing...";
     }
@@ -783,13 +783,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <div className="mt-3 p-2.5 rounded-xl bg-accent/10 border border-accent/20">
                 <p className="text-[10px] text-accent-foreground">
                   ⏱ <strong>Cinematic videos take 5-15 minutes.</strong> If Manus AI doesn't respond within 10 minutes, we'll automatically create an instant fallback video so you're never stuck waiting.
-                </p>
-              </div>
-            )}
-            {speedTier === "standard" && (
-              <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
-                <p className="text-[10px] text-foreground/70">
-                  🎬 <strong>Standard videos take 1-3 minutes.</strong> HeyGen produces polished AI video quickly.
                 </p>
               </div>
             )}
