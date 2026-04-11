@@ -1297,10 +1297,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         // Build per-scene sub-task prompts for Make.com to dispatch individually
         const perScenePrompts = buildPerScenePrompts(script, business, manusVisualScript.shots, preset.ratio);
         
-        // Pull Manus API credentials from environment
-        const manusApiKey = Deno.env.get("MANUS_API_KEY") || "";
-        const manusApiEndpoint = "https://api.manus.im/v1/tasks";
-        const manusStatusEndpoint = "https://api.manus.im/v1/tasks"; // GET {endpoint}/{task_id}
+        // Manus API endpoints (API key is hardcoded in Make.com scenario)
+        const manusApiEndpoint = "https://api.manus.ai/v1/tasks";
+        const manusStatusEndpoint = "https://api.manus.ai/v1/tasks"; // GET {endpoint}/{task_id}
         const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
         const supabaseStorageUrl = `${supabaseUrl}/storage/v1/object/media/videos`;
 
@@ -1310,7 +1309,6 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           script: manusPromptPreview,
           business_name: business.business_name,
           callback_url: `${supabaseUrl}/functions/v1/video-callback`,
-          manus_api_key: manusApiKey,
           manus_api_endpoint: manusApiEndpoint,
           manus_status_endpoint: manusStatusEndpoint,
           supabase_storage_url: supabaseStorageUrl,
