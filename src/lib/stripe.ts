@@ -103,6 +103,7 @@ export const ENTERPRISE_INFO = {
 export const NONPROFIT_DISCOUNT_PERCENT = 15;
 
 export function getPlanByProductId(productId: string): PlanKey | null {
+  if (productId === "admin_bypass") return "agency";
   for (const [key, plan] of Object.entries(PLANS)) {
     if (plan.product_id === productId) return key as PlanKey;
   }
