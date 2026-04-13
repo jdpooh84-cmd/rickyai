@@ -238,16 +238,18 @@ function buildScriptFromProfile(biz: any, loc: any, strategyData: any, sceneCoun
 // MANUS VISUAL SCRIPT BUILDER — cinematic shot-by-shot descriptions
 // ═══════════════════════════════════════════════════════════════════════
 const CAMERA_MOVEMENTS: Record<string, string[]> = {
+  product: ["slow push-in", "overhead orbit clockwise", "lateral dolly left-to-right", "rack focus foreground-to-background", "slow tilt down reveal"],
   food: ["slow push-in", "overhead orbit clockwise", "lateral dolly left-to-right", "rack focus foreground-to-background", "slow tilt down reveal"],
   people: ["steadicam walk-through", "lateral tracking right-to-left", "gentle push-in", "handheld follow", "dolly around subject"],
   environment: ["slow push-in towards entrance", "overhead crane descending", "pull-back reveal", "slow pan left-to-right", "ascending drone-style reveal"],
 };
 const LIGHTING_MOODS: Record<string, string[]> = {
+  product: ["warm golden rim light, vibrant colors", "soft diffused overhead, clean highlights", "dramatic side light, rich shadows", "bright natural light, fresh feel"],
   food: ["warm golden rim light, vibrant colors", "soft diffused overhead, steam catching light", "dramatic side light, rich shadows", "bright natural window light, fresh feel"],
-  people: ["warm ambient candlelight, natural skin tones", "soft backlight with lens flare", "golden hour window light, warm contrast", "bright cheerful daylight, upbeat energy"],
-  environment: ["golden hour exterior, warm glow from inside", "twilight blue hour with warm interior contrast", "bright midday, clean shadows", "moody atmospheric with neon accents"],
+  people: ["warm ambient light, natural skin tones", "soft backlight with lens flare", "golden hour window light, warm contrast", "bright cheerful daylight, upbeat energy"],
+  environment: ["golden hour exterior, warm glow from inside", "twilight blue hour with warm interior contrast", "bright midday, clean shadows", "moody atmospheric with accent lighting"],
 };
-const SHOT_SIZES = { food: ["extreme close-up", "close-up", "medium close-up", "overhead flat-lay"], people: ["medium shot", "medium close-up", "wide shot", "over-the-shoulder"], environment: ["wide establishing shot", "medium wide shot", "low-angle wide shot", "aerial wide shot"] };
+const SHOT_SIZES: Record<string, string[]> = { product: ["extreme close-up", "close-up", "medium close-up", "overhead flat-lay"], food: ["extreme close-up", "close-up", "medium close-up", "overhead flat-lay"], people: ["medium shot", "medium close-up", "wide shot", "over-the-shoulder"], environment: ["wide establishing shot", "medium wide shot", "low-angle wide shot", "aerial wide shot"] };
 const TRANSITIONS_IN = ["fade in from black", "soft crossfade", "whip pan from previous", "match cut", "smooth morph transition"];
 const TRANSITIONS_OUT = ["soft crossfade to next", "quick cut", "slow fade", "motion blur transition", "match dissolve"];
 
