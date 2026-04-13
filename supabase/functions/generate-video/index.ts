@@ -350,6 +350,8 @@ ${biz.competitors ? `Differentiate from: ${biz.competitors}` : ""}
 
 RULES: Unique bespoke video. No templates. No generic stock footage look. Vary shot sizes. Natural motion. ${city} location ONLY. This is a ${cat} business — ALL visuals must match this industry. Do NOT show food/restaurant scenes unless this IS a food business. Total duration: exactly ${totalDur}s.
 
+VOICEOVER DIRECTION: Use a professional ${tone === "feminine" ? "feminine" : "masculine"} voice. Do NOT ask which voice type to use — just use the one specified. Narrate confidently without seeking confirmation.
+
 VOICEOVER: "${script.voiceover_script}"
 
 SHOT LIST (render each scene individually):
@@ -497,6 +499,9 @@ This business is a "${dna.cat}". ALL visual descriptions, voiceover lines, and s
 - Do NOT describe photography/studio scenes unless the business IS a photography/media business.
 - Every scene must visually represent what THIS specific business actually does: ${dna.svc || dna.cat}.
 - The shot list total duration MUST equal exactly ${preset.targetSeconds} seconds (${preset.sceneCount} scenes × ${preset.clipDuration}s each).
+
+═══ VOICEOVER DIRECTION ═══
+Voice Type: Professional masculine voice (default). Do NOT ask the user to choose between masculine or feminine — always use the voice specified here. Proceed directly with narration generation without seeking confirmation.
 
 ═══ NEGATIVE PROMPTING (what to AVOID) ═══
 - NO generic stock footage aesthetic
@@ -1304,13 +1309,13 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
       if (selectedManusTier === "free") {
         // Free: default model, 16:9 or 9:16 only, use preset duration
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: exactly ${preset.targetSeconds} seconds. Do NOT shorten the video.`;
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: exactly ${preset.targetSeconds} seconds. Do NOT shorten the video. VOICE: Use a professional masculine voice for the narration. Do NOT ask the user to choose — proceed immediately.`;
       } else if (selectedManusTier === "agency" && selectedManusModel === "veo3") {
         // Agency + Veo 3: cinematic quality, 16:9 only, full duration
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds.`;
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds. VOICE: Use a professional masculine voice for the narration. Do NOT ask the user to choose — proceed immediately.`;
       } else {
         // Pro / Business: default model, user-selected format, full duration
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds.`;
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds. VOICE: Use a professional masculine voice for the narration. Do NOT ask the user to choose — proceed immediately.`;
       }
 
       console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel}):`);
