@@ -1303,8 +1303,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       const basePrompt = manusVisualScript.manus_prompt;
 
       if (selectedManusTier === "free") {
-        // Free: default model, 16:9 or 9:16 only, ≤15s
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Keep total video length under 15 seconds to stay within credit limits.`;
+        // Free: default model, 16:9 or 9:16 only, use preset duration
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: exactly ${preset.targetSeconds} seconds. Do NOT shorten the video.`;
       } else if (selectedManusTier === "agency" && selectedManusModel === "veo3") {
         // Agency + Veo 3: cinematic quality, 16:9 only, full duration
         manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds.`;
