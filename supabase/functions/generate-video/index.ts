@@ -348,7 +348,7 @@ Tone: ${tone} | Audience: ${biz.target_audience || "local customers"}
 Services: ${biz.services || "various"}
 ${biz.competitors ? `Differentiate from: ${biz.competitors}` : ""}
 
-RULES: Unique bespoke video. No templates. No generic stock footage look. Vary shot sizes. Natural motion. ${city} location ONLY.
+RULES: Unique bespoke video. No templates. No generic stock footage look. Vary shot sizes. Natural motion. ${city} location ONLY. This is a ${cat} business — ALL visuals must match this industry. Do NOT show food/restaurant scenes unless this IS a food business. Total duration: exactly ${totalDur}s.
 
 VOICEOVER: "${script.voiceover_script}"
 
