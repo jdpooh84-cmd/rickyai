@@ -1307,15 +1307,22 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       // Build tier-gated Manus prompt
       const basePrompt = manusVisualScript.manus_prompt;
 
+      // Autonomous pipeline guardrails — prevent Manus from asking ANY questions
+      const autonomousGuardrails = `
+
+AUTONOMOUS PIPELINE — MANDATORY RULES:
+1. VOICE: Use a professional masculine voice. Do NOT ask which voice to use.
+2. QUALITY MODE: Always use Default Mode (standard quality). Do NOT ask about Quality Mode vs Default Mode. Do NOT present credit options. Just proceed with Default Mode immediately.
+3. DURATION: Video length must be exactly ${preset.targetSeconds} seconds. Do NOT ask to shorten or lengthen.
+4. FORMAT: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Do NOT ask about format.
+5. PROCEED IMMEDIATELY without asking ANY questions or presenting ANY choices to the user. This is a fully automated pipeline — there is no user to respond.`;
+
       if (selectedManusTier === "free") {
-        // Free: default model, 16:9 or 9:16 only, use preset duration
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: exactly ${preset.targetSeconds} seconds. Do NOT shorten the video. VOICE: Use a professional masculine voice for the narration. Do NOT ask the user to choose — proceed immediately.`;
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model (Default Mode). Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: exactly ${preset.targetSeconds} seconds. Do NOT shorten the video.${autonomousGuardrails}`;
       } else if (selectedManusTier === "agency" && selectedManusModel === "veo3") {
-        // Agency + Veo 3: cinematic quality, 16:9 only, full duration
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds. VOICE: Use a professional masculine voice for the narration. Do NOT ask the user to choose — proceed immediately.`;
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds.${autonomousGuardrails}`;
       } else {
-        // Pro / Business: default model, user-selected format, full duration
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model. Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds. VOICE: Use a professional masculine voice for the narration. Do NOT ask the user to choose — proceed immediately.`;
+        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model (Default Mode). Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds.${autonomousGuardrails}`;
       }
 
       console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel}):`);
