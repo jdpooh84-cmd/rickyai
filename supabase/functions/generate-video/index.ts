@@ -513,7 +513,7 @@ Return JSON:
   "creative_angle": "which narrative angle you chose and why",
   "voiceover_script": "complete narration, ${preset.targetSeconds >= 60 ? "100-150" : "50-80"} words, written in the brand's voice — NOT a generic announcer tone",
   "scenes": [${Array.from({ length: preset.sceneCount }, (_, i) =>
-    `{"scene_number":${i + 1},"duration_seconds":${preset.clipDuration},"visual_description":"DETAILED cinematic prompt: shot size + camera move + lighting + subject + action + environment + mood","text_overlay":"2-5 word overlay","camera_direction":"specific camera direction","voiceover_line":"narration for this beat","shotType":"food|people|environment","emotional_beat":"what the viewer should FEEL","negative_prompt":"what to AVOID in this shot"}`
+    `{"scene_number":${i + 1},"duration_seconds":${preset.clipDuration},"visual_description":"DETAILED cinematic prompt: shot size + camera move + lighting + subject + action + environment + mood","text_overlay":"2-5 word overlay","camera_direction":"specific camera direction","voiceover_line":"narration for this beat","shotType":"product|people|environment","emotional_beat":"what the viewer should FEEL","negative_prompt":"what to AVOID in this shot"}`
   ).join(",")}],
   "scene_captions": ["line1","line2",...],
   "caption": "platform-optimized social caption",
