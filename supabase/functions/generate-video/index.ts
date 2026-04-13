@@ -282,8 +282,9 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
 
     // Negative prompts per shot type
     const negativePrompts: Record<string, string> = {
+      product: "no flat lighting, no artificial-looking subjects, no cluttered backgrounds",
       food: "no flat overhead lighting, no plastic-looking food, no cluttered backgrounds",
-      people: "no stiff posed shots, no fake smiles, no empty restaurant feel",
+      people: "no stiff posed shots, no fake smiles, no empty space feel",
       environment: "no harsh fluorescent lighting, no cluttered signage, no dirty surfaces",
     };
 
