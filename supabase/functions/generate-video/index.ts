@@ -491,9 +491,17 @@ For each scene's visual_description, use professional cinematography language:
 - Specify lighting style (Rembrandt, butterfly, split, practical, available, golden hour)
 - Specify depth of field (shallow/deep) and focus behavior (rack focus, pull focus)
 
+═══ CRITICAL: INDUSTRY CONSISTENCY ═══
+This business is a "${dna.cat}". ALL visual descriptions, voiceover lines, and shot lists MUST be consistent with this industry.
+- Do NOT describe food, restaurant, or dining scenes unless the business IS a restaurant/food business.
+- Do NOT describe photography/studio scenes unless the business IS a photography/media business.
+- Every scene must visually represent what THIS specific business actually does: ${dna.svc || dna.cat}.
+- The shot list total duration MUST equal exactly ${preset.targetSeconds} seconds (${preset.sceneCount} scenes × ${preset.clipDuration}s each).
+
 ═══ NEGATIVE PROMPTING (what to AVOID) ═══
 - NO generic stock footage aesthetic
 - NO robotic or unnatural movement
+- NO scenes from a DIFFERENT industry than "${dna.cat}"
 - NO oversaturated "Instagram filter" look
 - NO cheesy text animations or star wipes
 - NO corporate jargon ("synergy", "leveraging", "solutions")
