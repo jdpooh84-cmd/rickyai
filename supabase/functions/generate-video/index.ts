@@ -703,14 +703,15 @@ function applyScriptFixes(script: any, issues: PromptFixerIssue[], preset: Pipel
         break;
       }
       case "missing_visuals": {
-        const shotTypes = ["environment", "food", "people"];
+        const shotTypes = ["environment", "product", "people"];
         fixed.scenes = fixed.scenes.map((s: any, i: number) => {
           if (!s.visual_description?.trim() && !s.visual?.trim()) {
             const type = s.shotType || shotTypes[i % shotTypes.length];
             const visuals: Record<string, string> = {
-              environment: `Wide cinematic shot of ${name} storefront in ${city}. Golden hour lighting, warm glow.`,
-              food: `Close-up of ${name}'s signature offering. Dramatic rim lighting, vibrant colors, steam rising.`,
-              people: `Happy customers at ${name}. Candid smiles, warm atmosphere, natural light.`,
+              environment: `Wide cinematic shot of ${name} in ${city}. Golden hour lighting, warm glow.`,
+              product: `Close-up of ${name}'s signature offering. Dramatic rim lighting, vibrant colors, professional presentation.`,
+              food: `Close-up of ${name}'s signature offering. Dramatic rim lighting, vibrant colors.`,
+              people: `Happy ${biz?.target_audience || "customers"} at ${name}. Candid smiles, warm atmosphere, natural light.`,
             };
             return { ...s, visual_description: visuals[type] || visuals.environment };
           }
