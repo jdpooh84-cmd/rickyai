@@ -22,6 +22,15 @@ interface Props {
 const isManusPageUrl = (url: string) =>
   /manus\.(im|ai)\/app\//.test(url) || /share\.manus\.(im|ai)/.test(url);
 
+const isExternalNonEmbeddableUrl = (url: string) =>
+  /drive\.google\.com\/file\//.test(url) || /docs\.google\.com/.test(url) || /dropbox\.com/.test(url);
+
+const getMimeType = (url: string): string => {
+  if (/\.webm/i.test(url)) return "video/webm";
+  if (/\.mov/i.test(url)) return "video/quicktime";
+  return "video/mp4";
+};
+
 const ManusEmbed = ({ url, voiceoverUrl }: { url: string; voiceoverUrl?: string | null }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
