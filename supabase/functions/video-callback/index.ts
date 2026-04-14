@@ -83,12 +83,68 @@ Deno.serve(async (req) => {
     console.log(`[video-callback] Received callback for job ${job_id}: status=${status}`);
 
     // Use the merged video URL if provided, otherwise the raw video URL
-    const finalVideoUrl = direct_mp4_url || merged_video_url || video_url || null;
+    let finalVideoUrl = direct_mp4_url || merged_video_url || video_url || null;
 
     // Detect if URL is a Manus task page vs direct .mp4
     const isManusTaskPage = finalVideoUrl
       ? /manus\.(im|ai)\/app\//.test(finalVideoUrl) || /share\.manus\.(im|ai)/.test(finalVideoUrl)
       : false;
+
+    // Detect Google Drive links and attempt to re-host them in Supabase storage
+    const isGoogleDrive = finalVideoUrl
+      ? /drive\.google\.com/.test(finalVideoUrl) || /docs\.google\.com/.test(finalVideoUrl)
+      : false;
+
+    if (status === "completed" && finalVideoUrl && (isGoogleDrive || (!isManusTaskPage && !finalVideoUrl.includes(supabaseUrl)))) {
+      // Try to download and re-host in Supabase storage
+      try {
+        // For Google Drive, convert view links to direct download links
+        let downloadUrl = finalVideoUrl;
+        const driveFileMatch = finalVideoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (driveFileMatch) {
+          downloadUrl = `https://drive.google.com/uc?id=${driveFileMatch[1]}&export=download`;
+        }
+
+        console.log(`[video-callback] Downloading external video from: ${downloadUrl}`);
+        const videoResponse = await fetch(downloadUrl, {
+          redirect: "follow",
+          headers: { "User-Agent": "RickyAI-Pipeline/1.0" },
+        });
+
+        if (videoResponse.ok) {
+          const contentType = videoResponse.headers.get("content-type") || "video/mp4";
+          const ext = contentType.includes("webm") ? "webm" : "mp4";
+          const blob = await videoResponse.arrayBuffer();
+
+          // Only re-host if we got a reasonable file size (> 10KB)
+          if (blob.byteLength > 10240) {
+            const storagePath = `videos/${job.business_id}/${job_id}/final.${ext}`;
+            const { error: uploadErr } = await supabase.storage
+              .from("media")
+              .upload(storagePath, blob, {
+                contentType: contentType.includes("video") ? contentType : `video/${ext}`,
+                upsert: true,
+              });
+
+            if (!uploadErr) {
+              const publicUrl = `${supabaseUrl}/storage/v1/object/public/media/${storagePath}`;
+              console.log(`[video-callback] ✅ Re-hosted video to: ${publicUrl}`);
+              finalVideoUrl = publicUrl;
+            } else {
+              console.error("[video-callback] Storage upload failed:", uploadErr.message);
+            }
+          } else {
+            console.warn(`[video-callback] Downloaded file too small (${blob.byteLength} bytes), keeping original URL`);
+          }
+        } else {
+          console.warn(`[video-callback] Could not download video (${videoResponse.status}), keeping original URL`);
+        }
+      } catch (dlErr) {
+        console.error("[video-callback] Download/re-host failed:", dlErr);
+        // Keep original URL as fallback
+      }
+    }
+
     const videoType = isManusTaskPage ? "manus_page" : "direct";
 
     // Update the job
