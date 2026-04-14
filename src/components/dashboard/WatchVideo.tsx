@@ -22,6 +22,15 @@ interface Props {
 const isManusPageUrl = (url: string) =>
   /manus\.(im|ai)\/app\//.test(url) || /share\.manus\.(im|ai)/.test(url);
 
+const isExternalNonEmbeddableUrl = (url: string) =>
+  /drive\.google\.com\/file\//.test(url) || /docs\.google\.com/.test(url) || /dropbox\.com/.test(url);
+
+const getMimeType = (url: string): string => {
+  if (/\.webm/i.test(url)) return "video/webm";
+  if (/\.mov/i.test(url)) return "video/quicktime";
+  return "video/mp4";
+};
+
 const ManusEmbed = ({ url, voiceoverUrl }: { url: string; voiceoverUrl?: string | null }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -103,7 +112,8 @@ const VideoPlayer = ({ videoUrl, voiceoverUrl, title }: { videoUrl: string; voic
   return (
     <div>
       <video ref={videoRef} controls className="w-full rounded-xl bg-black max-h-[350px]" muted={!!voiceoverUrl && !audioFailed}>
-        <source src={videoUrl} type="video/mp4" />
+        <source src={videoUrl} type={getMimeType(videoUrl)} />
+        Your browser does not support the video tag.
       </video>
       {voiceoverUrl && !audioFailed && (
         <audio ref={audioRef} src={voiceoverUrl} preload="auto" onError={() => setAudioFailed(true)} />
@@ -222,7 +232,28 @@ const WatchVideo = ({ onBack }: Props) => {
                 <ManusEmbed url={job.video_url!} voiceoverUrl={voiceoverUrl} />
               )}
 
-              {hasVideo && !isManusPageUrl(job.video_url!) && (
+              {hasVideo && !isManusPageUrl(job.video_url!) && isExternalNonEmbeddableUrl(job.video_url!) && (
+                <div className="space-y-2">
+                  <a
+                    href={job.video_url!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex flex-col items-center justify-center w-full rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/30 hover:border-primary/60 transition-all cursor-pointer group"
+                    style={{ minHeight: 220 }}
+                  >
+                    <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-3 group-hover:bg-primary/30 transition-colors">
+                      <Play className="w-8 h-8 text-primary" />
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">Watch Your Video</p>
+                    <p className="text-[10px] text-muted-foreground mt-1">Opens in external viewer →</p>
+                  </a>
+                  <a href={job.video_url!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+                    <Play className="w-3 h-3" /> Open Video
+                  </a>
+                </div>
+              )}
+
+              {hasVideo && !isManusPageUrl(job.video_url!) && !isExternalNonEmbeddableUrl(job.video_url!) && (
                 <VideoPlayer videoUrl={job.video_url!} voiceoverUrl={voiceoverUrl} title={result?.title || "Video"} />
               )}
 
