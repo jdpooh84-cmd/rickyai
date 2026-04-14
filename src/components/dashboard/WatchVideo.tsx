@@ -112,7 +112,8 @@ const VideoPlayer = ({ videoUrl, voiceoverUrl, title }: { videoUrl: string; voic
   return (
     <div>
       <video ref={videoRef} controls className="w-full rounded-xl bg-black max-h-[350px]" muted={!!voiceoverUrl && !audioFailed}>
-        <source src={videoUrl} type="video/mp4" />
+        <source src={videoUrl} type={getMimeType(videoUrl)} />
+        Your browser does not support the video tag.
       </video>
       {voiceoverUrl && !audioFailed && (
         <audio ref={audioRef} src={voiceoverUrl} preload="auto" onError={() => setAudioFailed(true)} />
