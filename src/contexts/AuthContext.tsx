@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { getPlanByProductId, getAddOnByProductId, PlanKey, AddOnKey } from "@/lib/stripe";
@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const hasBootstrappedSession = useRef(false);
   const [subscription, setSubscription] = useState<SubscriptionState>({
     subscribed: false,
     plan: null,
@@ -68,26 +69,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const hasAccess = subscription.subscribed || subscription.trialActive;
 
   useEffect(() => {
-    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const syncAuthState = (nextSession: Session | null) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
       setLoading(false);
-      if (session?.user) {
+
+      if (nextSession?.user) {
         setTimeout(() => checkSubscription(), 0);
       } else {
         setSubscription(prev => ({ ...prev, loading: false }));
       }
+    };
+
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!hasBootstrappedSession.current) {
+        return;
+      }
+
+      syncAuthState(session);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-      if (session?.user) {
-        checkSubscription();
-      } else {
-        setSubscription(prev => ({ ...prev, loading: false }));
-      }
+      hasBootstrappedSession.current = true;
+      syncAuthState(session);
     });
 
     return () => authSub.unsubscribe();
