@@ -69,7 +69,13 @@ Deno.serve(async (req) => {
       if (!lovableKey) throw new Error("Platform AI key not configured.");
       aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
     } else {
-      throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
+      // Non-admin without own keys: allow platform key during trial or active subscription
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (lovableKey) {
+        aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
+      } else {
+        throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
+      }
     }
 
     const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
