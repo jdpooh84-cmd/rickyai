@@ -1392,16 +1392,35 @@ AUTONOMOUS PIPELINE — MANDATORY RULES:
             body: JSON.stringify(webhookPayload),
           });
           if (webhookRes.ok) {
-            console.log(`[pipeline] ✅ Make.com webhook accepted (${webhookRes.status})`);
+            logPipeline(`✅ Make.com webhook accepted (${webhookRes.status})`);
+            // Try to extract manus_task_id from webhook response
+            try {
+              const webhookBody = await webhookRes.text();
+              const webhookJson = webhookBody ? JSON.parse(webhookBody) : {};
+              if (webhookJson.task_id || webhookJson.manus_task_id) {
+                const taskId = webhookJson.task_id || webhookJson.manus_task_id;
+                logPipeline(`📌 Manus task ID: ${taskId}`);
+                await supabase.from("video_generation_jobs").update({
+                  manus_task_id: taskId,
+                  pipeline_stage: "manus_dispatched",
+                  updated_at: new Date().toISOString(),
+                }).eq("id", jobId);
+              }
+            } catch { /* webhook may not return JSON, that's fine */ }
+            // Update pipeline stage to dispatched
+            await supabase.from("video_generation_jobs").update({
+              pipeline_stage: "manus_dispatched",
+              updated_at: new Date().toISOString(),
+            }).eq("id", jobId);
           } else {
             const errText = await webhookRes.text();
-            console.error(`[pipeline] ⚠️ Make.com webhook returned ${webhookRes.status}: ${errText}`);
+            logPipeline(`⚠️ Make.com webhook returned ${webhookRes.status}: ${errText}`);
           }
         } catch (webhookErr: any) {
-          console.error(`[pipeline] ⚠️ Make.com webhook dispatch failed:`, webhookErr.message);
+          logPipeline(`⚠️ Make.com webhook dispatch failed: ${webhookErr.message}`);
         }
       } else {
-        console.log(`[pipeline] ⚠️ No active manus_production webhook configured — prompt stored but not dispatched`);
+        logPipeline(`⚠️ No active manus_production webhook configured — prompt stored but not dispatched`);
       }
     }
 
