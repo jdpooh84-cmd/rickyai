@@ -1027,9 +1027,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const strategyData = strategyRows?.reduce((acc: any, row: any) => ({ ...acc, ...(row.output_data || {}) }), {}) || {};
 
     const preset = buildPreset(lengthMode, orientation);
-    console.log(`[pipeline] ═══ Starting job ${jobId} ═══`);
-    console.log(`[pipeline] Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    console.log(`[pipeline] ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
+    logPipeline(`═══ Starting job ${jobId} ═══`);
+    logPipeline(`Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
+    logPipeline(`ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 1: SCRIPT — use approved script if provided, else generate
