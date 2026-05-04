@@ -804,6 +804,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                     ))}
                   </div>
                 </details>
+              )}
             </div>
           )}
 
