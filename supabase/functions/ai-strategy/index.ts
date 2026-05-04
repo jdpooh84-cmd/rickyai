@@ -110,6 +110,11 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Admins bypass all tier restrictions
+    if (isAdmin) {
+      allowedSteps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    }
+
     // Also allow access during trial
     const { data: profile } = await supabase
       .from("profiles")
