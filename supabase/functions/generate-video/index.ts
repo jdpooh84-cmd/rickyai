@@ -1002,8 +1002,18 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   // Resolve ElevenLabs key — user's own key or admin-only platform key
   const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
 
-  const updateJob = (fields: Record<string, any>) =>
-    supabase.from("video_generation_jobs").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", jobId);
+  const pipelineLogs: string[] = [];
+  const logPipeline = (msg: string) => { pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`); console.log(`[pipeline] ${msg}`); };
+  const updateJob = (fields: Record<string, any>) => {
+    // Always include pipeline_logs and pipeline_stage in updates
+    const stage = fields.pipeline_stage || fields.status || undefined;
+    return supabase.from("video_generation_jobs").update({
+      ...fields,
+      ...(stage ? { pipeline_stage: stage } : {}),
+      result_payload: { ...(fields.result_payload || {}), pipeline_logs: pipelineLogs },
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
+  };
 
   try {
     // ── Load business + location ──
@@ -1017,9 +1027,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     const strategyData = strategyRows?.reduce((acc: any, row: any) => ({ ...acc, ...(row.output_data || {}) }), {}) || {};
 
     const preset = buildPreset(lengthMode, orientation);
-    console.log(`[pipeline] ═══ Starting job ${jobId} ═══`);
-    console.log(`[pipeline] Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    console.log(`[pipeline] ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
+    logPipeline(`═══ Starting job ${jobId} ═══`);
+    logPipeline(`Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
+    logPipeline(`ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 1: SCRIPT — use approved script if provided, else generate
@@ -1382,16 +1392,35 @@ AUTONOMOUS PIPELINE — MANDATORY RULES:
             body: JSON.stringify(webhookPayload),
           });
           if (webhookRes.ok) {
-            console.log(`[pipeline] ✅ Make.com webhook accepted (${webhookRes.status})`);
+            logPipeline(`✅ Make.com webhook accepted (${webhookRes.status})`);
+            // Try to extract manus_task_id from webhook response
+            try {
+              const webhookBody = await webhookRes.text();
+              const webhookJson = webhookBody ? JSON.parse(webhookBody) : {};
+              if (webhookJson.task_id || webhookJson.manus_task_id) {
+                const taskId = webhookJson.task_id || webhookJson.manus_task_id;
+                logPipeline(`📌 Manus task ID: ${taskId}`);
+                await supabase.from("video_generation_jobs").update({
+                  manus_task_id: taskId,
+                  pipeline_stage: "manus_dispatched",
+                  updated_at: new Date().toISOString(),
+                }).eq("id", jobId);
+              }
+            } catch { /* webhook may not return JSON, that's fine */ }
+            // Update pipeline stage to dispatched
+            await supabase.from("video_generation_jobs").update({
+              pipeline_stage: "manus_dispatched",
+              updated_at: new Date().toISOString(),
+            }).eq("id", jobId);
           } else {
             const errText = await webhookRes.text();
-            console.error(`[pipeline] ⚠️ Make.com webhook returned ${webhookRes.status}: ${errText}`);
+            logPipeline(`⚠️ Make.com webhook returned ${webhookRes.status}: ${errText}`);
           }
         } catch (webhookErr: any) {
-          console.error(`[pipeline] ⚠️ Make.com webhook dispatch failed:`, webhookErr.message);
+          logPipeline(`⚠️ Make.com webhook dispatch failed: ${webhookErr.message}`);
         }
       } else {
-        console.log(`[pipeline] ⚠️ No active manus_production webhook configured — prompt stored but not dispatched`);
+        logPipeline(`⚠️ No active manus_production webhook configured — prompt stored but not dispatched`);
       }
     }
 

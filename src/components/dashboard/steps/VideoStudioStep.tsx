@@ -786,6 +786,25 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                   <Progress value={((generatedVideoScript.clips_completed || 0) / generatedVideoScript.total_clips) * 100} className="h-2" />
                 </div>
               )}
+
+              {/* ═══ PIPELINE LOGS ═══ */}
+              {generatedVideoScript?.pipeline_logs?.length > 0 && (
+                <details className="mt-2">
+                  <summary className="text-[10px] font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    📋 Pipeline Logs ({generatedVideoScript.pipeline_logs.length})
+                  </summary>
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg bg-background/80 border border-border p-2 space-y-0.5 font-mono">
+                    {generatedVideoScript.pipeline_logs.map((log: string, i: number) => (
+                      <p key={i} className={`text-[9px] leading-tight ${
+                        log.includes("✅") ? "text-primary" :
+                        log.includes("⚠️") ? "text-accent" :
+                        log.includes("❌") ? "text-destructive" :
+                        "text-muted-foreground"
+                      }`}>{log}</p>
+                    ))}
+                  </div>
+                </details>
+              )}
             </div>
           )}
 
@@ -967,6 +986,25 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               <div className="glass rounded-2xl p-3">
                 <p className="text-xs text-muted-foreground">{generatedVideoScript.message}</p>
               </div>
+            )}
+
+            {/* Pipeline logs (after completion) */}
+            {generatedVideoScript?.pipeline_logs?.length > 0 && (
+              <details className="glass rounded-2xl p-4">
+                <summary className="text-xs font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                  📋 Pipeline Logs ({generatedVideoScript.pipeline_logs.length})
+                </summary>
+                <div className="mt-2 max-h-48 overflow-y-auto rounded-lg bg-background/80 border border-border p-2 space-y-0.5 font-mono">
+                  {generatedVideoScript.pipeline_logs.map((log: string, i: number) => (
+                    <p key={i} className={`text-[9px] leading-tight ${
+                      log.includes("✅") ? "text-primary" :
+                      log.includes("⚠️") ? "text-accent" :
+                      log.includes("❌") ? "text-destructive" :
+                      "text-muted-foreground"
+                    }`}>{log}</p>
+                  ))}
+                </div>
+              </details>
             )}
           </div>
         )}
