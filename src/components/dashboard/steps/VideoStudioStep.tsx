@@ -804,7 +804,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                     ))}
                   </div>
                 </details>
-              )}
+            </div>
+          )}
 
           {composingVideo && (
             <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
