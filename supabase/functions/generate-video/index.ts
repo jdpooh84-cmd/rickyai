@@ -1002,8 +1002,18 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   // Resolve ElevenLabs key — user's own key or admin-only platform key
   const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
 
-  const updateJob = (fields: Record<string, any>) =>
-    supabase.from("video_generation_jobs").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", jobId);
+  const pipelineLogs: string[] = [];
+  const logPipeline = (msg: string) => { pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`); console.log(`[pipeline] ${msg}`); };
+  const updateJob = (fields: Record<string, any>) => {
+    // Always include pipeline_logs and pipeline_stage in updates
+    const stage = fields.pipeline_stage || fields.status || undefined;
+    return supabase.from("video_generation_jobs").update({
+      ...fields,
+      ...(stage ? { pipeline_stage: stage } : {}),
+      result_payload: { ...(fields.result_payload || {}), pipeline_logs: pipelineLogs },
+      updated_at: new Date().toISOString(),
+    }).eq("id", jobId);
+  };
 
   try {
     // ── Load business + location ──
