@@ -786,8 +786,25 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                   <Progress value={((generatedVideoScript.clips_completed || 0) / generatedVideoScript.total_clips) * 100} className="h-2" />
                 </div>
               )}
-            </div>
-          )}
+
+              {/* ═══ PIPELINE LOGS ═══ */}
+              {generatedVideoScript?.pipeline_logs?.length > 0 && (
+                <details className="mt-2">
+                  <summary className="text-[10px] font-semibold text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                    📋 Pipeline Logs ({generatedVideoScript.pipeline_logs.length})
+                  </summary>
+                  <div className="mt-2 max-h-40 overflow-y-auto rounded-lg bg-background/80 border border-border p-2 space-y-0.5 font-mono">
+                    {generatedVideoScript.pipeline_logs.map((log: string, i: number) => (
+                      <p key={i} className={`text-[9px] leading-tight ${
+                        log.includes("✅") ? "text-primary" :
+                        log.includes("⚠️") ? "text-accent" :
+                        log.includes("❌") ? "text-destructive" :
+                        "text-muted-foreground"
+                      }`}>{log}</p>
+                    ))}
+                  </div>
+                </details>
+              )}
 
           {composingVideo && (
             <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
