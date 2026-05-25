@@ -1504,9 +1504,6 @@ Deno.serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) throw new Error("Unauthorized");
@@ -1530,7 +1527,7 @@ Deno.serve(async (req) => {
         const prompt = buildAIPrompt(business, location, preset);
         const res = await fetch(AI_URL, {
           method: "POST",
-          headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+          headers: { "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY") || ""}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             model: AI_MODEL,
             messages: [
