@@ -137,6 +137,27 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           clearInterval(interval);
           setGeneratingVideo(false);
 
+          try {
+            const urlResult = await supabase.functions.invoke("get-signed-video-url", { body: { job_id: activeJobId } });
+            if (!urlResult.error && urlResult.data?.url) {
+              setFinalVideoUrl(urlResult.data.url);
+              toast.success("Your video is ready! 🎬");
+              return;
+            }
+            if (urlResult.data?.type === 'slideshow' && !composedRef.current) {
+              composedRef.current = true;
+              setComposingVideo(true);
+              setJobStatus("composing_video");
+              const { voiceover_url, scene_images, scene_captions } = urlResult.data;
+              const blob = await composeVideo({ sceneImages: scene_images || [], voiceoverUrl: voiceover_url || null, businessName: data.result_payload?.title || "Video", title: data.result_payload?.title, sceneCaptions: scene_captions || [], durationPerScene: 5, totalDurationSeconds: (scene_images || []).length * 5, width: 1080, height: 1920, onProgress: setComposePct });
+              setFinalVideoUrl(URL.createObjectURL(blob));
+              toast.success("Your video is ready! 🎬");
+              setComposingVideo(false);
+              return;
+            }
+          } catch (urlErr) { console.error("Signed URL fetch failed:", urlErr); }
+
+
           const payload = data.result_payload as any;
           const clips = payload?.video_clips || [];
           const images = payload?.scene_images || [];
@@ -205,7 +226,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
     setGeneratingScript(true);
     try {
-      const response = await supabase.functions.invoke("generate-video", {
+      const response = await supabase.functions.invoke("generate-video-v2", {
         body: { businessId, videoType: "promotional", lengthMode, mode: "script_only" },
       });
       if (response.error) throw new Error(response.error.message);
@@ -344,7 +365,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setGeneratedVideoScript(null);
     jobStartTimeRef.current = Date.now(); // Start timeout clock
     try {
-      const response = await supabase.functions.invoke("generate-video", {
+      const response = await supabase.functions.invoke("generate-video-v2", {
         body: {
           businessId,
           videoType: "promotional",
