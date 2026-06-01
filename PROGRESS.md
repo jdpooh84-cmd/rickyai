@@ -2,31 +2,37 @@
 
 ## Phase 1: Remove Lovable ✅ COMPLETE
 - Removed `lovable-tagger` from `vite.config.ts` and `package.json`
-- Replaced Lovable OG image URLs in `index.html` with local `/pwa-icon-512.png`
-- All 10 edge functions cleaned of `lovable.dev` gateway URLs and `LOVABLE_API_KEY` references
+- Replaced Lovable OG image URLs in `index.html`
+- All 10 edge functions cleaned of `lovable.dev` URLs and `LOVABLE_API_KEY` references
 
 ## Phase 2: Fix All Edge Functions (Anthropic Direct) ✅ COMPLETE
 All functions now call `https://api.anthropic.com/v1/messages` with `claude-sonnet-4-20250514`.
-Functions fixed:
-1. `ai-strategy` — all users can now run strategy steps (admin gate removed)
-2. `campaign-blueprint` — direct Anthropic call, all users
-3. `federal-contracting` — direct Anthropic call, non-streaming
-4. `grant-consultant` — direct Anthropic call, non-streaming
-5. `grant-intel` — direct Anthropic call, non-streaming
-6. `ricky-chat` — direct Anthropic call, all users
-7. `rewrite-script` — direct Anthropic call with template fallback
-8. `webhook-proxy` — direct Anthropic call for built-in AI fallback
-9. `generate-video` — Anthropic for script gen, Pexels for images
-10. `generate-video-v2` — Anthropic for script gen, Pexels for images
+Works for ALL users — admin gate removed.
+Functions: ai-strategy, campaign-blueprint, federal-contracting, grant-consultant,
+grant-intel, ricky-chat, rewrite-script, webhook-proxy, generate-video, generate-video-v2
 
-## Phase 3: Video Pipeline ✅ (Existing — Make.com webhook still configured)
-- generate-script → Make.com webhook → render-worker → FFmpeg → Pexels → delivered video
-- Webhook: hook.us2.make.com/qji4ef373dnn4gajoynwgg1yevy3kdgj
+## Phase 3: Video Pipeline ✅ (Existing — Make.com webhook configured)
+- Script → Make.com webhook → render-worker → FFmpeg → Pexels → video
 
-## Phase 4: ANTHROPIC_API_KEY in Supabase Secrets 🔲 PENDING
-- Must set `ANTHROPIC_API_KEY` in Supabase project `symbyrtzimafpxbzurjh` edge function secrets
-- Run: `supabase secrets set ANTHROPIC_API_KEY=sk-ant-...` or set via Supabase dashboard
+## Phase 4: ANTHROPIC_API_KEY in Supabase ✅ COMPLETE
+- Secret set on project `psmxeckstfeyxlqzzkgw` via Supabase CLI
 
-## Phase 5: Deploy Frontend and Render-Worker 🔲 PENDING
+## Phase 5: Edge Functions Deployed ✅ COMPLETE
+- All 18 edge functions deployed to `psmxeckstfeyxlqzzkgw`
+- Supabase project: https://psmxeckstfeyxlqzzkgw.supabase.co
+- All tables verified: profiles, businesses, locations, strategy_outputs, video_generation_jobs
 
-## Phase 6: End-to-End Test 🔲 PENDING
+## Phase 5b: Frontend Deploy 🔲 ONE MANUAL STEP NEEDED
+The frontend is built and ready. `netlify.toml` is in the repo with all env vars.
+
+**To go live in 2 minutes:**
+1. Go to https://app.netlify.com
+2. Click "Add new site" → "Import an existing project"
+3. Connect GitHub → select `jdpooh84-cmd/rickyai`
+4. Build settings are auto-detected from `netlify.toml`
+5. Click Deploy
+
+OR use Vercel: https://vercel.com/new → import `jdpooh84-cmd/rickyai`
+No extra env vars needed — they're in `netlify.toml`.
+
+## Phase 6: End-to-End Test 🔲 PENDING (after frontend is live)
