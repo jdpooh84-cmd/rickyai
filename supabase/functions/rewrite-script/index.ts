@@ -5,8 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
 
 // ═══ Template-based rewrite — works with zero AI credits ═══
 const HOOK_VARIANTS = [
@@ -162,46 +160,10 @@ Deno.serve(async (req) => {
       ?.map((s: any, i: number) => `Scene ${i + 1} (${s.shotType || "general"}, ${s.duration_seconds}s): ${s.voiceover_line || ""} | On-screen: ${s.text_overlay || ""}`)
       .join("\n") || JSON.stringify(currentScript);
 
-    // Determine which LLM to use: check user's connected API keys
-    let aiUrl = AI_URL;
-    let aiModel = DEFAULT_MODEL;
-    let aiHeaders: Record<string, string> = {};
-    let providerUsed = "lovable_ai";
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    const providerUsed = ANTHROPIC_API_KEY ? "anthropic" : "template_fallback";
 
-    // ── BYOLLM enforcement: platform keys are admin-only ──
-    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-
-    const { data: userKeys } = await supabase
-      .from("user_api_keys")
-      .select("provider, api_key_encrypted")
-      .eq("user_id", user.id)
-      .eq("is_valid", true);
-
-    const openaiKey = userKeys?.find(k => k.provider === "openai");
-    const claudeKey = userKeys?.find(k => k.provider === "anthropic" || k.provider === "claude");
-
-    if (openaiKey) {
-      aiUrl = "https://api.openai.com/v1/chat/completions";
-      aiModel = "gpt-4o";
-      aiHeaders = { "Authorization": `Bearer ${openaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-      providerUsed = "openai";
-    } else if (claudeKey) {
-      aiUrl = "https://api.anthropic.com/v1/messages";
-      aiModel = "claude-sonnet-4-20250514";
-      aiHeaders = { "x-api-key": claudeKey.api_key_encrypted, "anthropic-version": "2023-06-01", "Content-Type": "application/json" };
-      providerUsed = "anthropic";
-    } else if (isAdmin) {
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        // No platform key — use template fallback
-        const rewrittenScript = templateRewrite(currentScript, biz, loc);
-        return new Response(JSON.stringify({ script: rewrittenScript, providerUsed: "template_fallback" }), {
-          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      aiHeaders = { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" };
-    } else {
-      // Non-admin with no keys — use template fallback (no platform keys)
+    if (!ANTHROPIC_API_KEY) {
       const rewrittenScript = templateRewrite(currentScript, biz, loc);
       return new Response(JSON.stringify({ script: rewrittenScript, providerUsed: "template_fallback" }), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -236,50 +198,30 @@ Length mode: ${lengthMode || "standard"}`;
 
     let rewrittenScript: any = null;
 
-    // ── Try AI rewrite, fall back to template-based rewrite if credits exhausted ──
+    // ── Try AI rewrite, fall back to template-based rewrite if AI unavailable ──
     try {
-      if (providerUsed === "anthropic") {
-        const resp = await fetch(aiUrl, {
-          method: "POST",
-          headers: aiHeaders,
-          body: JSON.stringify({
-            model: aiModel,
-            max_tokens: 2000,
-            system: systemPrompt,
-            messages: [{ role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` }],
-          }),
-        });
-        if (!resp.ok) {
-          const errText = await resp.text();
-          console.error("Anthropic error:", resp.status, errText);
-          throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
-        }
-        const data = await resp.json();
-        const text = data.content?.[0]?.text || "";
-        rewrittenScript = JSON.parse(text);
-      } else {
-        const resp = await fetch(aiUrl, {
-          method: "POST",
-          headers: aiHeaders,
-          body: JSON.stringify({
-            model: aiModel,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` },
-            ],
-            temperature: 0.9,
-          }),
-        });
-        if (!resp.ok) {
-          const errText = await resp.text();
-          console.error("AI error:", resp.status, errText);
-          throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
-        }
-        const data = await resp.json();
-        const raw = data.choices?.[0]?.message?.content || "";
-        const cleaned = raw.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
-        rewrittenScript = JSON.parse(cleaned);
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 2000,
+          system: systemPrompt,
+          messages: [{ role: "user", content: `Here is the current script to rewrite:\n\n${currentScriptText}` }],
+        }),
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error("Anthropic error:", resp.status, errText);
+        throw new Error(`AI_PROVIDER_ERROR_${resp.status}`);
       }
+      const data = await resp.json();
+      const text = data.content?.[0]?.text || "";
+      rewrittenScript = JSON.parse(text);
     } catch (aiErr: any) {
       console.log("AI rewrite failed, using template fallback:", aiErr.message);
       // Template-based rewrite — no AI needed

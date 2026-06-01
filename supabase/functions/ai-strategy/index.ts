@@ -5,8 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-flash";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,57 +26,10 @@ Deno.serve(async (req) => {
     );
     if (authError || !user) throw new Error("Unauthorized");
 
-    // ── BYOLLM enforcement: platform keys are admin-only ──
     const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
 
-    // Check user's own API keys
-    const { data: userKeys } = await supabase
-      .from("user_api_keys")
-      .select("provider, api_key_encrypted")
-      .eq("user_id", user.id)
-      .eq("is_valid", true);
-
-    const userOpenaiKey = userKeys?.find(k => k.provider === "openai");
-    const userClaudeKey = userKeys?.find(k => k.provider === "claude" || k.provider === "anthropic");
-    const userGeminiKey = userKeys?.find(k => k.provider === "gemini");
-    const hasUserKey = !!(userOpenaiKey || userClaudeKey || userGeminiKey);
-
-    let aiUrl = AI_URL;
-    let aiModel = AI_MODEL;
-    let aiHeaders: Record<string, string> = {};
-
-    if (userOpenaiKey) {
-      aiUrl = "https://api.openai.com/v1/chat/completions";
-      aiModel = "gpt-4o";
-      aiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-    } else if (userClaudeKey) {
-      // Claude uses a different API format — for simplicity, treat like OpenAI-compatible
-      aiUrl = AI_URL;
-      aiModel = AI_MODEL;
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
-      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else if (userGeminiKey) {
-      // Use Gemini via user's key — for now route through platform gateway
-      aiUrl = AI_URL;
-      aiModel = AI_MODEL;
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!isAdmin || !lovableKey) throw new Error("Connect an AI provider in Settings → Connect to use this feature.");
-      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else if (isAdmin) {
-      // Admin can use platform keys
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("Platform AI key not configured.");
-      aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else {
-      // Non-admin without own keys: allow platform key during trial or active subscription
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (lovableKey) {
-        aiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-      } else {
-        throw new Error("No AI provider connected. Go to Settings → Connect and add your API key for ChatGPT, Claude, or Gemini to use this feature.");
-      }
-    }
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) throw new Error("AI service not configured. Please contact support.");
 
     const { step, businessId, locationId, productionMode, workflowMode, postFrequency, postSchedule, insightReport } = await req.json();
 
@@ -668,17 +621,19 @@ ${businessContext}`
     const stepConfig = stepPrompts[step];
     if (!stepConfig) throw new Error(`Invalid step: ${step}`);
 
-    // Call AI using BYOLLM-resolved provider
-    const aiResponse = await fetch(aiUrl, {
+    // Call Anthropic API directly
+    const aiResponse = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
-      headers: aiHeaders,
+      headers: {
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
       body: JSON.stringify({
-        model: aiModel,
-        messages: [
-          { role: "system", content: stepConfig.system },
-          { role: "user", content: stepConfig.user },
-        ],
-        response_format: { type: "json_object" },
+        model: ANTHROPIC_MODEL,
+        max_tokens: 8192,
+        system: stepConfig.system,
+        messages: [{ role: "user", content: stepConfig.user }],
       }),
     });
 
@@ -759,7 +714,7 @@ ${businessContext}`
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices[0].message.content;
+    const content = aiData.content[0].text;
     let outputData;
     try {
       outputData = JSON.parse(content);

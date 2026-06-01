@@ -5,8 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-flash";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
 // ═══════════════════════════════════════════════════════════════════════
 // VIDEO CONFIG — Manus AI is the primary video generator
@@ -916,17 +916,13 @@ async function getSceneImage(
     }
   }
 
-  // Priority 2: AI image generation (if credits available)
-  if (!creditsExhausted) {
+  // Priority 2: AI image generation - skipped, using Pexels stock photos instead
+  if (false && !creditsExhausted) {
     try {
-      const res = await fetch(AI_URL, {
+      const res = await fetch(ANTHROPIC_API_URL, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: IMAGE_MODEL,
-          messages: [{ role: "user", content: `Generate a high-quality promotional photograph for "${biz.business_name}". Scene: ${scene.visual_description}. Style: cinematic, commercial photography. No text in image.` }],
-          modalities: ["image", "text"],
-        }),
+        headers: { "x-api-key": lovableKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 100, messages: [{ role: "user", content: "placeholder" }] }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -987,15 +983,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   const keyMap: Record<string, string> = {};
   userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
 
-  // Resolve AI key (for script generation + image generation)
-  let lovableKey = "";
-  if (keyMap["openai"]) {
-    // User has OpenAI key — for image gen we still need platform key or skip
-    lovableKey = isAdmin ? (Deno.env.get("LOVABLE_API_KEY") || "") : "";
-  } else if (isAdmin) {
-    lovableKey = Deno.env.get("LOVABLE_API_KEY") || "";
-  }
-  // If no lovableKey and not admin, script/image gen will use fallback templates
+  // Resolve AI key for script generation
+  const lovableKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
+  // If no anthropicKey, script gen will use fallback templates
 
   // Runway removed — Manus AI is the video generator via Make.com
   // Resolve ElevenLabs key — user's own key or admin-only platform key
@@ -1050,24 +1040,27 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     } else {
       try {
         const prompt = buildAIPrompt(business, location, preset, strategyData);
-        const res = await fetch(AI_URL, {
+        const res = await fetch(ANTHROPIC_API_URL, {
           method: "POST",
-          headers: { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+          headers: {
+            "x-api-key": lovableKey,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
-            model: AI_MODEL,
-            messages: [
-              { role: "system", content: "You are a video production expert. Return valid JSON only." },
-              { role: "user", content: prompt },
-            ],
-            response_format: { type: "json_object" },
+            model: ANTHROPIC_MODEL,
+            max_tokens: 4096,
+            system: "You are a video production expert. Return valid JSON only.",
+            messages: [{ role: "user", content: prompt }],
           }),
         });
         if (!res.ok) {
-          if (res.status === 402) throw new Error("CREDITS_EXHAUSTED");
           throw new Error(`AI error: ${res.status}`);
         }
         const data = await res.json();
-        script = JSON.parse(data.choices[0].message.content);
+        const rawText = data.content[0].text;
+        const cleaned = rawText.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        script = JSON.parse(cleaned);
         script.usedFallbackScript = false;
         console.log(`[pipeline] AI script generated: "${script.title}"`);
       } catch (e: any) {
@@ -1525,24 +1518,27 @@ Deno.serve(async (req) => {
 
       try {
         const prompt = buildAIPrompt(business, location, preset);
-        const res = await fetch(AI_URL, {
+        const res = await fetch(ANTHROPIC_API_URL, {
           method: "POST",
-          headers: { "Authorization": `Bearer ${Deno.env.get("LOVABLE_API_KEY") || ""}`, "Content-Type": "application/json" },
+          headers: {
+            "x-api-key": Deno.env.get("ANTHROPIC_API_KEY") || "",
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
           body: JSON.stringify({
-            model: AI_MODEL,
-            messages: [
-              { role: "system", content: "You are a video production expert. Return valid JSON only." },
-              { role: "user", content: prompt },
-            ],
-            response_format: { type: "json_object" },
+            model: ANTHROPIC_MODEL,
+            max_tokens: 4096,
+            system: "You are a video production expert. Return valid JSON only.",
+            messages: [{ role: "user", content: prompt }],
           }),
         });
         if (!res.ok) {
-          if (res.status === 402) throw new Error("CREDITS_EXHAUSTED");
           throw new Error(`AI error: ${res.status}`);
         }
         const data = await res.json();
-        script = JSON.parse(data.choices[0].message.content);
+        const rawText = data.content[0].text;
+        const cleaned = rawText.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        script = JSON.parse(cleaned);
         script.usedFallbackScript = false;
       } catch (e: any) {
         usedFallbackScript = true;

@@ -5,8 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-flash";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const QUESTION_LIMIT = 25;
 
 const stepNames = ["", "Connect", "Profile", "Compete", "Scout", "Audit", "Platform", "Script", "Video Studio", "Storyboard", "Export", "Lead Scout", "Grant Search", "Search Visibility", "Campaign Blueprint", "Omni Optimize"];
@@ -29,35 +29,8 @@ Deno.serve(async (req) => {
     );
     if (authError || !user) throw new Error("Unauthorized");
 
-    // ── BYOLLM enforcement: platform keys are admin-only ──
-    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-    const { data: userKeys } = await supabase
-      .from("user_api_keys")
-      .select("provider, api_key_encrypted")
-      .eq("user_id", user.id)
-      .eq("is_valid", true);
-    const userOpenaiKey = userKeys?.find(k => k.provider === "openai");
-
-    let chatAiUrl = AI_URL;
-    let chatAiModel = AI_MODEL;
-    let chatAiHeaders: Record<string, string> = {};
-
-    if (userOpenaiKey) {
-      chatAiUrl = "https://api.openai.com/v1/chat/completions";
-      chatAiModel = "gpt-4o";
-      chatAiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-    } else if (isAdmin) {
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("Platform AI key not configured.");
-      chatAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else if (!userKeys?.length) {
-      throw new Error("No AI provider connected. Go to Settings → Connect and add your API key to use Ricky chat.");
-    } else {
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("No compatible AI provider. Add a ChatGPT key in Settings → Connect.");
-      // If they have some key connected, allow chat (it's a lightweight feature)
-      chatAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    }
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) throw new Error("AI service not configured. Please contact support.");
 
     const { message, businessId, currentStep } = await req.json();
 
@@ -139,15 +112,18 @@ Rules:
     let reply: string;
 
     try {
-      const aiResponse = await fetch(chatAiUrl, {
+      const aiResponse = await fetch(ANTHROPIC_API_URL, {
         method: "POST",
-        headers: chatAiHeaders,
+        headers: {
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
         body: JSON.stringify({
-          model: chatAiModel,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message },
-          ],
+          model: ANTHROPIC_MODEL,
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: [{ role: "user", content: message }],
         }),
       });
 
@@ -158,7 +134,7 @@ Rules:
       }
 
       const aiData = await aiResponse.json();
-      reply = aiData.choices[0].message.content;
+      reply = aiData.content[0].text;
     } catch (aiErr: any) {
       console.error("[ricky-chat] AI fallback triggered:", aiErr.message);
       // Do NOT increment counter on failure

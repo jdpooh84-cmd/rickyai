@@ -5,8 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-flash";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
+const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,33 +26,8 @@ Deno.serve(async (req) => {
     );
     if (authError || !user) throw new Error("Unauthorized");
 
-    // ── BYOLLM enforcement: platform keys are admin-only ──
-    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-    const { data: userKeys } = await supabase
-      .from("user_api_keys")
-      .select("provider, api_key_encrypted")
-      .eq("user_id", user.id)
-      .eq("is_valid", true);
-    const userOpenaiKey = userKeys?.find(k => k.provider === "openai");
-
-    let effectiveAiUrl = AI_URL;
-    let effectiveAiModel = AI_MODEL;
-    let effectiveAiHeaders: Record<string, string> = {};
-
-    if (userOpenaiKey) {
-      effectiveAiUrl = "https://api.openai.com/v1/chat/completions";
-      effectiveAiModel = "gpt-4o";
-      effectiveAiHeaders = { "Authorization": `Bearer ${userOpenaiKey.api_key_encrypted}`, "Content-Type": "application/json" };
-    } else if (isAdmin) {
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) throw new Error("Platform AI key not configured.");
-      effectiveAiHeaders = { "Authorization": `Bearer ${lovableKey}`, "Content-Type": "application/json" };
-    } else if (!userKeys?.length) {
-      throw new Error("No AI provider connected. Go to Settings → Connect and add your API key to use this feature.");
-    } else {
-      // Has some key but not OpenAI — use platform gateway if admin, else error
-      throw new Error("No compatible AI provider connected. Add a ChatGPT API key in Settings → Connect.");
-    }
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) throw new Error("AI service not configured. Please contact support.");
 
     const { businessId, locationId, productionMode, postFrequency, postSchedule, videoFormat } = await req.json();
 
@@ -195,16 +170,18 @@ Return this exact JSON structure:
 
 Generate 4-7 episodes covering different content angles. Make hooks platform-specific and attention-grabbing. Include disclaimers noting posting times may differ by location and target audience.`;
 
-    const aiResponse = await fetch(effectiveAiUrl, {
+    const aiResponse = await fetch(ANTHROPIC_API_URL, {
       method: "POST",
-      headers: effectiveAiHeaders,
+      headers: {
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
       body: JSON.stringify({
-        model: effectiveAiModel,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        response_format: { type: "json_object" },
+        model: ANTHROPIC_MODEL,
+        max_tokens: 8192,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
       }),
     });
 
@@ -224,7 +201,7 @@ Generate 4-7 episodes covering different content angles. Make hooks platform-spe
     }
 
     const aiData = await aiResponse.json();
-    const content = aiData.choices[0].message.content;
+    const content = aiData.content[0].text;
     let outputData;
     try {
       outputData = JSON.parse(content);

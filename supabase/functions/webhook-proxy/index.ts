@@ -143,22 +143,21 @@ Deno.serve(async (req) => {
     }
 
     // Fallback: use built-in AI if no webhook configured
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) throw new Error("No webhook configured and LOVABLE_API_KEY not available");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) throw new Error("No webhook configured and ANTHROPIC_API_KEY not available");
 
-    const scriptResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const scriptResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "Content-Type": "application/json",
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: `You are a video production expert. Generate a complete video production plan. Return valid JSON with: title, description, script (60-90 second narration), scenes (array of scene descriptions with timestamps), voiceover_text, captions (array with timestamp and text), hashtags, target_platform, aspect_ratio.`,
         messages: [
-          {
-            role: "system",
-            content: `You are a video production expert. Generate a complete video production plan. Return valid JSON with: title, description, script (60-90 second narration), scenes (array of scene descriptions with timestamps), voiceover_text, captions (array with timestamp and text), hashtags, target_platform, aspect_ratio.`
-          },
           {
             role: "user",
             content: `Create a ${productionMode === "quick" ? "15-30 second" : productionMode === "longform" ? "5-15 minute" : "60-90 second"} video plan for:
@@ -173,7 +172,6 @@ Video Type: ${videoType || "promotional"}
 Keyword: ${keyword || "not specified"}`
           }
         ],
-        response_format: { type: "json_object" },
       }),
     });
 
@@ -184,9 +182,9 @@ Keyword: ${keyword || "not specified"}`
     const scriptData = await scriptResponse.json();
     let content;
     try {
-      content = JSON.parse(scriptData.choices[0].message.content);
+      content = JSON.parse(scriptData.content[0].text);
     } catch {
-      throw new Error("Failed to parse AI response");
+      content = { raw: scriptData.content[0].text };
     }
 
     await incrementUsage(supabase, user.id, periodStart);
