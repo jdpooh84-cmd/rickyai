@@ -6,19 +6,25 @@ const corsHeaders = {
 };
 
 /**
- * video-callback — Webhook endpoint for Make.com to POST finished video results back.
+ * video-callback — Webhook endpoint for Creatomate (and Make.com legacy) to POST
+ * finished video results back.
  *
- * Expected payload from Make.com:
+ * Creatomate webhook payload (single render object or array):
  * {
- *   job_id: string,              // video_generation_jobs.id
- *   status: "completed" | "failed",
- *   video_url?: string,          // Final Manus/assembled video URL
- *   voiceover_url?: string,      // ElevenLabs MP3 URL (if Make merged audio)
- *   merged_video_url?: string,   // Final video with audio merged
- *   thumbnail_url?: string,
+ *   id: string,                // creatomate render ID
+ *   status: "succeeded" | "failed",
+ *   url?: string,              // final video URL
+ *   snapshot_url?: string,
+ *   metadata: string,          // JSON string: { "job_id": "..." }
  *   error_message?: string,
- *   duration_seconds?: number,
- *   metadata?: Record<string, any>
+ * }
+ *
+ * Make.com legacy payload:
+ * {
+ *   job_id: string,
+ *   status: "completed" | "failed",
+ *   video_url?: string,
+ *   ...
  * }
  */
 Deno.serve(async (req) => {
@@ -38,29 +44,50 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const body = await req.json();
-    const {
-      job_id,
-      status,
-      video_url,
-      direct_mp4_url,
-      voiceover_url,
-      merged_video_url,
-      thumbnail_url,
-      error_message,
-      duration_seconds,
-      metadata,
-    } = body;
+    const rawBody = await req.json();
 
-    if (!job_id) {
-      return new Response(JSON.stringify({ error: "Missing job_id" }), {
-        status: 400,
+    // Creatomate sends an array or single object
+    const body = Array.isArray(rawBody) ? rawBody[0] : rawBody;
+
+    // ── Resolve job_id ──
+    // Creatomate: body.metadata is a JSON string with { job_id }
+    // Make.com legacy: body.job_id directly
+    let job_id: string | null = null;
+    if (body.metadata) {
+      try {
+        const meta = typeof body.metadata === "string" ? JSON.parse(body.metadata) : body.metadata;
+        job_id = meta?.job_id || null;
+      } catch (_) {}
+    }
+    job_id = job_id || body.job_id || null;
+
+    // ── Resolve status ──
+    // Creatomate uses "succeeded" / "failed" / "planned" / "rendering"
+    // Make.com uses "completed" / "failed"
+    const rawStatus: string = body.status || "";
+    let status: "completed" | "failed" | null = null;
+    if (rawStatus === "succeeded" || rawStatus === "completed") status = "completed";
+    else if (rawStatus === "failed") status = "failed";
+
+    // Ignore in-progress Creatomate status pings
+    if (!status) {
+      return new Response(JSON.stringify({ ok: true, ignored: true, raw_status: rawStatus }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!status || !["completed", "failed"].includes(status)) {
-      return new Response(JSON.stringify({ error: "status must be 'completed' or 'failed'" }), {
+    // ── Resolve video URL ──
+    const video_url = body.url || body.video_url || body.direct_mp4_url || body.merged_video_url || null;
+    const thumbnail_url = body.snapshot_url || body.thumbnail_url || null;
+    const error_message = body.error_message || body.error || null;
+    const duration_seconds = body.duration_seconds || null;
+    const creatomate_render_id = body.id || null;
+    const metadata = body.metadata || null;
+    const voiceover_url = body.voiceover_url || null;
+
+    if (!job_id) {
+      return new Response(JSON.stringify({ error: "Missing job_id in payload or metadata" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -80,33 +107,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[video-callback] Received callback for job ${job_id}: status=${status}`);
+    console.log(`[video-callback] Received callback for job ${job_id}: status=${status}, render_id=${creatomate_render_id}`);
 
-    // Use the merged video URL if provided, otherwise the raw video URL
-    let finalVideoUrl = direct_mp4_url || merged_video_url || video_url || null;
+    let finalVideoUrl: string | null = video_url;
 
-    // Detect if URL is a Manus task page vs direct .mp4
-    const isManusTaskPage = finalVideoUrl
-      ? /manus\.(im|ai)\/app\//.test(finalVideoUrl) || /share\.manus\.(im|ai)/.test(finalVideoUrl)
-      : false;
-
-    // Detect Google Drive links and attempt to re-host them in Supabase storage
-    const isGoogleDrive = finalVideoUrl
-      ? /drive\.google\.com/.test(finalVideoUrl) || /docs\.google\.com/.test(finalVideoUrl)
-      : false;
-
-    if (status === "completed" && finalVideoUrl && (isGoogleDrive || (!isManusTaskPage && !finalVideoUrl.includes(supabaseUrl)))) {
-      // Try to download and re-host in Supabase storage
+    // Re-host external video in Supabase storage for reliable playback
+    if (status === "completed" && finalVideoUrl && !finalVideoUrl.includes(supabaseUrl)) {
       try {
-        // For Google Drive, convert view links to direct download links
-        let downloadUrl = finalVideoUrl;
-        const driveFileMatch = finalVideoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (driveFileMatch) {
-          downloadUrl = `https://drive.google.com/uc?id=${driveFileMatch[1]}&export=download`;
-        }
-
-        console.log(`[video-callback] Downloading external video from: ${downloadUrl}`);
-        const videoResponse = await fetch(downloadUrl, {
+        console.log(`[video-callback] Downloading video from: ${finalVideoUrl}`);
+        const videoResponse = await fetch(finalVideoUrl, {
           redirect: "follow",
           headers: { "User-Agent": "RickyAI-Pipeline/1.0" },
         });
@@ -116,7 +125,6 @@ Deno.serve(async (req) => {
           const ext = contentType.includes("webm") ? "webm" : "mp4";
           const blob = await videoResponse.arrayBuffer();
 
-          // Only re-host if we got a reasonable file size (> 10KB)
           if (blob.byteLength > 10240) {
             const storagePath = `videos/${job.business_id}/${job_id}/final.${ext}`;
             const { error: uploadErr } = await supabase.storage
@@ -128,7 +136,7 @@ Deno.serve(async (req) => {
 
             if (!uploadErr) {
               const publicUrl = `${supabaseUrl}/storage/v1/object/public/media/${storagePath}`;
-              console.log(`[video-callback] ✅ Re-hosted video to: ${publicUrl}`);
+              console.log(`[video-callback] Re-hosted video: ${publicUrl}`);
               finalVideoUrl = publicUrl;
             } else {
               console.error("[video-callback] Storage upload failed:", uploadErr.message);
@@ -141,42 +149,41 @@ Deno.serve(async (req) => {
         }
       } catch (dlErr) {
         console.error("[video-callback] Download/re-host failed:", dlErr);
-        // Keep original URL as fallback
       }
     }
-
-    const videoType = isManusTaskPage ? "manus_page" : "direct";
 
     // Update the job
     const existingPayload = (job.result_payload as Record<string, any>) || {};
     const updatedPayload = {
       ...existingPayload,
-      ...(metadata || {}),
       video_url: finalVideoUrl,
-      video_type: videoType,
+      video_type: "direct",
       voiceover_url: voiceover_url || existingPayload.voiceover_url,
-      merged_video_url: merged_video_url || null,
       total_duration_seconds: duration_seconds || existingPayload.total_duration_seconds,
       pipeline_steps: {
         ...(existingPayload.pipeline_steps || {}),
-        manus: status === "completed" ? "completed" : "failed",
-        merge: merged_video_url ? "completed" : "not_merged",
+        creatomate: status === "completed" ? "completed" : "failed",
       },
       message: status === "completed"
-        ? `✅ Video ready! ${isManusTaskPage ? "(Manus viewer)" : ""} ${duration_seconds ? `(${duration_seconds}s)` : ""}`
+        ? `✅ Video ready! ${duration_seconds ? `(${duration_seconds}s)` : ""}`
         : `❌ Video production failed: ${error_message || "unknown error"}`,
       callback_received_at: new Date().toISOString(),
     };
 
+    const updateFields: Record<string, any> = {
+      status,
+      video_url: finalVideoUrl,
+      result_payload: updatedPayload,
+      error_message: status === "failed" ? (error_message || "Production failed") : null,
+      completed_at: status === "completed" ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    };
+    if (creatomate_render_id) updateFields.creatomate_render_id = creatomate_render_id;
+    if (finalVideoUrl) updateFields.original_provider_url = video_url;
+
     const { error: updateErr } = await supabase
       .from("video_generation_jobs")
-      .update({
-        status,
-        video_url: finalVideoUrl,
-        result_payload: updatedPayload,
-        error_message: status === "failed" ? (error_message || "Production failed") : null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateFields)
       .eq("id", job_id);
 
     if (updateErr) {
@@ -184,9 +191,8 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to update job: ${updateErr.message}`);
     }
 
-    // If completed with a video URL, also update content_posts and business_media
+    // If completed, update content_posts and business_media
     if (status === "completed" && finalVideoUrl) {
-      // Update content_posts — find the post linked to this job's business
       const { error: postErr } = await supabase
         .from("content_posts")
         .update({
@@ -198,7 +204,7 @@ Deno.serve(async (req) => {
         })
         .eq("business_id", job.business_id)
         .eq("user_id", job.user_id)
-        .eq("production_tool", "manus_ai")
+        .eq("production_tool", "creatomate")
         .order("created_at", { ascending: false })
         .limit(1);
 
@@ -206,26 +212,25 @@ Deno.serve(async (req) => {
         console.error("[video-callback] content_posts update error:", postErr);
       }
 
-      // Insert into business_media for re-use
       const { error: mediaErr } = await supabase
         .from("business_media")
         .insert({
           business_id: job.business_id,
           user_id: job.user_id,
-          file_name: `manus-video-${job_id.substring(0, 8)}.mp4`,
+          file_name: `creatomate-video-${job_id.substring(0, 8)}.mp4`,
           file_type: "video",
           shot_type: "environment",
           storage_path: finalVideoUrl,
           public_url: finalVideoUrl,
           mime_type: "video/mp4",
-          tags: ["manus", "ai-generated", "promotional"],
+          tags: ["creatomate", "ai-generated", "promotional"],
         });
 
       if (mediaErr) {
         console.error("[video-callback] business_media insert error:", mediaErr);
       }
 
-      console.log(`[video-callback] ✅ Job ${job_id} completed. Video saved to content_posts and business_media.`);
+      console.log(`[video-callback] Job ${job_id} completed. Video saved.`);
     } else {
       console.log(`[video-callback] Job ${job_id} marked as ${status}.`);
     }

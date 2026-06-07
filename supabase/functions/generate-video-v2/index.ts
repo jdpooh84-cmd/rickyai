@@ -9,7 +9,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const IMAGE_MODEL = "google/gemini-2.5-flash-image";
 // ═══════════════════════════════════════════════════════════════════════
-// VIDEO CONFIG — Manus AI is the primary video generator
+// VIDEO CONFIG — Creatomate is the video renderer
 // ═══════════════════════════════════════════════════════════════════════
 const VIDEO_PIPELINE_CONFIG = {
   RATIO_LANDSCAPE: "16:9",
@@ -235,7 +235,7 @@ function buildScriptFromProfile(biz: any, loc: any, strategyData: any, sceneCoun
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MANUS VISUAL SCRIPT BUILDER — cinematic shot-by-shot descriptions
+// VISUAL SCRIPT BUILDER — cinematic shot-by-shot descriptions
 // ═══════════════════════════════════════════════════════════════════════
 const CAMERA_MOVEMENTS: Record<string, string[]> = {
   product: ["slow push-in", "overhead orbit clockwise", "lateral dolly left-to-right", "rack focus foreground-to-background", "slow tilt down reveal"],
@@ -253,7 +253,7 @@ const SHOT_SIZES: Record<string, string[]> = { product: ["extreme close-up", "cl
 const TRANSITIONS_IN = ["fade in from black", "soft crossfade", "whip pan from previous", "match cut", "smooth morph transition"];
 const TRANSITIONS_OUT = ["soft crossfade to next", "quick cut", "slow fade", "motion blur transition", "match dissolve"];
 
-function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, videoId: string) {
+function buildVisualScript(script: any, biz: any, preset: PipelinePreset, videoId: string) {
   const scenes = script.scenes || [];
   const aspectRatio = preset.orientation === "vertical" ? "9:16" : "16:9";
   const totalDuration = scenes.reduce((sum: number, s: any) => sum + (s.duration_seconds || preset.clipDuration), 0);
@@ -273,7 +273,7 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
     const subject = scene.visual_description?.split(".")[0] || `${biz.business_name} ${shotType} scene`;
     const envDetails = scene.visual_description?.split(".").slice(1).join(".").trim() || "";
 
-    // Build the full cinematic prompt text for Manus
+    // Build the full cinematic prompt text for the video renderer
     const promptText = `${shotSize} of ${subject}, ${scene.camera_direction || cameraMovement}, ${lighting}, ${envDetails}. Style: cinematic, crisp, high-detail, natural motion, photorealistic. DO NOT: generic stock footage, robotic movement, flat lighting.`;
 
     // Derive emotional beat from scene position
@@ -330,12 +330,12 @@ function buildManusVisualScript(script: any, biz: any, preset: PipelinePreset, v
     target_audience: biz.target_audience || "local customers",
     estimated_total_duration_seconds: totalDuration,
     shots,
-    manus_prompt: buildManusPromptText(script, biz, shots, aspectRatio),
+    video_prompt: buildVisualPromptText(script, biz, shots, aspectRatio),
   };
 }
 
-function buildManusPromptText(script: any, biz: any, shots: any[], aspectRatio: string): string {
-  // SLIMMED PROMPT — reduced context load per Manus support recommendation
+function buildVisualPromptText(script: any, biz: any, shots: any[], aspectRatio: string): string {
+  // SLIMMED PROMPT — reduced context load for video renderer
   const tone = biz.brand_tone || "friendly";
   const cat = biz.business_category || "local business";
   const city = biz.locations?.[0]?.city || "";
@@ -360,7 +360,7 @@ ${shots.map((s: any) => `S${s.index} (${s.estimated_duration_seconds}s): ${s.sho
 Emotional arc: Intrigue → Discovery → Connection → Desire → Action. Each shot transitions seamlessly. Color grade consistent throughout.`;
 }
 
-// Build per-scene prompts for sub-task architecture (each scene = 1 Manus task)
+// Build per-scene prompts for sub-task architecture (each scene = 1 render task)
 function buildPerScenePrompts(script: any, biz: any, shots: any[], aspectRatio: string): string[] {
   const tone = biz.brand_tone || "friendly";
   const city = biz.locations?.[0]?.city || "";
@@ -890,7 +890,7 @@ function crc32(d: Uint8Array): number { let c=0xffffffff; for(let i=0;i<d.length
 
 async function getSceneImage(
   supabase: any, userId: string, jobId: string, sceneIndex: number, scene: any, biz: any,
-  lovableKey: string, creditsExhausted: boolean, existingImages: string[],
+  anthropicKey: string, creditsExhausted: boolean, existingImages: string[],
   businessMedia: BusinessMediaRow[], usedMediaIds: Set<string>,
 ): Promise<{ url: string; isReal: boolean; motionPrompt: string }> {
   const shotType = scene?.shotType || "environment";
@@ -921,7 +921,7 @@ async function getSceneImage(
     try {
       const res = await fetch(ANTHROPIC_API_URL, {
         method: "POST",
-        headers: { "x-api-key": lovableKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 100, messages: [{ role: "user", content: "placeholder" }] }),
       });
       if (res.ok) {
@@ -984,13 +984,13 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
 
   // Resolve AI key for script generation
-  const lovableKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
   // If no anthropicKey, script gen will use fallback templates
 
-  // Runway removed — Manus AI is the video generator via Make.com
+  // Video rendering is handled by Creatomate via webhook callback
   // Resolve ElevenLabs key — user's own key or admin-only platform key
   // Resolve ElevenLabs key — user's own key or admin-only platform key
-  const elevenlabsKey = keyMap["elevenlabs"] || (isAdmin ? (Deno.env.get("ELEVENLABS_API_KEY") || "") : "");
+  const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
 
   const pipelineLogs: string[] = [];
   const logPipeline = (msg: string) => { pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`); console.log(`[pipeline] ${msg}`); };
@@ -1043,7 +1043,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         const res = await fetch(ANTHROPIC_API_URL, {
           method: "POST",
           headers: {
-            "x-api-key": lovableKey,
+            "x-api-key": anthropicKey,
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
           },
@@ -1134,12 +1134,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       }
     }
 
-    // ═══ BUILD MANUS VISUAL SCRIPT (cinematic shot list) ═══
-    const manusVisualScript = buildManusVisualScript(script, business, preset, jobId);
-    script.manus_visual_script = manusVisualScript;
+    // ═══ BUILD VISUAL SCRIPT (cinematic shot list) ═══
+    const visualScript = buildVisualScript(script, business, preset, jobId);
+    script.visual_script = visualScript;
 
     console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words, fallback=${usedFallbackScript}`);
-    console.log(`[pipeline] Manus visual script: ${manusVisualScript.shots.length} shots, style=${manusVisualScript.style}`);
+    console.log(`[pipeline] Visual script: ${visualScript.shots.length} shots, style=${visualScript.style}`);
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 2: IMAGES (business media library → old storage → AI → placeholder)
@@ -1181,7 +1181,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         console.log(`[pipeline] Scene ${i + 1}: using uploaded video clip (${videoMatch.file_name})`);
       } else {
         try {
-          const result = await getSceneImage(supabase, userId, jobId, i, scene, business, lovableKey, imageCreditsExhausted, existingRealImages, businessImages, usedMediaIds);
+          const result = await getSceneImage(supabase, userId, jobId, i, scene, business, anthropicKey, imageCreditsExhausted, existingRealImages, businessImages, usedMediaIds);
           sceneImageUrls.push(result.url);
           sceneImageIsReal.push(result.isReal);
           sceneMotionPrompts.push(result.motionPrompt);
@@ -1277,111 +1277,77 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     }
 
     // ════════════════════════════════════════════════════════════════════
-    // CHECK USER'S PREFERRED VIDEO GENERATOR
+    // STEP 4: CREATOMATE VIDEO RENDER
     // ════════════════════════════════════════════════════════════════════
-    const { data: videoGenDefault } = await supabase
-      .from("user_tool_defaults")
-      .select("default_provider")
-      .eq("user_id", userId)
-      .eq("tool_type", "video_generator")
-      .maybeSingle();
-    const preferredVideoGen = videoGenDefault?.default_provider || "manus";
-    console.log(`[pipeline] Preferred video generator: ${preferredVideoGen}`);
+    const creatomateKey = Deno.env.get("CREATOMATE_API_KEY") || "";
+    const creatomateTemplateId = Deno.env.get("CREATOMATE_TEMPLATE_ID") || "";
 
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 4a: MANUS AI SHIM (if user chose Manus)
-    // ════════════════════════════════════════════════════════════════════
-    let manusPromptPreview: string | null = null;
-    if (preferredVideoGen === "manus") {
-      // Extract Manus model/tier from job request payload
-      const reqPayload = (jobRow?.request_payload as any) || {};
-      const selectedManusModel = reqPayload.manusModel || "default";
-      const selectedManusTier = reqPayload.manusTier || "free";
+    let creatomateRenderId: string | null = null;
 
-      console.log(`[pipeline] 🤖 Manus AI selected — model=${selectedManusModel}, tier=${selectedManusTier}`);
+    if (creatomateKey) {
       await updateJob({
         status: "rendering_video",
         result_payload: {
           ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
-          pipeline_step: "manus", message: `🤖 Preparing Manus AI video prompt (${selectedManusModel === "veo3" ? "Veo 3 Cinematic" : "Standard"})...`,
+          pipeline_step: "creatomate", message: "🎬 Sending to Creatomate for rendering...",
         },
       });
 
-      // Build tier-gated Manus prompt
-      const basePrompt = manusVisualScript.manus_prompt;
+      try {
+        const modifications: Record<string, any> = {};
 
-      // Autonomous pipeline guardrails — prevent Manus from asking ANY questions
-      const autonomousGuardrails = `
+        script.scenes.forEach((scene: any, i: number) => {
+          const n = i + 1;
+          const imgUrl = sceneImageUrls[i];
+          if (imgUrl) modifications[`Scene-${n}-Image`] = { source: imgUrl };
+          if (scene.text_overlay) modifications[`Scene-${n}-Text`] = scene.text_overlay;
+          if (scene.voiceover_line) modifications[`Scene-${n}-Caption`] = scene.voiceover_line;
+        });
 
-AUTONOMOUS PIPELINE — MANDATORY RULES:
-1. VOICE: Use a professional masculine voice. Do NOT ask which voice to use.
-2. QUALITY MODE: Always use Default Mode (standard quality). Do NOT ask about Quality Mode vs Default Mode. Do NOT present credit options. Just proceed with Default Mode immediately.
-3. DURATION: Video length must be exactly ${preset.targetSeconds} seconds. Do NOT ask to shorten or lengthen.
-4. FORMAT: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Do NOT ask about format.
-5. PROCEED IMMEDIATELY without asking ANY questions or presenting ANY choices to the user. This is a fully automated pipeline — there is no user to respond.`;
+        if (voiceoverUrl) modifications["Voiceover"] = { source: voiceoverUrl };
+        if (business.business_name) modifications["Business-Name"] = business.business_name;
 
-      if (selectedManusTier === "free") {
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model (Default Mode). Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: exactly ${preset.targetSeconds} seconds. Do NOT shorten the video.${autonomousGuardrails}`;
-      } else if (selectedManusTier === "agency" && selectedManusModel === "veo3") {
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the Veo 3 model for maximum cinematic quality. Format: 16:9 only. Video length: ${preset.targetSeconds} seconds.${autonomousGuardrails}`;
-      } else {
-        manusPromptPreview = `${basePrompt}\n\nGenerate this video using the standard default video model (Default Mode). Format: ${preset.orientation === "vertical" ? "9:16" : "16:9"}. Video length: ${preset.targetSeconds} seconds.${autonomousGuardrails}`;
-      }
-
-      console.log(`[pipeline] Manus prompt preview (${manusPromptPreview.length} chars, tier=${selectedManusTier}, model=${selectedManusModel}):`);
-      console.log(manusPromptPreview.substring(0, 500) + "...");
-
-      // ── DISPATCH TO RENDER WORKER ──
-      const renderWorkerUrl = Deno.env.get("RENDER_WORKER_URL");
-      if (renderWorkerUrl) {
-        const workerPayload = {
-          job_id: jobId, user_id: userId, business_id: businessId,
-          pexels_key: Deno.env.get("PEXELS_API_KEY") || "",
-          input_schema: {
-            business_name: business.business_name,
-            industry: business.business_category || "local business",
-            offer: business.services || "",
-            location: location?.city || "",
-            state: location?.state || "",
-            audience: business.target_audience || "local customers",
-            voiceover_text: script.voiceover_script,
-            voiceover_url: voiceoverUrl,
-            orientation: orientation,
-            scenes: script.scenes,
-            scene_captions: script.scene_captions,
-          },
+        const renderPayload: any = {
+          modifications,
+          metadata: JSON.stringify({ job_id: jobId }),
         };
-        EdgeRuntime.waitUntil(
-          fetch(renderWorkerUrl + "/render", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Worker-Secret": Deno.env.get("RENDER_WORKER_SECRET") || "" },
-            body: JSON.stringify(workerPayload),
-          }).catch((e: any) => console.error("[pipeline] Worker dispatch error:", e.message))
-        );
-        logPipeline("Dispatched to render worker");
-        await updateJob({ status: "rendering_video", pipeline_stage: "dispatched_to_render_worker", result_payload: { ...script, voiceover_url: voiceoverUrl, message: "Rendering your video..." } });
-      } else {
-        logPipeline("No RENDER_WORKER_URL — completing as slideshow");
-        const { data: mediaItems } = await supabase.from("business_media").select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
-        const sceneImages = mediaItems?.map((m: any) => m.public_url) || [];
-        await updateJob({ status: "completed", pipeline_stage: "complete", result_payload: { ...script, voiceover_url: voiceoverUrl, scene_images: sceneImages, video_clips: [], message: "Script and voiceover ready. Video assembled in browser.", pipeline_steps: { script: "completed", voiceover: voiceoverUrl ? "completed" : "captions_only", render: "client_side" } } });
+        if (creatomateTemplateId) renderPayload.template_id = creatomateTemplateId;
+
+        const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${creatomateKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(renderPayload),
+        });
+
+        if (renderRes.ok) {
+          const renderData = await renderRes.json();
+          const renders = Array.isArray(renderData) ? renderData : [renderData];
+          creatomateRenderId = renders[0]?.id || null;
+          if (creatomateRenderId) {
+            await supabase.from("video_generation_jobs").update({ creatomate_render_id: creatomateRenderId }).eq("id", jobId);
+            logPipeline(`Creatomate render started: ${creatomateRenderId}`);
+          }
+        } else {
+          const errText = await renderRes.text();
+          logPipeline(`Creatomate render error [${renderRes.status}]: ${errText}`);
+        }
+      } catch (e: any) {
+        logPipeline(`Creatomate dispatch error: ${e.message}`);
       }
-    }
-
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 4b: SLIDESHOW FALLBACK (if Manus not selected or no webhook)
-    // ════════════════════════════════════════════════════════════════════
-    const videoClips: string[] = [...sceneVideoClipUrls]; // start with pre-existing library clips
-
-    if (preferredVideoGen === "manus") {
-      console.log("[pipeline] Manus AI selected — video will be delivered via Make.com webhook callback");
     } else {
-      console.log("[pipeline] Slideshow mode — no external video generator");
+      logPipeline("No CREATOMATE_API_KEY — completing as slideshow");
+      const { data: mediaItems } = await supabase.from("business_media").select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
+      const sceneImages = mediaItems?.map((m: any) => m.public_url) || [];
+      await updateJob({ status: "completed", pipeline_stage: "complete", result_payload: { ...script, voiceover_url: voiceoverUrl, scene_images: sceneImages, video_clips: [], message: "Script and voiceover ready. Video assembled in browser.", pipeline_steps: { script: "completed", voiceover: voiceoverUrl ? "completed" : "captions_only", render: "client_side" } } });
     }
 
     // ════════════════════════════════════════════════════════════════════
     // STEP 5: FINAL RESULT
     // ════════════════════════════════════════════════════════════════════
+    const videoClips: string[] = [...sceneVideoClipUrls];
     const hasClips = videoClips.length > 0;
     const hasImages = sceneImageUrls.length > 0;
     const totalDuration = hasClips
@@ -1392,8 +1358,8 @@ AUTONOMOUS PIPELINE — MANDATORY RULES:
     let finalStatus: string;
     let isFallback = false;
 
-    if (preferredVideoGen === "manus" && manusPromptPreview) {
-      statusMessage = `🤖 Manus AI prompt ready! Your video will be delivered via Make.com when processing completes.`;
+    if (creatomateRenderId) {
+      statusMessage = `🎬 Creatomate render started! Your video will be delivered via webhook when processing completes.`;
       finalStatus = "processing";
     } else if (hasClips) {
       statusMessage = `🎬 ${videoClips.length} video clips ready (${totalDuration}s)!`;
@@ -1430,9 +1396,8 @@ AUTONOMOUS PIPELINE — MANDATORY RULES:
       real_image_count: realImageCount,
       length_mode: lengthMode,
       orientation,
-      preferred_video_generator: preferredVideoGen,
-      manus_prompt_preview: manusPromptPreview,
-      manus_config: {
+      creatomate_render_id: creatomateRenderId,
+      video_config: {
         ratio: preset.ratio,
         clipDuration: preset.clipDuration,
         orientation: preset.orientation,
@@ -1441,7 +1406,7 @@ AUTONOMOUS PIPELINE — MANDATORY RULES:
         script: "completed",
         images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
         voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
-        manus: preferredVideoGen === "manus" ? (manusPromptPreview ? "prompt_ready" : "not_configured") : "not_selected",
+        creatomate: creatomateRenderId ? "rendering" : creatomateKey ? "dispatch_failed" : "not_configured",
       },
       message: statusMessage,
     };
@@ -1470,7 +1435,7 @@ AUTONOMOUS PIPELINE — MANDATORY RULES:
         shot_list: script.scenes,
         cta: script.cta,
         status: "media_ready",
-        production_tool: preferredVideoGen === "manus" ? "manus_ai" : "rickyai_slideshow",
+        production_tool: creatomateRenderId ? "creatomate" : "rickyai_slideshow",
         thumbnail_url: sceneImageUrls[0] || null,
       }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
     }
@@ -1501,7 +1466,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { businessId, videoType, lengthMode, orientation, mode, approvedScript, manusModel, manusTier } = await req.json();
+    const { businessId, videoType, lengthMode, orientation, mode, approvedScript } = await req.json();
 
     // ── SCRIPT-ONLY MODE: generate script and return synchronously ──
     if (mode === "script_only") {
@@ -1573,8 +1538,8 @@ Deno.serve(async (req) => {
       }
 
       // Build cinematic visual script for script_only mode too
-      const manusVisualScript = buildManusVisualScript(script, business, preset, "preview");
-      script.manus_visual_script = manusVisualScript;
+      const visualScript = buildVisualScript(script, business, preset, "preview");
+      script.visual_script = visualScript;
 
       return new Response(JSON.stringify({
         success: true,
@@ -1591,7 +1556,7 @@ Deno.serve(async (req) => {
         location_id: null,
         provider: "rickyai_ffmpeg",
         status: "queued",
-        request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape", approvedScript: approvedScript || null, manusModel: manusModel || "default", manusTier: manusTier || "free" },
+        request_payload: { businessId, videoType, lengthMode, orientation: orientation || "landscape", approvedScript: approvedScript || null },
       })
       .select("id")
       .single();

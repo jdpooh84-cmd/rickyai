@@ -266,5 +266,5 @@ async function runPipeline({ job_id, user_id, business_id, input_schema }) {
 const port = parseInt(process.env.PORT || '3001')
 app.listen({ port, host: '0.0.0.0' }, (err) => {
   if (err) { console.error(err); process.exit(1) }
-  console.log(`RickyAI Render Worker (ElevenLabs + Wan 2.1) on port ${port}`)
+  console.log(`RickyAI Render Worker (Creatomate + ElevenLabs + Wan 2.1) on port ${port}`)
 })
