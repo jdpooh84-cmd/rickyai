@@ -108,6 +108,65 @@ When done, always report:
 - remaining risks
 - whether `LESSONS.md`, `CONTRACTS.md`, or `docs/build-review.md` was updated
 
+## Required Claude Code Slash Command Workflow
+
+For serious code work, use the production-engineering-security-reviewer skill and follow this workflow:
+
+### Before Editing
+```
+/plan
+/diff
+/context
+```
+
+### During Review and Fixing
+```
+/elite-review
+/code-review high --fix
+/simplify
+/security-review
+```
+
+### For Security-Sensitive Changes
+```
+/secure-fix
+/security-review
+```
+Security-sensitive means auth, authorization, billing, user data, database rules, file uploads, secrets, webhooks, API keys, permissions, or deployment configuration.
+
+### For Runtime Proof
+```
+/run-skill-generator
+/run
+/verify
+/verify-build
+```
+
+### Before Shipping
+```
+/ship-check
+/code-review max
+/security-review
+/diff
+```
+
+### If Work Goes Wrong
+```
+/rewind
+/debug
+/doctor
+```
+
+### For Long Sessions
+```
+/context
+/compact
+```
+
+Never claim production readiness unless review, security, diff inspection, and available verification steps have been completed or explicitly reported as unavailable.
+
+---
+
 ## Project-Specific Rules
 
 - Supabase CLI binary is at `C:\Users\jodan\supabase-bin\supabase.exe` — always use this, not `npx supabase`

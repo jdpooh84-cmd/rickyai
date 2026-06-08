@@ -1,13 +1,13 @@
-Run a full ruthless self-improvement cycle on the current project state.
+Use the production-engineering-security-reviewer skill.
+
+Run a full self-improvement cycle on the current project state.
 
 Follow this workflow exactly:
 
 1. Inspect the current state.
    - Read git diff if available.
    - Read recently changed files.
-   - Read CLAUDE.md.
-   - Read CONTRACTS.md.
-   - Read LESSONS.md.
+   - Read CLAUDE.md, CONTRACTS.md, LESSONS.md.
    - Identify what changed this session.
 
 2. Run available checks.
@@ -31,24 +31,19 @@ Follow this workflow exactly:
    - Refactor weak code
    - Replace brittle patterns
    - Remove duplication
-   - Improve naming
-   - Improve error handling
-   - Improve validation
-   - Improve file structure
+   - Improve naming, error handling, validation, file structure
    - Do not remove working features to make the task easier
 
 5. Re-run checks.
    If checks fail, fix the failure.
-   If checks cannot run, explain why and record it in docs/build-review.md.
+   If checks cannot run, explain why and record in docs/build-review.md.
 
 6. Re-review the improved version.
    Append to docs/build-review.md:
    - Fixes applied
    - Why the new version is stronger
    - Remaining risks
-   - Checks run
-   - Checks passed
-   - Checks failed
+   - Checks run / passed / failed
 
 7. Persist learning.
    - Add repeated mistakes to LESSONS.md.
@@ -58,9 +53,15 @@ Follow this workflow exactly:
 8. Final response must include:
    - files changed
    - checks run
-   - bugs found
-   - bugs fixed
+   - bugs found and fixed
    - remaining risks
    - whether CLAUDE.md, CONTRACTS.md, LESSONS.md, or docs/build-review.md changed
+
+Use these Claude Code commands when appropriate:
+- /diff
+- /code-review high --fix
+- /simplify
+- /security-review
+- /verify
 
 Never leave the improved result only in chat.
