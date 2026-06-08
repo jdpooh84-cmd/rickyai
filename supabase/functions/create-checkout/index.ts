@@ -39,17 +39,20 @@ serve(async (req) => {
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2025-08-27.basil" });
 
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-    let customerId;
+    let customerId: string;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       logStep("Existing customer found", { customerId });
+    } else {
+      const newCustomer = await stripe.customers.create({ email: user.email, metadata: { supabase_uid: user.id } });
+      customerId = newCustomer.id;
+      logStep("New customer created", { customerId });
     }
 
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      customer_email: customerId ? undefined : user.email,
-      customer_update: customerId ? { address: "auto" } : undefined,
+      customer_update: { address: "auto", name: "auto" },
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       automatic_tax: { enabled: true },
