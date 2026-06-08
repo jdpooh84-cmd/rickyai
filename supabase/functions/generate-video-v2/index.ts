@@ -994,15 +994,15 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
   const pipelineLogs: string[] = [];
   const logPipeline = (msg: string) => { pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`); console.log(`[pipeline] ${msg}`); };
-  const updateJob = (fields: Record<string, any>) => {
-    // Always include pipeline_logs and pipeline_stage in updates
+  const updateJob = async (fields: Record<string, any>) => {
     const stage = fields.pipeline_stage || fields.status || undefined;
-    return supabase.from("video_generation_jobs").update({
+    const { error } = await supabase.from("video_generation_jobs").update({
       ...fields,
       ...(stage ? { pipeline_stage: stage } : {}),
       result_payload: { ...(fields.result_payload || {}), pipeline_logs: pipelineLogs },
       updated_at: new Date().toISOString(),
     }).eq("id", jobId);
+    if (error) console.error(`[updateJob] DB update failed for job ${jobId}:`, JSON.stringify(error));
   };
 
   try {
@@ -1565,19 +1565,13 @@ Deno.serve(async (req) => {
 
     if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`);
 
-    const promise = processVideoJob(job.id, user.id, businessId, videoType || "promotional", lengthMode || "standard", orientation || "landscape");
-    try {
-      // @ts-ignore
-      EdgeRuntime.waitUntil(promise);
-    } catch {
-      promise.catch(err => console.error("[pipeline] Background error:", err));
-    }
+    await processVideoJob(job.id, user.id, businessId, videoType || "promotional", lengthMode || "standard", orientation || "landscape");
 
     return new Response(JSON.stringify({
       success: true,
       job_id: job.id,
-      status: "queued",
-      message: "🎬 Video production started!",
+      status: "started",
+      message: "🎬 Pipeline complete — waiting for Creatomate render!",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
