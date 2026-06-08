@@ -1281,6 +1281,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     // ════════════════════════════════════════════════════════════════════
     const creatomateKey = Deno.env.get("CREATOMATE_API_KEY") || "";
     const creatomateTemplateId = Deno.env.get("CREATOMATE_TEMPLATE_ID") || "";
+    const creatomateWebhookUrl = Deno.env.get("CREATOMATE_WEBHOOK_URL") || "";
 
     let creatomateRenderId: string | null = null;
 
@@ -1312,6 +1313,7 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           metadata: JSON.stringify({ job_id: jobId }),
         };
         if (creatomateTemplateId) renderPayload.template_id = creatomateTemplateId;
+        if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
 
         const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
           method: "POST",
