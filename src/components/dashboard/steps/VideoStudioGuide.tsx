@@ -18,7 +18,7 @@ const steps = [
   {
     num: 3,
     title: "Choose Your Tool",
-    desc: "Select from 11 platform tabs: Free Tools (CapCut, phone), Canva, InVideo, HeyGen, Detail, ElevenLabs, Nvidia, PixelBin, EaseMate, or Virbo. Each tab shows a customized prompt for that platform.",
+    desc: "Select from platform tabs: Free Tools (CapCut, phone), Canva, InVideo, Detail, ElevenLabs, Nvidia, PixelBin, EaseMate, or Virbo. Each tab shows a customized prompt for that platform.",
     tip: "Start with Free Tools if you're on a budget. CapCut and your phone camera can produce professional results."
   },
   {
@@ -30,7 +30,7 @@ const steps = [
   {
     num: 5,
     title: "Paste into Your Tool & Create",
-    desc: "Open your chosen video tool (e.g., CapCut, HeyGen, InVideo), paste the prompt, and follow the tool's workflow. The prompt tells the tool exactly what to create for your business.",
+    desc: "Open your chosen video tool (e.g., CapCut, InVideo), paste the prompt, and follow the tool's workflow. The prompt tells the tool exactly what to create for your business.",
     tip: "Most AI tools generate your video in under 5 minutes. Free tools like CapCut require manual editing but give you full creative control."
   },
   {
@@ -44,7 +44,7 @@ const steps = [
 const toolTiers = [
   { tier: "🆓 Free", tools: "CapCut, Phone Camera, DaVinci Resolve, Clipchamp", note: "No cost. You edit manually using RickyAI's step-by-step guides." },
   { tier: "💰 Budget ($5-15/mo)", tools: "Canva Pro, ElevenLabs Starter", note: "Templates + AI voice. Great for consistent branded content." },
-  { tier: "🚀 Pro ($20-30/mo)", tools: "HeyGen, InVideo, Virbo, EaseMate", note: "Full AI video generation. Paste prompt → get video. Most hands-off." },
+  { tier: "🚀 Pro ($20-30/mo)", tools: "InVideo, Virbo, EaseMate", note: "Full AI video generation. Paste prompt → get video. Most hands-off." },
   { tier: "⚙️ Advanced", tools: "PixelBin, Nvidia Broadcast, Detail", note: "API pipelines, AI recording enhancement, screen capture." },
 ];
 

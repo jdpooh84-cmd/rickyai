@@ -8,23 +8,19 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Progress } from "@/components/ui/progress";
-import { composeVideo } from "@/lib/videoComposer";
 import demoVideoAsset from "@/assets/demo-business-promo.mp4.asset.json";
 import { readLocalStorage, removeLocalStorage, writeLocalStorage } from "@/lib/persistence";
 
 interface Props { businessId: string | null; locationId: string | null; onComplete?: () => void; }
 
 type LengthMode = "short" | "standard" | "long" | "extended";
-type ManusModel = "default" | "veo3";
 type SpeedTier = "instant" | "standard" | "cinematic";
 
 const SPEED_TIERS: { key: SpeedTier; label: string; engine: string; speed: string; quality: string; emoji: string; desc: string }[] = [
-  { key: "instant", label: "Instant", engine: "Built-in Composer", speed: "10-30 sec", quality: "Good", emoji: "⚡", desc: "Ken Burns slideshow + captions + voiceover. Ready in seconds." },
-  { key: "standard", label: "Standard", engine: "HeyGen", speed: "1-3 min", quality: "Great", emoji: "🎬", desc: "AI-powered video with professional polish. Short wait." },
-  { key: "cinematic", label: "Cinematic", engine: "Manus AI", speed: "5-15 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production. Best quality — worth the wait." },
+  { key: "instant", label: "Instant", engine: "Creatomate", speed: "2-5 min", quality: "Good", emoji: "⚡", desc: "AI images + voiceover rendered by Creatomate. Fastest option." },
+  { key: "standard", label: "Standard", engine: "Creatomate", speed: "3-7 min", quality: "Great", emoji: "🎬", desc: "Professional quality video with cinematic polish." },
+  { key: "cinematic", label: "Cinematic", engine: "Creatomate", speed: "5-10 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production — best quality, worth the wait." },
 ];
-
-const MANUS_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 const STATE_KEY = "rickyai-video-studio-state";
 const MAX_REWRITES = 3;
@@ -49,32 +45,23 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persisted.generatedVideoScript);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("queued");
-  const [composingVideo, setComposingVideo] = useState(false);
-  const [composePct, setComposePct] = useState(0);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const composedRef = useRef(false);
 
   // Script approval state
-  const [pendingScript, setPendingScript] = useState<any>(persisted.approvedScript && persisted.scriptApproved ? null : null);
+  const [pendingScript, setPendingScript] = useState<any>(null);
   const [approvedScript, setApprovedScript] = useState<any>(persisted.approvedScript);
   const [scriptApproved, setScriptApproved] = useState(persisted.scriptApproved);
   const [generatingScript, setGeneratingScript] = useState(false);
   const [rewriteCount, setRewriteCount] = useState(0);
   const [scriptVersions, setScriptVersions] = useState<any[]>([]);
   const scriptPanelRef = useRef<HTMLDivElement>(null);
-  // Manus import state
-  const [manusUrlInput, setManusUrlInput] = useState("");
-  const [showManusImport, setShowManusImport] = useState(false);
-  const [importingManus, setImportingManus] = useState(false);
-  // Manus model selection
-  const [manusModel, setManusModel] = useState<ManusModel>("default");
+
   // Speed tier selection
   const [speedTier, setSpeedTier] = useState<SpeedTier>("instant");
-  const jobStartTimeRef = useRef<number>(0);
 
-  // Derive tier for Manus model gating
-  const manusTier = useMemo(() => {
+  // Cinematic tier gating
+  const videoTier = useMemo(() => {
     const plan = subscription.plan;
     if (plan === "agency") return "agency";
     if (plan === "growth") return "pro";
@@ -91,7 +78,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   // ── Poll active video generation job ──
   useEffect(() => {
     if (!activeJobId) return;
-    composedRef.current = false; // Reset for new job
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("video_generation_jobs")
@@ -99,120 +85,44 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         .eq("id", activeJobId)
         .single();
 
-      if (data) {
-        setJobStatus(data.status);
-        if (data.result_payload) setGeneratedVideoScript(data.result_payload);
+      if (!data) return;
 
-        if (data.status === "processing") {
-          // Manus job dispatched to Make.com — keep polling, don't stop
-          setGeneratedVideoScript(data.result_payload);
+      setJobStatus(data.status);
+      if (data.result_payload) setGeneratedVideoScript(data.result_payload);
 
-          // ── AUTO-TIMEOUT: if 10 min elapsed, auto-fail and trigger fallback ──
-          if (jobStartTimeRef.current && Date.now() - jobStartTimeRef.current > MANUS_TIMEOUT_MS) {
-            clearInterval(interval);
-            console.warn("[VideoStudio] Manus AI timed out after 10 minutes — triggering fallback");
-            toast.warning("Manus AI took too long — generating instant fallback video instead ⚡");
-            // Mark job as failed
-            await supabase.from("video_generation_jobs").update({
-              status: "failed",
-              error_message: "Auto-timeout: Manus AI did not respond within 10 minutes",
-              updated_at: new Date().toISOString(),
-            }).eq("id", activeJobId);
-            setGeneratingVideo(false);
-            setJobStatus("failed");
-            // Auto-trigger instant fallback
-            handleProduceInstantFallback();
+      if (data.status === "processing") {
+        // Creatomate is rendering — keep polling until webhook callback sets video_url
+        if (data.video_url) {
+          clearInterval(interval);
+          setGeneratingVideo(false);
+          setFinalVideoUrl(data.video_url);
+          toast.success("Your video is ready! 🎬");
+        }
+      } else if (data.status === "completed" || data.status === "media_ready") {
+        clearInterval(interval);
+        setGeneratingVideo(false);
+
+        if (data.video_url) {
+          setFinalVideoUrl(data.video_url);
+          toast.success("Your video is ready! 🎬");
+          return;
+        }
+
+        // Fallback: try signed URL endpoint
+        try {
+          const urlResult = await supabase.functions.invoke("get-signed-video-url", { body: { job_id: activeJobId } });
+          if (!urlResult.error && urlResult.data?.url) {
+            setFinalVideoUrl(urlResult.data.url);
+            toast.success("Your video is ready! 🎬");
             return;
           }
+        } catch { /* ignore */ }
 
-          // Check if video_url was filled in by the callback
-          if (data.video_url) {
-            clearInterval(interval);
-            setGeneratingVideo(false);
-            setFinalVideoUrl(data.video_url);
-            toast.success("Your video is ready from Manus AI! 🎬");
-          }
-          // Otherwise keep polling — Make.com hasn't called back yet
-        } else if (data.status === "completed" || data.status === "media_ready") {
-          clearInterval(interval);
-          setGeneratingVideo(false);
-
-          try {
-            const urlResult = await supabase.functions.invoke("get-signed-video-url", { body: { job_id: activeJobId } });
-            if (!urlResult.error && urlResult.data?.url) {
-              setFinalVideoUrl(urlResult.data.url);
-              toast.success("Your video is ready! 🎬");
-              return;
-            }
-            if (urlResult.data?.type === 'slideshow' && !composedRef.current) {
-              composedRef.current = true;
-              setComposingVideo(true);
-              setJobStatus("composing_video");
-              const { voiceover_url, scene_images, scene_captions } = urlResult.data;
-              const blob = await composeVideo({ sceneImages: scene_images || [], voiceoverUrl: voiceover_url || null, businessName: data.result_payload?.title || "Video", title: data.result_payload?.title, sceneCaptions: scene_captions || [], durationPerScene: 5, totalDurationSeconds: (scene_images || []).length * 5, width: 1080, height: 1920, onProgress: setComposePct });
-              setFinalVideoUrl(URL.createObjectURL(blob));
-              toast.success("Your video is ready! 🎬");
-              setComposingVideo(false);
-              return;
-            }
-          } catch (urlErr) { console.error("Signed URL fetch failed:", urlErr); }
-
-
-          const payload = data.result_payload as any;
-          const clips = payload?.video_clips || [];
-          const images = payload?.scene_images || [];
-
-          if (data.video_url) {
-            setFinalVideoUrl(data.video_url);
-            toast.success("Your video is ready! 🎬");
-          } else if ((clips.length > 0 || images.length > 0) && !composedRef.current) {
-            composedRef.current = true;
-            setComposingVideo(true);
-            setJobStatus("composing_video");
-            try {
-              const blob = await composeVideo({
-                sceneImages: images,
-                videoClips: clips.length > 0 ? clips : undefined,
-                voiceoverUrl: payload?.voiceover_url || null,
-                businessName: payload?.title || "Video",
-                title: payload?.title,
-                sceneCaptions: payload?.scene_captions || [],
-                durationPerScene: 5,
-                totalDurationSeconds: payload?.total_duration_seconds,
-                width: 1080,
-                height: 1920,
-                onProgress: setComposePct,
-              });
-              const url = URL.createObjectURL(blob);
-              setFinalVideoUrl(url);
-
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session) {
-                const fileName = `videos/${session.user.id}/${activeJobId}/final.webm`;
-                const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
-                if (!uploadErr) {
-                  const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                  setFinalVideoUrl(urlData.publicUrl);
-                  await supabase.from("video_generation_jobs").update({
-                    video_url: urlData.publicUrl,
-                    updated_at: new Date().toISOString(),
-                  }).eq("id", activeJobId);
-                }
-              }
-              toast.success("Your video is ready! 🎬");
-            } catch (err: any) {
-              console.error("Video composition error:", err);
-              toast.error("Video assembly had issues, but your clips and images are ready");
-            }
-            setComposingVideo(false);
-          } else {
-            toast.success("Production complete!");
-          }
-        } else if (data.status === "failed") {
-          clearInterval(interval);
-          setGeneratingVideo(false);
-          toast.error(data.error_message || "Production failed — try again");
-        }
+        toast.error("Video ready but URL unavailable — check your Media Library");
+      } else if (data.status === "failed") {
+        clearInterval(interval);
+        setGeneratingVideo(false);
+        toast.error(data.error_message || "Production failed — try again");
       }
     }, 3000);
     return () => clearInterval(interval);
@@ -284,62 +194,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
 
-  // ── Instant fallback: client-side composer with approved script ──
-  const handleProduceInstantFallback = async () => {
-    if (!businessId || !approvedScript) return;
-    setGeneratingVideo(true);
-    setComposingVideo(true);
-    setJobStatus("composing_video");
-    setComposePct(0);
-    try {
-      // Fetch business media for real photos
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not logged in");
-      const { data: mediaItems } = await supabase.from("business_media")
-        .select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
-      const images = mediaItems?.map(m => m.public_url) || [];
-      // If no real images, create gradient placeholder
-      if (images.length === 0) {
-        const c = document.createElement("canvas"); c.width = 128; c.height = 128;
-        const cx = c.getContext("2d")!;
-        const g = cx.createLinearGradient(0, 0, 128, 128);
-        g.addColorStop(0, "#1a1a2e"); g.addColorStop(1, "#16213e");
-        cx.fillStyle = g; cx.fillRect(0, 0, 128, 128);
-        images.push(c.toDataURL());
-      }
-
-      const blob = await composeVideo({
-        sceneImages: images,
-        voiceoverUrl: null,
-        businessName: approvedScript.title || "Video",
-        title: approvedScript.title,
-        sceneCaptions: approvedScript.scenes?.map((s: any) => s.voiceover_line) || [],
-        durationPerScene: 5,
-        totalDurationSeconds: approvedScript.scenes?.length ? approvedScript.scenes.length * 5 : 30,
-        width: 1080,
-        height: 1920,
-        onProgress: setComposePct,
-      });
-      const url = URL.createObjectURL(blob);
-      setFinalVideoUrl(url);
-
-      // Upload to storage
-      const fileName = `videos/${user.id}/instant-${Date.now()}/final.webm`;
-      const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-        setFinalVideoUrl(urlData.publicUrl);
-      }
-      toast.success("Your instant video is ready! ⚡");
-    } catch (err: any) {
-      console.error("[VideoStudio] Instant fallback failed:", err);
-      toast.error("Failed to compose video — please try again");
-    } finally {
-      setComposingVideo(false);
-      setGeneratingVideo(false);
-    }
-  };
-
   const handleProduceVideo = async () => {
     if (!businessId) {
       toast.error("Please set up your business profile first.");
@@ -351,19 +205,11 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       return;
     }
 
-    // ── INSTANT TIER: skip server, compose client-side ──
-    if (speedTier === "instant") {
-      await handleProduceInstantFallback();
-      return;
-    }
-
     setGeneratingVideo(true);
     setFinalVideoUrl(null);
-    composedRef.current = false;
     setJobStatus("queued");
-    setComposePct(0);
     setGeneratedVideoScript(null);
-    jobStartTimeRef.current = Date.now(); // Start timeout clock
+
     try {
       const response = await supabase.functions.invoke("generate-video-v2", {
         body: {
@@ -371,16 +217,15 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           videoType: "promotional",
           lengthMode,
           approvedScript,
-          manusModel: speedTier === "cinematic" ? manusModel : "default",
-          manusTier,
           speedTier,
+          videoTier,
         },
       });
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
         setActiveJobId(response.data.job_id);
-        const tierLabel = speedTier === "cinematic" ? "Manus AI (5-15 min)" : "HeyGen (1-3 min)";
-        toast.info(`🎬 Video production started — ${tierLabel}`);
+        const tierLabel = speedTier === "cinematic" ? "5-10 min" : speedTier === "standard" ? "3-7 min" : "2-5 min";
+        toast.info(`🎬 Creatomate is rendering your video (${tierLabel})`);
       } else {
         throw new Error("No job ID returned");
       }
@@ -396,44 +241,13 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setFinalVideoUrl(null);
     setActiveJobId(null);
     setJobStatus("queued");
-    composedRef.current = false;
     setPendingScript(null);
     setApprovedScript(null);
     setScriptApproved(false);
     setRewriteCount(0);
     setSpeedTier("instant");
-    jobStartTimeRef.current = 0;
     setScriptVersions([]);
     removeLocalStorage(STATE_KEY);
-  };
-
-  const handleImportManusVideo = async () => {
-    if (!manusUrlInput.trim() || !businessId) return;
-    setImportingManus(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not logged in");
-      const fileName = manusUrlInput.split("/").pop() || "manus-video.mp4";
-      const shotType = fileName.toLowerCase().includes("food") ? "food" : fileName.toLowerCase().includes("people") ? "people" : "environment";
-      const { error } = await supabase.from("business_media").insert({
-        business_id: businessId,
-        user_id: user.id,
-        file_name: fileName,
-        file_type: "video",
-        shot_type: shotType,
-        storage_path: `manus-imports/${user.id}/${fileName}`,
-        public_url: manusUrlInput.trim(),
-        tags: ["manus", "imported", "video"],
-      });
-      if (error) throw error;
-      toast.success("Manus video added to your Media Library! 🎬");
-      setManusUrlInput("");
-      setShowManusImport(false);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to import Manus video");
-    } finally {
-      setImportingManus(false);
-    }
   };
 
   const copyToClipboard = (text: string, id: string) => {
@@ -457,11 +271,8 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
       case "generating_script": return "✍️ Writing your script...";
       case "generating_images": return "🎨 Finding the best photos...";
       case "generating_voiceover": return "🎙️ Recording voiceover...";
-      case "rendering_video": return speedTier === "cinematic" ? "🎬 Rendering with Manus AI..." : "🎬 Rendering with HeyGen...";
-      case "processing": return speedTier === "cinematic" 
-        ? "🤖 Waiting for Manus AI to finish rendering... (5-15 min, auto-fallback at 10 min)" 
-        : "🎬 Waiting for HeyGen to finish... (1-3 min)";
-      case "composing_video": return `🎬 Assembling final video... ${composePct}%`;
+      case "rendering_video": return "🎬 Rendering with Creatomate...";
+      case "processing": return "🎬 Creatomate is rendering your video...";
       default: return "Processing...";
     }
   };
@@ -472,9 +283,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     link.download = 'RickyAI-Video-Studio-Guide.pdf';
     link.click();
   };
-
-  // The script to display in review panel
-  const reviewScript = pendingScript || (scriptApproved ? null : null);
 
   return (
     <StepLayout title="Video Studio" description="Produce a professional video for your business"
@@ -558,7 +366,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                           const updated = { ...pendingScript, scenes: pendingScript.scenes.map((s: any, idx: number) =>
                             idx === i ? { ...s, voiceover_line: e.target.value } : s
                           )};
-                          // Also update the full voiceover_script
                           updated.voiceover_script = updated.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
                           setPendingScript(updated);
                         }}
@@ -639,7 +446,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {SPEED_TIERS.map(tier => {
-                const isLocked = tier.key === "cinematic" && manusTier === "free";
+                const isLocked = tier.key === "cinematic" && videoTier === "free";
                 return (
                   <button
                     key={tier.key}
@@ -649,7 +456,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                         return;
                       }
                       setSpeedTier(tier.key);
-                      if (tier.key === "cinematic") setManusModel("default");
                     }}
                     className={`rounded-2xl p-4 text-left transition-all border relative ${
                       speedTier === tier.key
@@ -680,42 +486,25 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               })}
             </div>
 
-            {/* Cinematic sub-option: Veo 3 model selector */}
-            {speedTier === "cinematic" && manusTier === "agency" && (
-              <div className="mt-4 p-3 rounded-xl bg-secondary/30 border border-border">
-                <p className="text-[10px] font-semibold text-foreground mb-2">🎬 Cinematic Model:</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setManusModel("default")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${manusModel === "default" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"}`}>
-                    Standard
-                  </button>
-                  <button onClick={() => setManusModel("veo3")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${manusModel === "veo3" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/80"}`}>
-                    Veo 3 (Best)
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Time expectation notice */}
+            {/* Time expectation notices */}
             {speedTier === "cinematic" && (
               <div className="mt-3 p-2.5 rounded-xl bg-accent/10 border border-accent/20">
                 <p className="text-[10px] text-accent-foreground">
-                  ⏱ <strong>Cinematic videos take 5-15 minutes.</strong> If Manus AI doesn't respond within 10 minutes, we'll automatically create an instant fallback video so you're never stuck waiting.
+                  ⏱ <strong>Cinematic videos take 5-10 minutes.</strong> Creatomate renders your full production in the background — you'll be notified when it's ready.
                 </p>
               </div>
             )}
             {speedTier === "standard" && (
               <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-[10px] text-foreground/70">
-                  🎬 <strong>Standard videos take 1-3 minutes.</strong> HeyGen produces polished AI video quickly.
+                  🎬 <strong>Standard videos take 3-7 minutes.</strong> Creatomate produces polished AI video with professional quality.
                 </p>
               </div>
             )}
             {speedTier === "instant" && (
               <div className="mt-3 p-2.5 rounded-xl bg-primary/5 border border-primary/20">
                 <p className="text-[10px] text-foreground/70">
-                  ⚡ <strong>Instant — ready in seconds!</strong> Uses your real business photos with cinematic Ken Burns effects + on-screen captions.
+                  ⚡ <strong>Instant — ready in 2-5 minutes!</strong> Creatomate renders AI images + voiceover into your video automatically.
                 </p>
               </div>
             )}
@@ -735,9 +524,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                   : "Please generate and approve a script first (Step 2 above)."}
               </p>
             </div>
-            <button onClick={handleProduceVideo} disabled={generatingVideo || composingVideo || !businessId || !scriptApproved}
+            <button onClick={handleProduceVideo} disabled={generatingVideo || !businessId || !scriptApproved}
               className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
-              {generatingVideo || composingVideo ? (
+              {generatingVideo ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Producing...</>
               ) : (
                 <><Sparkles className="w-4 h-4" /> Produce Video</>
@@ -759,7 +548,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-foreground">{getStatusLabel()}</p>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    {generatedVideoScript?.message || "This may take 2-5 minutes."}
+                    {generatedVideoScript?.message || "Creatomate is rendering your video. This takes 2-10 minutes."}
                   </p>
                 </div>
               </div>
@@ -798,16 +587,6 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
                 </div>
               )}
 
-              {generatedVideoScript?.total_clips && (
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Manus clips</span>
-                    <span>{generatedVideoScript.clips_completed || 0}/{generatedVideoScript.total_clips}</span>
-                  </div>
-                  <Progress value={((generatedVideoScript.clips_completed || 0) / generatedVideoScript.total_clips) * 100} className="h-2" />
-                </div>
-              )}
-
               {/* ═══ PIPELINE LOGS ═══ */}
               {generatedVideoScript?.pipeline_logs?.length > 0 && (
                 <details className="mt-2">
@@ -828,20 +607,10 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               )}
             </div>
           )}
-
-          {composingVideo && (
-            <div className="mt-4 p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
-              <p className="text-sm font-semibold text-foreground">Assembling your final video... {composePct}%</p>
-              <Progress value={composePct} className="mt-2 h-2" />
-            </div>
-          )}
         </div>
 
         {/* ═══ FINISHED VIDEO ═══ */}
-        {finalVideoUrl && !generatingVideo && !composingVideo && (() => {
-          const isManusPage = /manus\.(im|ai)\/app\//.test(finalVideoUrl) || /share\.manus\.(im|ai)/.test(finalVideoUrl);
-          return (
+        {finalVideoUrl && !generatingVideo && (
           <div className="glass rounded-2xl p-6 ring-2 ring-primary/30">
             <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
               <Play className="w-4 h-4 text-primary" /> Your Finished Video
@@ -849,7 +618,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
             {generatedVideoScript?.is_fallback && (
               <div className="mb-3 p-2 rounded-lg bg-accent/10 border border-accent/20">
-                <p className="text-[10px] text-accent-foreground">⚠️ This is a fallback slideshow — upload real photos or connect Manus AI for full video production.</p>
+                <p className="text-[10px] text-accent-foreground">⚠️ This is a fallback slideshow — upload real photos for full video production.</p>
               </div>
             )}
 
@@ -859,48 +628,14 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </div>
             )}
 
-            {isManusPage ? (
-              <div className="space-y-3">
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
-                  <Clapperboard className="w-10 h-10 text-primary mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-foreground mb-1">🎬 Your Manus AI video is ready!</p>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Manus produced your cinematic video. Click below to view it on Manus's viewer page — you can download the .mp4 from there.
-                  </p>
-                  <a href={finalVideoUrl} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90">
-                    <Play className="w-4 h-4" /> Watch on Manus AI
-                  </a>
-                </div>
-                {generatedVideoScript?.voiceover_url && (
-                  <div className="p-3 rounded-xl bg-secondary/30 border border-border">
-                    <p className="text-[10px] font-semibold text-foreground mb-1">🎙️ Play voiceover alongside the video:</p>
-                    <audio controls className="w-full">
-                      <source src={generatedVideoScript.voiceover_url} type="audio/mpeg" />
-                    </audio>
-                    <p className="text-[10px] text-muted-foreground mt-1">Tip: Open the Manus video, then hit play on this audio at the same time.</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
-                  <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
-                </video>
-              </>
-            )}
+            <video controls autoPlay className="w-full rounded-xl bg-black max-h-[400px]">
+              <source src={finalVideoUrl} type={finalVideoUrl.endsWith(".webm") ? "video/webm" : "video/mp4"} />
+            </video>
 
             <div className="flex gap-2 mt-3">
-              {isManusPage ? (
-                <a href={finalVideoUrl} target="_blank" rel="noopener noreferrer"
-                  className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
-                  <Link2 className="w-4 h-4" /> Open Video
-                </a>
-              ) : (
-                <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
-                  <Download className="w-4 h-4" /> Download Video
-                </a>
-              )}
+              <a href={finalVideoUrl} download className="flex-1 text-center px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center justify-center gap-2">
+                <Download className="w-4 h-4" /> Download Video
+              </a>
               <button onClick={resetFlow} className="px-4 py-2 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary/80">
                 Make Another
               </button>
@@ -909,51 +644,19 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
               </button>
             </div>
 
-            {/* Manus prompt preview */}
-            {generatedVideoScript?.manus_prompt_preview && (
-              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border">
-                <p className="text-[10px] font-bold text-primary mb-1">🤖 Manus AI Prompt (ready to send)</p>
-                <p className="text-[10px] text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">{generatedVideoScript.manus_prompt_preview}</p>
-                <CopyButton text={generatedVideoScript.manus_prompt_preview} id="manus-prompt" />
-              </div>
-            )}
-
-            {/* Manus video URL import */}
-            {!showManusImport ? (
-              <button onClick={() => setShowManusImport(true)}
-                className="mt-2 text-[10px] text-primary hover:underline flex items-center gap-1">
-                <Link2 className="w-3 h-3" /> Import a Manus AI video URL to Media Library
-              </button>
-            ) : (
-              <div className="mt-3 p-3 rounded-xl bg-secondary/30 border border-border space-y-2">
-                <p className="text-[10px] font-semibold text-foreground">Paste your Manus AI video URL:</p>
-                <input type="url" value={manusUrlInput} onChange={e => setManusUrlInput(e.target.value)}
-                  placeholder="https://manus.ai/video/..." className="w-full p-2 text-xs rounded-lg border border-border bg-background text-foreground" />
-                <div className="flex gap-2">
-                  <button onClick={handleImportManusVideo} disabled={importingManus || !manusUrlInput.trim()}
-                    className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 disabled:opacity-50">
-                    {importingManus ? "Importing..." : "Yes, add to Media Library"}
-                  </button>
-                  <button onClick={() => { setShowManusImport(false); setManusUrlInput(""); }}
-                    className="px-3 py-1.5 rounded-lg bg-secondary text-foreground text-xs hover:bg-secondary/80">No thanks</button>
-                </div>
-              </div>
-            )}
-
             {generatedVideoScript?.total_duration_seconds && (
               <p className="text-[10px] text-muted-foreground mt-2 text-center">
                 Duration: ~{generatedVideoScript.total_duration_seconds}s
                 {generatedVideoScript.real_image_count !== undefined && ` • ${generatedVideoScript.real_image_count} real photos used`}
                 {generatedVideoScript.usedFallbackScript ? " • Saved-data script" : " • AI script"}
-                {generatedVideoScript.preferred_video_generator === "manus" && " • 🤖 Manus AI"}
+                {" • 🎬 Creatomate"}
               </p>
             )}
           </div>
-          );
-        })()}
+        )}
 
         {/* ═══ SCRIPT DETAILS (after completion) ═══ */}
-        {generatedVideoScript && !generatingVideo && !composingVideo && (
+        {generatedVideoScript && !generatingVideo && (
           <div className="space-y-3">
             {(generatedVideoScript.title || generatedVideoScript.voiceover_script) && (
               <div className="glass rounded-2xl p-4">

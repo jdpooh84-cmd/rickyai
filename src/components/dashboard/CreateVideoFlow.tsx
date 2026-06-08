@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ArrowRight, ArrowLeft, Building2, MapPin, Video, Sparkles, Check, Loader2, Image, FileText, Music, Download, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { composeVideo } from "@/lib/videoComposer";
 
 interface Props {
   onComplete: (businessId: string, locationId: string | null) => void;
@@ -20,10 +19,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>("queued");
   const [jobResult, setJobResult] = useState<any>(null);
-  const [composingVideo, setComposingVideo] = useState(false);
-  const [composePct, setComposePct] = useState(0);
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
-  const composedRef = useRef(false);
 
   // Business info
   const [businessName, setBusinessName] = useState("");
@@ -57,46 +53,9 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
         }
         if (data.status === "completed" || data.status === "media_ready") {
           clearInterval(interval);
-          // Auto-compose video from scene images
-          const images = (data.result_payload as any)?.scene_images || [];
-          if (images.length > 0 && !composedRef.current) {
-            composedRef.current = true;
-            setComposingVideo(true);
-            setJobStatus("composing_video");
-            try {
-              const blob = await composeVideo({
-                sceneImages: images,
-                voiceoverUrl: (data.result_payload as any)?.voiceover_url || null,
-                businessName: businessName,
-                title: (data.result_payload as any)?.title || businessName,
-                sceneCaptions: (data.result_payload as any)?.scene_captions || [],
-                durationPerScene: 4,
-                totalDurationSeconds: (data.result_payload as any)?.total_duration_seconds,
-                width: 1080,
-                height: 1920,
-                onProgress: setComposePct,
-              });
-              const url = URL.createObjectURL(blob);
-              setFinalVideoUrl(url);
-
-              // Upload to storage
-              const fileName = `videos/${user?.id}/${jobId}.webm`;
-              const { error: uploadErr } = await supabase.storage.from("media").upload(fileName, blob, { contentType: "video/webm", upsert: true });
-              if (!uploadErr) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fileName);
-                setFinalVideoUrl(urlData.publicUrl);
-                // Update the job with the video URL
-                await supabase.from("video_generation_jobs").update({
-                  video_url: urlData.publicUrl,
-                  updated_at: new Date().toISOString(),
-                }).eq("id", jobId);
-              }
-              toast.success("Your video is ready! 🎬");
-            } catch (err: any) {
-              console.error("Video composition error:", err);
-              toast.error("Video assembly failed, but your images and script are ready");
-            }
-            setComposingVideo(false);
+          if (data.video_url) {
+            setFinalVideoUrl(data.video_url);
+            toast.success("Your video is ready! 🎬");
           }
           setStep("done");
         } else if (data.status === "failed") {
@@ -200,7 +159,7 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
       case "generating_images": return "Creating scene images...";
       case "generating_voiceover": return "Recording voiceover...";
       case "rendering_video": return "Rendering final video...";
-      case "composing_video": return `Composing your video... ${composePct}%`;
+      case "processing": return "Creatomate is rendering your video...";
       default: return "Processing...";
     }
   };
@@ -391,15 +350,6 @@ const CreateVideoFlow = ({ onComplete, onSkip }: Props) => {
               <Download className="w-4 h-4" /> Download Video
             </a>
           </div>
-        </div>
-      )}
-
-      {/* Composing in progress */}
-      {composingVideo && !videoSrc && (
-        <div className="rounded-2xl border border-border p-6 text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-          <p className="text-sm font-semibold text-foreground">Assembling your video... {composePct}%</p>
-          <p className="text-xs text-muted-foreground mt-1">Combining scene images into a professional video</p>
         </div>
       )}
 

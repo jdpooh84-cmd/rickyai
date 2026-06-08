@@ -11,10 +11,10 @@ interface ConnectedApp {
 
 const SUPPORTED_APPS = [
   // AI & Research (recommended)
-  { id: "manus", name: "Manus AI", description: "AI video creation from prompts — generates full videos automatically", url: "https://manus.ai/", cost: "Free tier available", icon: "🤖", category: "AI & Research", recommended: true },
+  { id: "creatomate", name: "Creatomate", description: "AI-powered video rendering — powers RickyAI's Video Studio production pipeline", url: "https://creatomate.com/", cost: "Included in RickyAI plan", icon: "🎬", category: "AI & Research", recommended: true },
   { id: "gemini", name: "Google Gemini", description: "AI-powered search & script research for better video content", url: "https://aistudio.google.com/apikey", cost: "Free tier / pay-as-you-go", icon: "💎", category: "AI & Research", recommended: true },
   // Video Production
-  { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
+  { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos — for manual use outside RickyAI", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
   { id: "elevenlabs", name: "ElevenLabs", description: "AI voiceovers & dubbing", url: "https://elevenlabs.io/app/settings/api-keys", cost: "Free tier / $5/mo+", icon: "🎙️", category: "Voice" },
   { id: "pictory", name: "Pictory AI", description: "Script-to-video, blog-to-video AI production", url: "https://app.pictory.ai/home", cost: "Free trial / $19/mo+", icon: "🎬", category: "Video" },
   { id: "capcut", name: "CapCut", description: "Free video editing & templates", url: "https://www.capcut.com/", cost: "Free / Pro $8/mo", icon: "✂️", category: "Video" },
