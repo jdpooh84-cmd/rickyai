@@ -68,6 +68,19 @@ interface ComposeOptions {
   onProgress?: (pct: number) => void;
 }
 
+function detectMimeType(): string {
+  const candidates = [
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm",
+    "video/mp4",
+  ];
+  for (const m of candidates) {
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  }
+  throw new Error("No supported video format found in this browser. Try Chrome or Firefox.");
+}
+
 export async function composeVideo(options: ComposeOptions): Promise<Blob> {
   const {
     sceneImages,
@@ -147,10 +160,7 @@ async function stitchVideoClips(
     }
   }
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : "video/webm";
-
+  const mimeType = detectMimeType();
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
   const chunks: Blob[] = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
@@ -261,14 +271,30 @@ async function composeFromImages(
 ): Promise<Blob> {
   if (sceneImages.length === 0) throw new Error("No scene images to compose");
 
-  const loadedImages = await Promise.all(
-    sceneImages.map(
-      url => new Promise<HTMLImageElement>((resolve, reject) => {
+  // Cache-bust non-data URLs to avoid serving a non-CORS cached response
+  const bustUrl = (url: string) =>
+    url.startsWith("data:") ? url : `${url}${url.includes("?") ? "&" : "?"}_cb=${Date.now()}`;
+
+  // Load images one-by-one; replace failures with a solid dark gradient placeholder
+  const loadedImages: HTMLImageElement[] = await Promise.all(
+    sceneImages.map(url =>
+      new Promise<HTMLImageElement>(resolve => {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-        img.src = url;
+        img.onerror = () => {
+          // Return a small placeholder canvas image so one bad URL doesn't kill everything
+          const fc = document.createElement("canvas");
+          fc.width = 128; fc.height = 128;
+          const fx = fc.getContext("2d")!;
+          const fg = fx.createLinearGradient(0, 0, 128, 128);
+          fg.addColorStop(0, "#1a1a2e"); fg.addColorStop(1, "#16213e");
+          fx.fillStyle = fg; fx.fillRect(0, 0, 128, 128);
+          const fallback = new Image();
+          fallback.src = fc.toDataURL();
+          fallback.onload = () => resolve(fallback);
+        };
+        img.src = bustUrl(url);
       })
     )
   );
@@ -300,10 +326,7 @@ async function composeFromImages(
     }
   }
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : "video/webm";
-
+  const mimeType = detectMimeType();
   const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5_000_000 });
   const chunks: Blob[] = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
