@@ -4,7 +4,7 @@
 export const PLANS = {
   creator: {
     name: "Creator",
-    price_id: "price_1TFDVVDtqsarQIarojr8er0y",
+    price_id: "price_1TeGX2RUytwslneZ7OMOagHD",
     product_id: "prod_UDep9PW3ELRa6K",
     price: "$59",
     period: "/mo",
@@ -19,7 +19,7 @@ export const PLANS = {
   },
   business: {
     name: "Business Starter",
-    price_id: "price_1TFDVqDtqsarQIar3kQWYDP1",
+    price_id: "price_1TeGX2RUytwslneZLs6JpyHL",
     product_id: "prod_UDepZzB9GKoPnY",
     price: "$169",
     period: "/mo",
@@ -34,7 +34,7 @@ export const PLANS = {
   },
   growth: {
     name: "Growth",
-    price_id: "price_1TFDWCDtqsarQIarZHt5lBNQ",
+    price_id: "price_1TeGX1RUytwslneZpYfpkgXd",
     product_id: "prod_UDepPmrMY3zOEX",
     price: "$249",
     period: "/mo",
@@ -49,7 +49,7 @@ export const PLANS = {
   },
   agency: {
     name: "Agency",
-    price_id: "price_1TFDWaDtqsarQIar3nI2BViZ",
+    price_id: "price_1TeGX1RUytwslneZCWA5jEqx",
     product_id: "prod_UDeqmytH227V3p",
     price: "$799",
     period: "/mo",
@@ -70,7 +70,7 @@ export type PlanKey = keyof typeof PLANS;
 export const ADD_ONS = {
   federal_contracting: {
     name: "Federal Contracting Readiness",
-    price_id: "price_1TG6FSDtqsarQIarDJgZa2sv",
+    price_id: "price_1TeGX3RUytwslneZ98JVVxM0",
     product_id: "prod_UEZOQ0OGfVdYPi",
     price: "$50",
     period: "/mo",
@@ -79,7 +79,7 @@ export const ADD_ONS = {
   },
   grant_intel: {
     name: "Grant Intelligence Pack",
-    price_id: "price_1TG6FsDtqsarQIarwU2LC0cM",
+    price_id: "price_1TeGX1RUytwslneZ29hrgbs3",
     product_id: "prod_UEZOL1ICzSWAnt",
     price: "$50",
     period: "/mo",
