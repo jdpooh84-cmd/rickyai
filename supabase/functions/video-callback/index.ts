@@ -185,20 +185,21 @@ Deno.serve(async (req) => {
       callback_received_at: new Date().toISOString(),
     };
 
-    // Only update columns that exist in the table schema
+    const nowIso = new Date().toISOString();
     const updateFields: Record<string, any> = {
       status,
+      pipeline_stage: status === "completed" ? "completed" : "failed",
       video_url: finalVideoUrl,
       result_payload: {
         ...updatedPayload,
-        completed_at: status === "completed" ? new Date().toISOString() : null,
+        completed_at: status === "completed" ? nowIso : null,
         original_provider_url: video_url || null,
         creatomate_render_id: creatomate_render_id || null,
       },
       error_message: status === "failed" ? (error_message || "Production failed") : null,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
     };
-    // creatomate_render_id column added via migration — include only if column exists
+    if (status === "completed") updateFields.completed_at = nowIso;
     if (creatomate_render_id) updateFields.creatomate_render_id = creatomate_render_id;
 
     const { error: updateErr } = await supabase
