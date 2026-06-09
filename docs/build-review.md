@@ -41,3 +41,46 @@
 - Supabase project ref `psmxeckstfeyxlqzzkgw` used throughout
 - Webhook shape unchanged in `video-callback`
 - Auth token flow unchanged in all edge functions
+
+---
+
+## Session: 2026-06-09 — FinalVideoPlan rebuild + stale-video frontend fix
+
+### What worked
+- Full `generate-video-v2` rebuild around `FinalVideoPlan` single source of truth (commit `a82801c`)
+  - `ScriptScene`, `MediaScene`, `FinalVideoPlan` interfaces replace scattered local variables
+  - `buildRenderScript(plan)` replaces `buildRenderSource` — reads only from the plan object
+  - `buildBgElement(ms)` helper emits `type:"video"` for mp4 clips, `type:"image"` for statics — fixes mistyped backgrounds
+  - Phase ordering locked: script → media → voiceover → plan assembly → render script → Creatomate dispatch
+  - Observability log `[plan] FinalVideoPlan:` emitted before every Creatomate dispatch
+  - Stale `strategy_outputs` fallback removed — AI failure goes directly to `buildScriptFromProfile`
+  - CTA text reads from `rawScript.cta` (not `lastScene.text_overlay`)
+- Frontend stale-video restore fix (commit `d1403c1`)
+  - Restore `useEffect` guard extended with `|| approvedScript || generatedVideoScript` — prevents loading old DB video when current-session script exists
+  - `isRestoredVideo` state added — tracks whether displayed video came from DB restore vs current session
+  - Amber warning banner shown when restored video exists alongside a current-session script
+
+### Verification — live end-to-end
+- Job `b7a89281` (created 14:48, after v31 deploy) completed successfully
+- Real Creatomate render ID `81bcb02e-2d5b-43e6-8898-6729e56f5216` — real video in Supabase storage
+- Webhook received 37s after dispatch
+- Pipeline steps all `completed`: script, images, voiceover, creatomate
+- Approved AI script used (`used_ai_script: true`, `is_fallback: false`) — TnT Tinting content, not fallback
+- All 6 scene backgrounds correctly assigned as `mediaType: 'video'` (mp4 from `business_media`)
+
+### What was weak
+- `video-callback` writes `completed_at` to `result_payload` JSONB but not the dedicated `completed_at` DB column — cosmetic gap, frontend doesn't read it
+- `pipeline_stage` stays `"processing"` after completion — `video-callback` doesn't update it — cosmetic gap, frontend doesn't read it
+- Scene 6 reuses Scene 1's clip when business has fewer than 6 distinct video clips — expected cycling, not a bug
+- Only 4 pipeline log entries in `result_payload.pipeline_logs` — most logs go to `console.log` only, not the persisted array
+
+### Remaining risks
+- No automated test for the full pipeline — all verification is manual DB inspection
+- `video-callback` `completed_at` column gap may confuse future analytics queries
+- Media cycling (scene duplication when library < 6 clips) is silent — no warning to user
+
+### Checks run
+- `npm run build` ✅ (clean, no errors)
+- DB query: job `b7a89281` status=completed, real render ID, real video URL ✅
+- Code inspection: `buildBgElement` at line 1064 — correct `type:"video"` for mp4 ✅
+- Code inspection: `buildRenderScript(plan)` called at line 1647 — after full plan assembly ✅
