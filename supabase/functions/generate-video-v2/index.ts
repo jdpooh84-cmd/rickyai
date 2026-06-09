@@ -966,35 +966,225 @@ async function getSceneImage(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// CREATOMATE MODIFICATIONS BUILDER
+// CREATOMATE RENDER SOURCE BUILDER
+// Creatomate's REST API has no template-creation endpoint — templates are
+// dashboard-only. Instead we pass the full RenderScript directly as the
+// POST /v1/renders body. Values are injected at build time; no template_id
+// or modifications object is needed.
+//
+// Timeline: Intro(5s) + 6×Scene(8s) + CTA-Outro(7s) = 60s
+// Named elements (all dynamic: true):
+//   Business-Name, Hook-Text, Logo-Image, Voiceover-Audio, Background-Music
+//   Scene-{1-6}-Image, Scene-{1-6}-Text, Scene-{1-6}-Caption
+//   CTA-Text, CTA-Subtext
 // ═══════════════════════════════════════════════════════════════════════
-function buildCreatomateModifications(
+function buildRenderSource(
   script: any,
   business: any,
   sceneImageUrls: string[],
   voiceoverUrl: string | null,
 ): Record<string, any> {
-  const modifications: Record<string, any> = {};
-
-  if (business.business_name) modifications["Business-Name"] = business.business_name;
-
-  const hookText = script.scenes?.[0]?.text_overlay || script.scenes?.[0]?.voiceover_line;
-  if (hookText) modifications["Hook-Text"] = hookText;
-
+  const businessName = business.business_name || "Your Business";
+  const hookText = script.scenes?.[0]?.text_overlay || script.scenes?.[0]?.voiceover_line || businessName;
   const lastScene = script.scenes?.[script.scenes.length - 1];
   const ctaText = lastScene?.text_overlay || "Contact us today";
-  modifications["CTA-Text"] = ctaText;
 
-  if (voiceoverUrl) modifications["Voiceover-Audio"] = { source: voiceoverUrl };
+  const textFade = [
+    { time: 0, type: "fade", duration: 0.3 },
+    { time: "end", type: "fade", duration: 0.3, reversed: true },
+  ];
+  const slowFade = [
+    { time: 0, type: "fade", duration: 0.5 },
+    { time: "end", type: "fade", duration: 0.5, reversed: true },
+  ];
 
-  (script.scenes || []).forEach((scene: any, i: number) => {
-    const n = i + 1;
-    if (sceneImageUrls[i]) modifications[`Scene-${n}-Image`] = { source: sceneImageUrls[i] };
-    if (scene.text_overlay) modifications[`Scene-${n}-Text`] = scene.text_overlay;
-    if (scene.voiceover_line) modifications[`Scene-${n}-Caption`] = scene.voiceover_line;
-  });
+  // Full-frame dark overlay applied on all image scenes
+  const darkOverlay = {
+    type: "shape", track: 2, time: 0,
+    x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+    width: "100%", height: "100%",
+    path: "M 0 0 L 100 0 L 100 100 L 0 100 L 0 0 Z",
+    fill_color: "rgba(0,0,0,0.35)",
+  };
 
-  return modifications;
+  // Semi-transparent lower-third bar behind captions
+  const captionBar = {
+    type: "shape", track: 4, time: 0,
+    x: "50%", y: "100%", x_anchor: "50%", y_anchor: "100%",
+    width: "100%", height: "15%",
+    path: "M 0 0 L 100 0 L 100 100 L 0 100 L 0 0 Z",
+    fill_color: "rgba(0,0,0,0.65)",
+    animations: textFade,
+  };
+
+  // Solid dark background for Intro / CTA-Outro
+  const solidBg = {
+    type: "shape", track: 1, time: 0,
+    x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+    width: "100%", height: "100%",
+    path: "M 0 0 L 100 0 L 100 100 L 0 100 L 0 0 Z",
+    fill_color: "#1a1a2e",
+  };
+
+  // Logo appears in both Intro and CTA-Outro with the same name
+  const logoImage = {
+    name: "Logo-Image", type: "image", track: 2, time: 0,
+    source: "", dynamic: true, fit: "contain",
+    width: "12%", x: "97%", y: "95%", x_anchor: "100%", y_anchor: "100%",
+  };
+
+  // Build each of the 6 scene compositions
+  const buildScene = (n: number, startTime: number, duration = 8) => {
+    const imgUrl = sceneImageUrls[n - 1] || null;
+    const sceneText = script.scenes?.[n - 1]?.text_overlay || "";
+    const captionText = script.scenes?.[n - 1]?.voiceover_line || "";
+
+    const elements: any[] = [];
+
+    if (imgUrl) {
+      // Image background with Ken Burns zoom-in 100% → 108%
+      elements.push({
+        name: `Scene-${n}-Image`, type: "image", track: 1, time: 0,
+        source: imgUrl, dynamic: true, fit: "cover",
+        x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+        width: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
+        height: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
+      });
+    } else {
+      // Fallback when no image available yet
+      elements.push({ ...solidBg, name: `Scene-${n}-Image`, dynamic: true });
+    }
+
+    elements.push(darkOverlay);
+
+    if (sceneText) {
+      elements.push({
+        name: `Scene-${n}-Text`, type: "text", track: 3, time: 0,
+        text: sceneText, dynamic: true,
+        x: "50%", y: "45%", x_anchor: "50%", y_anchor: "50%",
+        width: "80%", height: "35%",
+        fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
+        font_size: 72, x_alignment: "50%", y_alignment: "50%", line_height: "110%",
+        animations: textFade,
+      });
+    }
+
+    if (captionText) {
+      elements.push(captionBar);
+      elements.push({
+        name: `Scene-${n}-Caption`, type: "text", track: 5, time: 0,
+        text: captionText, dynamic: true,
+        x: "50%", y: "98%", x_anchor: "50%", y_anchor: "100%",
+        width: "85%", height: "13%",
+        fill_color: "#ffffff", font_family: "Montserrat", font_weight: "400",
+        font_size: 36, x_alignment: "50%", y_alignment: "50%",
+        animations: textFade,
+      });
+    }
+
+    return {
+      type: "composition", track: 3, time: startTime, duration,
+      animations: [
+        { time: 0, type: "fade", duration: 0.5 },
+        { time: "end", type: "fade", duration: 0.5, reversed: true },
+      ],
+      elements,
+    };
+  };
+
+  const renderScript: Record<string, any> = {
+    output_format: "mp4",
+    width: 1920,
+    height: 1080,
+    frame_rate: "30 fps",
+    duration: 60,
+    snapshot_time: 15,
+    elements: [
+      // ── Global audio tracks ──────────────────────────────────────────
+      // Background music placeholder (source left empty — no default music)
+      // Voiceover injected only when a URL exists
+      ...(voiceoverUrl ? [{
+        name: "Voiceover-Audio", type: "audio", track: 2, time: 0, duration: 60,
+        source: voiceoverUrl, audio_fade_in: 0.3, audio_fade_out: 0.3,
+      }] : []),
+
+      // ── Intro (0–5s) ──────────────────────────────────────────────────
+      {
+        type: "composition", track: 3, time: 0, duration: 5,
+        animations: [{ time: "end", type: "fade", duration: 0.5, reversed: true }],
+        elements: [
+          solidBg,
+          logoImage,
+          {
+            name: "Hook-Text", type: "text", track: 3, time: 0,
+            text: hookText, dynamic: true,
+            x: "50%", y: "38%", x_anchor: "50%", y_anchor: "50%",
+            width: "80%", height: "35%",
+            fill_color: "#ffffff", font_family: "Montserrat", font_weight: "800",
+            font_size: 80, x_alignment: "50%", y_alignment: "50%", line_height: "110%",
+            animations: slowFade,
+          },
+          {
+            name: "Business-Name", type: "text", track: 4, time: 0.5,
+            text: businessName, dynamic: true,
+            x: "50%", y: "64%", x_anchor: "50%", y_anchor: "50%",
+            width: "80%", height: "18%",
+            fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
+            font_size: 56, x_alignment: "50%", y_alignment: "50%",
+            animations: slowFade,
+          },
+        ],
+      },
+
+      // ── Scenes 1–6 (5–53s, 8s each) ──────────────────────────────────
+      buildScene(1, 5),
+      buildScene(2, 13),
+      buildScene(3, 21),
+      buildScene(4, 29),
+      buildScene(5, 37),
+      buildScene(6, 45),
+
+      // ── CTA-Outro (53–60s) ────────────────────────────────────────────
+      {
+        type: "composition", track: 3, time: 53, duration: 7,
+        animations: slowFade,
+        elements: [
+          solidBg,
+          logoImage,
+          {
+            name: "CTA-Text", type: "text", track: 3, time: 0,
+            text: ctaText, dynamic: true,
+            x: "50%", y: "36%", x_anchor: "50%", y_anchor: "50%",
+            width: "80%", height: "28%",
+            fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
+            font_size: 64, x_alignment: "50%", y_alignment: "50%", line_height: "110%",
+            animations: slowFade,
+          },
+          {
+            name: "CTA-Subtext", type: "text", track: 4, time: 0.5,
+            text: "Call or visit us today", dynamic: true,
+            x: "50%", y: "60%", x_anchor: "50%", y_anchor: "50%",
+            width: "80%", height: "16%",
+            fill_color: "#cccccc", font_family: "Montserrat", font_weight: "400",
+            font_size: 36, x_alignment: "50%", y_alignment: "50%",
+            animations: slowFade,
+          },
+          // Business-Name same name as Intro — one modification updates both
+          {
+            name: "Business-Name", type: "text", track: 5, time: 1,
+            text: businessName, dynamic: true,
+            x: "50%", y: "78%", x_anchor: "50%", y_anchor: "50%",
+            width: "80%", height: "14%",
+            fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
+            font_size: 48, x_alignment: "50%", y_alignment: "50%",
+            animations: slowFade,
+          },
+        ],
+      },
+    ],
+  };
+
+  return renderScript;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1327,17 +1517,18 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       });
 
       try {
-        const modifications = buildCreatomateModifications(script, business, sceneImageUrls, voiceoverUrl);
-        console.log(`[creatomate] modifications for job ${jobId}:`, JSON.stringify(modifications));
+        const renderSource = buildRenderSource(script, business, sceneImageUrls, voiceoverUrl);
+        console.log(`[creatomate] renderSource keys for job ${jobId}:`, Object.keys(renderSource).join(", "));
+        console.log(`[creatomate] scene count: ${(renderSource.elements || []).filter((e: any) => e.type === "composition").length}`);
 
+        // Pass the full RenderScript directly as the body (no template_id needed)
         const renderPayload: any = {
-          modifications,
+          ...renderSource,
           metadata: jobId,
         };
-        if (creatomateTemplateId) renderPayload.template_id = creatomateTemplateId;
         if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
 
-        console.log(`[creatomate] Dispatching render — job_id=${jobId}, template=${creatomateTemplateId || "none"}, webhook=${creatomateWebhookUrl || "none"}, metadata=${jobId}`);
+        console.log(`[creatomate] Dispatching render — job_id=${jobId}, source_mode=inline, webhook=${creatomateWebhookUrl || "none"}, metadata=${jobId}`);
 
         const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
           method: "POST",
