@@ -905,20 +905,24 @@ async function findAllExistingImages(supabase: any, userId: string): Promise<str
   return urls;
 }
 
-// Fetch a relevant landscape photo from Pexels — returns direct image URL or null
-async function fetchPexelsImage(query: string, apiKey: string): Promise<string | null> {
-  try {
-    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape&size=large`;
-    const res = await fetch(url, { headers: { Authorization: apiKey } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const photos: any[] = data?.photos || [];
-    if (!photos.length) return null;
-    const pick = photos[Math.floor(Math.random() * photos.length)];
-    return pick?.src?.large2x || pick?.src?.large || pick?.src?.original || null;
-  } catch {
-    return null;
+// Fetch a landscape photo from Pexels — tries each query in order, returns first hit
+async function fetchPexelsImage(queries: string[], apiKey: string): Promise<string | null> {
+  for (const query of queries) {
+    try {
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape&size=large`;
+      const res = await fetch(url, { headers: { Authorization: apiKey } });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const photos: any[] = data?.photos || [];
+      if (!photos.length) continue;
+      const pick = photos[Math.floor(Math.random() * photos.length)];
+      const imgUrl = pick?.src?.large2x || pick?.src?.large || pick?.src?.original || null;
+      if (imgUrl) return imgUrl;
+    } catch {
+      continue;
+    }
   }
+  return null;
 }
 
 function create128Png(colorIndex: number): Uint8Array {
@@ -1095,13 +1099,9 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
     return {
       type: "image", track, time: 0, source: ms.url, fit: "cover",
       x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
-      width: [
-        { time: 0, value: "100%", easing: "linear" },
-        { time: "end", value: "108%", easing: "linear" },
-      ],
-      height: [
-        { time: 0, value: "100%", easing: "linear" },
-        { time: "end", value: "108%", easing: "linear" },
+      width: "100%", height: "100%",
+      animations: [
+        { time: 0, easing: "linear", type: "scale", scope: "element", end_scale: "108%" },
       ],
     };
   };
@@ -1491,18 +1491,18 @@ async function processVideoJob(
         }
       }
 
-      // Priority 4: Pexels stock photo based on business niche + scene type
+      // Priority 4: Pexels stock photo — niche-aware query with niche-only retry
       if (pexelsKey) {
-        const shotTypeKeywords: Record<string, string> = {
-          product: "professional service close up",
-          people: "team professionals working smiling",
-          environment: "business storefront exterior building",
+        const sceneTemplates: Record<string, string> = {
+          product: "technician working",
+          people: "customer home service",
+          environment: "equipment installation",
         };
-        const pexelsQuery = `${business.niche} ${shotTypeKeywords[scene.shotType] || scene.shotType} ${business.city}`.trim();
-        const pexelsUrl = await fetchPexelsImage(pexelsQuery, pexelsKey);
+        const primaryQuery = `${business.niche} ${sceneTemplates[scene.shotType] || scene.shotType}`;
+        const pexelsUrl = await fetchPexelsImage([primaryQuery, business.niche], pexelsKey);
         if (pexelsUrl) {
           mediaScenes.push({ index: i + 1, url: pexelsUrl, mediaType: 'image', sourceType: 'pexels' });
-          log(`Scene ${i + 1}: Pexels stock (${pexelsQuery.substring(0, 50)})`);
+          log(`Scene ${i + 1}: Pexels stock ("${primaryQuery}")`);
           continue;
         }
       }
