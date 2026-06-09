@@ -1498,8 +1498,9 @@ async function processVideoJob(
           people: "customer home service",
           environment: "equipment installation",
         };
-        const primaryQuery = `${business.niche} ${sceneTemplates[scene.shotType] || scene.shotType}`;
-        const pexelsUrl = await fetchPexelsImage([primaryQuery, business.niche], pexelsKey);
+        const niche = business.business_category || "local business";
+        const primaryQuery = `${niche} ${sceneTemplates[scene.shotType] || scene.shotType}`;
+        const pexelsUrl = await fetchPexelsImage([primaryQuery, niche], pexelsKey);
         if (pexelsUrl) {
           mediaScenes.push({ index: i + 1, url: pexelsUrl, mediaType: 'image', sourceType: 'pexels' });
           log(`Scene ${i + 1}: Pexels stock ("${primaryQuery}")`);
