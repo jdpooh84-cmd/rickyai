@@ -1049,14 +1049,26 @@ function buildRenderSource(
     const elements: any[] = [];
 
     if (imgUrl) {
-      // Image background with Ken Burns zoom-in 100% → 108%
-      elements.push({
-        name: `Scene-${n}-Image`, type: "image", track: 1, time: 0,
-        source: imgUrl, dynamic: true, fit: "cover",
-        x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
-        width: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
-        height: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
-      });
+      const isVideoSrc = /\.(mp4|webm|mov)$/i.test(imgUrl);
+      if (isVideoSrc) {
+        // Business video clip — use type:video, no Ken Burns (animation not supported on video)
+        elements.push({
+          name: `Scene-${n}-Image`, type: "video", track: 1, time: 0,
+          source: imgUrl, dynamic: true, fit: "cover",
+          x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+          width: "100%", height: "100%",
+          volume: 0,
+        });
+      } else {
+        // Static image — Ken Burns zoom-in 100% → 108%
+        elements.push({
+          name: `Scene-${n}-Image`, type: "image", track: 1, time: 0,
+          source: imgUrl, dynamic: true, fit: "cover",
+          x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+          width: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
+          height: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
+        });
+      }
     } else {
       // Fallback when no image available yet
       elements.push({ ...solidBg, name: `Scene-${n}-Image`, dynamic: true });
