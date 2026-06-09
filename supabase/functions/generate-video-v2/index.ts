@@ -821,7 +821,7 @@ interface MediaScene {
   index: number;
   url: string;
   mediaType: 'image' | 'video';
-  sourceType: 'upload' | 'legacy' | 'placeholder';
+  sourceType: 'upload' | 'legacy' | 'pexels' | 'placeholder';
 }
 
 interface FinalVideoPlan {
@@ -903,6 +903,22 @@ async function findAllExistingImages(supabase: any, userId: string): Promise<str
     if (urls.length >= 10) break;
   }
   return urls;
+}
+
+// Fetch a relevant landscape photo from Pexels — returns direct image URL or null
+async function fetchPexelsImage(query: string, apiKey: string): Promise<string | null> {
+  try {
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=5&orientation=landscape&size=large`;
+    const res = await fetch(url, { headers: { Authorization: apiKey } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const photos: any[] = data?.photos || [];
+    if (!photos.length) return null;
+    const pick = photos[Math.floor(Math.random() * photos.length)];
+    return pick?.src?.large2x || pick?.src?.large || pick?.src?.original || null;
+  } catch {
+    return null;
+  }
 }
 
 function create128Png(colorIndex: number): Uint8Array {
@@ -1311,6 +1327,7 @@ async function processVideoJob(
     userKeys?.forEach((k: any) => { keyMap[k.provider] = k.api_key_encrypted; });
     const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
     const heygenKey = Deno.env.get("HEYGEN_API_KEY") || "";
+    const pexelsKey = Deno.env.get("PEXELS_API_KEY") || "";
 
     const preset = buildPreset(lengthMode, orientation);
     log(`═══ Job ${jobId} START ═══`);
@@ -1474,7 +1491,23 @@ async function processVideoJob(
         }
       }
 
-      // Fallback: dark placeholder
+      // Priority 4: Pexels stock photo based on business niche + scene type
+      if (pexelsKey) {
+        const shotTypeKeywords: Record<string, string> = {
+          product: "professional service close up",
+          people: "team professionals working smiling",
+          environment: "business storefront exterior building",
+        };
+        const pexelsQuery = `${business.niche} ${shotTypeKeywords[scene.shotType] || scene.shotType} ${business.city}`.trim();
+        const pexelsUrl = await fetchPexelsImage(pexelsQuery, pexelsKey);
+        if (pexelsUrl) {
+          mediaScenes.push({ index: i + 1, url: pexelsUrl, mediaType: 'image', sourceType: 'pexels' });
+          log(`Scene ${i + 1}: Pexels stock (${pexelsQuery.substring(0, 50)})`);
+          continue;
+        }
+      }
+
+      // Final fallback: dark placeholder
       const png = create128Png(i);
       const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
       await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
@@ -1485,8 +1518,9 @@ async function processVideoJob(
 
     const planMedia: FinalVideoPlan["media"] = { scenes: mediaScenes };
     const uploadCount = mediaScenes.filter(m => m.sourceType === 'upload').length;
+    const pexelsCount = mediaScenes.filter(m => m.sourceType === 'pexels').length;
     const placeholderCount = mediaScenes.filter(m => m.sourceType === 'placeholder').length;
-    log(`Media assigned: ${uploadCount} uploads, ${mediaScenes.filter(m => m.sourceType === 'legacy').length} legacy, ${placeholderCount} placeholders`);
+    log(`Media assigned: ${uploadCount} uploads, ${mediaScenes.filter(m => m.sourceType === 'legacy').length} legacy, ${pexelsCount} pexels, ${placeholderCount} placeholders`);
 
     // ────────────────────────────────────────────────────────────────────
     // PHASE 3: VOICEOVER (always from planScript.voiceoverScript)
