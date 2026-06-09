@@ -47,6 +47,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const [jobStatus, setJobStatus] = useState<string>("queued");
   const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isRestoredVideo, setIsRestoredVideo] = useState(false);
 
   // Script approval state
   const [pendingScript, setPendingScript] = useState<any>(null);
@@ -77,7 +78,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
   // ── Restore most recent completed video on mount ──
   useEffect(() => {
-    if (!businessId || finalVideoUrl || generatingVideo || activeJobId) return;
+    if (!businessId || finalVideoUrl || generatingVideo || activeJobId || approvedScript || generatedVideoScript) return;
     supabase
       .from("video_generation_jobs")
       .select("id, video_url, result_payload, status")
@@ -91,6 +92,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
         if (data.result_payload) setGeneratedVideoScript(data.result_payload as any);
         if (data.video_url) {
           setFinalVideoUrl(data.video_url);
+          setIsRestoredVideo(true);
         } else if (data.status === "processing") {
           // Creatomate is still rendering — resume the polling loop so the user
           // sees a spinner instead of the demo video while waiting for the webhook.
@@ -232,6 +234,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
 
     setGeneratingVideo(true);
     setFinalVideoUrl(null);
+    setIsRestoredVideo(false);
     setJobStatus("queued");
     setGeneratedVideoScript(null);
 
@@ -640,6 +643,15 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             <h4 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
               <Play className="w-4 h-4 text-primary" /> Your Finished Video
             </h4>
+
+            {isRestoredVideo && (pendingScript || approvedScript) && (
+              <div className="mb-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
+                <span className="text-base leading-none mt-0.5">⚠️</span>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  This video is from a previous session. Click <strong>Produce Video</strong> to create a new video matching your current script.
+                </p>
+              </div>
+            )}
 
             {generatedVideoScript?.is_fallback && (
               <div className="mb-3 p-2 rounded-lg bg-accent/10 border border-accent/20">
