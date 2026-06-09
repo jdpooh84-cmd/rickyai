@@ -852,6 +852,12 @@ interface FinalVideoPlan {
     status: 'ready' | 'failed' | 'skipped';
     failureReason?: string;
   };
+  avatar: {
+    provider: 'heygen' | 'none';
+    videoUrl: string | null;
+    status: 'ready' | 'failed' | 'skipped';
+    failureReason?: string;
+  };
 }
 
 // ── Motion prompt builder for Runway per-scene animation ──
@@ -1018,7 +1024,7 @@ async function getSceneImage(
 // RENDER SCRIPT BUILDER — reads ONLY from FinalVideoPlan
 // ═══════════════════════════════════════════════════════════════════════
 function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
-  const { business, script, media, voiceover } = plan;
+  const { business, script, media, voiceover, avatar } = plan;
 
   const textFade = [
     { time: 0, type: "fade", duration: 0.3 },
@@ -1158,6 +1164,21 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
         source: voiceover.audioUrl, audio_fade_in: 0.3, audio_fade_out: 0.3,
       }] : []),
 
+      // Avatar PIP — bottom-right corner, portrait 9:16 clip, spans full video
+      ...(avatar?.videoUrl ? [{
+        name: "Avatar-PIP",
+        type: "video", track: 10, time: 0, duration: totalDuration,
+        source: avatar.videoUrl, volume: 0, fit: "cover",
+        x: "89%", y: "100%", x_anchor: "50%", y_anchor: "100%",
+        width: 300, height: 530,
+        border_radius: 16,
+        shadow_color: "rgba(0,0,0,0.45)", shadow_blur: 14,
+        animations: [
+          { time: 0, type: "fade", duration: 0.4 },
+          { time: "end", type: "fade", duration: 0.4, reversed: true },
+        ],
+      }] : []),
+
       // Intro (0–5s)
       {
         type: "composition", track: 3, time: 0, duration: 5,
@@ -1289,11 +1310,12 @@ async function processVideoJob(
     const keyMap: Record<string, string> = {};
     userKeys?.forEach((k: any) => { keyMap[k.provider] = k.api_key_encrypted; });
     const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
+    const heygenKey = Deno.env.get("HEYGEN_API_KEY") || "";
 
     const preset = buildPreset(lengthMode, orientation);
     log(`═══ Job ${jobId} START ═══`);
     log(`Preset: ${preset.label}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    log(`Keys: ElevenLabs=${!!elevenlabsKey}, GoogleTTS=${!!googleTtsKey}, Creatomate=${!!creatomateKey}`);
+    log(`Keys: ElevenLabs=${!!elevenlabsKey}, GoogleTTS=${!!googleTtsKey}, Creatomate=${!!creatomateKey}, HeyGen=${!!heygenKey}`);
 
     // ────────────────────────────────────────────────────────────────────
     // PHASE 1: SCRIPT
@@ -1565,6 +1587,87 @@ async function processVideoJob(
     }
 
     // ────────────────────────────────────────────────────────────────────
+    // PHASE 3.5: HEYGEN AVATAR (lip-syncs to voiceover — PIP overlay)
+    // ────────────────────────────────────────────────────────────────────
+    let planAvatar: FinalVideoPlan["avatar"] = { provider: 'none', videoUrl: null, status: 'skipped' };
+
+    if (heygenKey && planVoiceover.audioUrl) {
+      await updateJob({
+        status: "rendering_video",
+        result_payload: { message: "🎭 Generating HeyGen avatar...", pipeline_logs: pipelineLogs },
+      });
+      try {
+        const { data: avatarDefault } = await supabase.from("user_tool_defaults")
+          .select("default_provider").eq("user_id", userId).eq("tool_type", "heygen_avatar_id").maybeSingle();
+        const avatarId = avatarDefault?.default_provider || "8fc6f2b5cac946408f506a1ffb9824de";
+        log(`HeyGen: avatar=${avatarId}, audio=${planVoiceover.audioUrl.substring(0, 60)}`);
+
+        const genRes = await fetch("https://api.heygen.com/v2/video/generate", {
+          method: "POST",
+          headers: { "X-Api-Key": heygenKey, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            video_inputs: [{
+              character: { type: "avatar", avatar_id: avatarId, avatar_style: "normal" },
+              voice: { type: "audio", audio_url: planVoiceover.audioUrl },
+            }],
+            aspect_ratio: "9:16",
+            test: false,
+          }),
+        });
+
+        if (!genRes.ok) {
+          const errBody = await genRes.text();
+          throw new Error(`HeyGen generate [${genRes.status}]: ${errBody}`);
+        }
+
+        const genData = await genRes.json();
+        const heygenVideoId: string = genData?.data?.video_id;
+        if (!heygenVideoId) throw new Error("HeyGen returned no video_id");
+        log(`HeyGen video_id=${heygenVideoId}, polling (max 250s)...`);
+
+        // Poll every 10s — max 25 attempts = 250s, safely under the 400s function limit
+        let avatarRawUrl: string | null = null;
+        for (let attempt = 0; attempt < 25; attempt++) {
+          await new Promise(r => setTimeout(r, 10000));
+          const statusRes = await fetch(
+            `https://api.heygen.com/v1/video_status.get?video_id=${heygenVideoId}`,
+            { headers: { "X-Api-Key": heygenKey } },
+          );
+          if (!statusRes.ok) continue;
+          const statusData = await statusRes.json();
+          const hs = statusData?.data?.status;
+          log(`HeyGen poll ${attempt + 1}/25: ${hs}`);
+          if (hs === "completed") { avatarRawUrl = statusData?.data?.video_url || null; break; }
+          if (hs === "failed") throw new Error(`HeyGen video failed: ${statusData?.data?.error || "unknown"}`);
+        }
+
+        if (!avatarRawUrl) throw new Error("HeyGen timed out after 250s");
+
+        // Re-host in Supabase storage so the URL is durable
+        const dlRes = await fetch(avatarRawUrl, { redirect: "follow", headers: { "User-Agent": "RickyAI-Pipeline/1.0" } });
+        if (!dlRes.ok) throw new Error(`Cannot download HeyGen video (${dlRes.status})`);
+        const dlBlob = await dlRes.arrayBuffer();
+        if (dlBlob.byteLength < 10240) throw new Error("HeyGen video too small — likely corrupt");
+
+        const avatarPath = `videos/${userId}/${jobId}/avatar.mp4`;
+        const { error: avatarUploadErr } = await supabase.storage.from("media")
+          .upload(avatarPath, dlBlob, { contentType: "video/mp4", upsert: true });
+        if (avatarUploadErr) throw new Error(`Avatar upload failed: ${avatarUploadErr.message}`);
+
+        const { data: avatarUrlData } = supabase.storage.from("media").getPublicUrl(avatarPath);
+        planAvatar = { provider: 'heygen', videoUrl: avatarUrlData.publicUrl, status: 'ready' };
+        log(`HeyGen avatar ready: ${avatarUrlData.publicUrl.substring(0, 80)}`);
+      } catch (e: any) {
+        log(`HeyGen error: ${e.message}`);
+        planAvatar = { provider: 'heygen', videoUrl: null, status: 'failed', failureReason: e.message };
+      }
+    } else if (!heygenKey) {
+      log("HeyGen: no HEYGEN_API_KEY — avatar skipped");
+    } else {
+      log("HeyGen: no voiceover audio — avatar skipped (lip-sync requires audio)");
+    }
+
+    // ────────────────────────────────────────────────────────────────────
     // ASSEMBLE COMPLETE PLAN
     // ────────────────────────────────────────────────────────────────────
     const plan: FinalVideoPlan = {
@@ -1580,6 +1683,7 @@ async function processVideoJob(
       script: planScript,
       media: planMedia,
       voiceover: planVoiceover,
+      avatar: planAvatar,
     };
 
     // ────────────────────────────────────────────────────────────────────
@@ -1612,6 +1716,11 @@ async function processVideoJob(
         provider: plan.voiceover.provider,
         status: plan.voiceover.status,
         hasAudio: !!plan.voiceover.audioUrl,
+      },
+      avatar: {
+        provider: plan.avatar.provider,
+        status: plan.avatar.status,
+        hasVideo: !!plan.avatar.videoUrl,
       },
     }));
 
