@@ -1578,9 +1578,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         console.log(`[creatomate] renderSource keys for job ${jobId}:`, Object.keys(renderSource).join(", "));
         console.log(`[creatomate] scene count: ${(renderSource.elements || []).filter((e: any) => e.type === "composition").length}`);
 
-        // Pass the full RenderScript directly as the body (no template_id needed)
+        // Creatomate requires the RenderScript nested under a "source" key
         const renderPayload: any = {
-          ...renderSource,
+          source: renderSource,
           metadata: jobId,
         };
         if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
