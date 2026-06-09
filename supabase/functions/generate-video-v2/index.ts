@@ -1210,9 +1210,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
   // If no anthropicKey, script gen will use fallback templates
 
   // Video rendering is handled by Creatomate via webhook callback
-  // Resolve ElevenLabs key — user's own key or admin-only platform key
-  // Resolve ElevenLabs key — user's own key or admin-only platform key
   const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
+  const googleTtsKey = Deno.env.get("GOOGLE_TTS_API_KEY") || "";
 
   const pipelineLogs: string[] = [];
   const logPipeline = (msg: string) => { pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`); console.log(`[pipeline] ${msg}`); };
@@ -1494,6 +1493,45 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     } else if (useElevenLabs && !elevenlabsKey) {
       console.log("[pipeline] User wants ElevenLabs but no key found — captions only");
       voiceoverMessage = "ElevenLabs is enabled but no API key was found. Please reconnect your ElevenLabs account in Settings.";
+    } else if (!useElevenLabs && googleTtsKey && script.voiceover_script) {
+      // Google Cloud Text-to-Speech Chirp 3 HD — default when ElevenLabs is not selected
+      try {
+        await updateJob({ status: "generating_voiceover", result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "voiceover", message: "🎙️ Generating voiceover with Google TTS..." } });
+        console.log("[pipeline] Calling Google TTS Chirp 3 HD");
+        const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleTtsKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            input: { text: script.voiceover_script },
+            voice: { languageCode: "en-US", name: "en-US-Chirp3-HD-Aoede" },
+            audioConfig: { audioEncoding: "MP3" },
+          }),
+        });
+        if (ttsRes.ok) {
+          const ttsData = await ttsRes.json();
+          const audioBase64: string = ttsData.audioContent;
+          if (audioBase64) {
+            // Decode base64 → Uint8Array
+            const binaryStr = atob(audioBase64);
+            const audioBytes = new Uint8Array(binaryStr.length);
+            for (let i = 0; i < binaryStr.length; i++) audioBytes[i] = binaryStr.charCodeAt(i);
+            const audioFn = `voiceovers/${userId}/${jobId}.mp3`;
+            const { error } = await supabase.storage.from("media").upload(audioFn, audioBytes, { contentType: "audio/mpeg", upsert: true });
+            if (!error) {
+              const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFn);
+              voiceoverUrl = urlData.publicUrl;
+              console.log("[pipeline] ✅ Google TTS voiceover ready");
+            } else {
+              console.error("[pipeline] Google TTS storage upload failed:", JSON.stringify(error));
+            }
+          }
+        } else {
+          const errBody = await ttsRes.text();
+          console.error(`[pipeline] Google TTS failed [${ttsRes.status}]: ${errBody}`);
+        }
+      } catch (e) {
+        console.error("[pipeline] Google TTS voiceover error:", e);
+      }
     } else {
       console.log("[pipeline] Voiceover not enabled — captions only");
     }
