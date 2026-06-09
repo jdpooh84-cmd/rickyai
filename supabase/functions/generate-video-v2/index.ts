@@ -1033,9 +1033,14 @@ function buildRenderSource(
     width: "12%", x: "97%", y: "95%", x_anchor: "100%", y_anchor: "100%",
   };
 
+  // Diagnostic: log inputs before building scenes
+  console.log(`[buildRenderSource] sceneImageUrls (${sceneImageUrls.length}):`, JSON.stringify(sceneImageUrls));
+  console.log(`[buildRenderSource] script.scenes (${script.scenes?.length ?? 0}):`, JSON.stringify((script.scenes || []).map((s: any) => ({ text_overlay: s.text_overlay, voiceover_line: s.voiceover_line?.substring(0, 60) }))));
+
   // Build each of the 6 scene compositions
   const buildScene = (n: number, startTime: number, duration = 8) => {
     const imgUrl = sceneImageUrls[n - 1] || null;
+    console.log(`[buildRenderSource] scene ${n}: imgUrl=${imgUrl}, sceneText=${script.scenes?.[n-1]?.text_overlay?.substring(0,40)}`);
     const sceneText = script.scenes?.[n - 1]?.text_overlay
       || (script.scenes?.[n - 1]?.voiceover_line || "").split(" ").slice(0, 6).join(" ")
       || "";
@@ -1098,7 +1103,7 @@ function buildRenderSource(
     output_format: "mp4",
     width: 1920,
     height: 1080,
-    frame_rate: "30 fps",
+    frame_rate: 30,
     duration: 60,
     snapshot_time: 15,
     elements: [
@@ -1580,6 +1585,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
         };
         if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
 
+        // Step 6: log Scene 1 values immediately before dispatch
+        const scene1Comp = (renderSource.elements || []).find((e: any) => e.type === "composition" && e.time === 5);
+        const scene1Img = (scene1Comp?.elements || []).find((e: any) => e.type === "image");
+        const scene1Txt = (scene1Comp?.elements || []).find((e: any) => e.type === "text");
+        console.log(`[creatomate] Scene 1 image: ${scene1Img?.source || "MISSING"}`);
+        console.log(`[creatomate] Scene 1 text: ${scene1Txt?.text || "MISSING"}`);
         console.log(`[creatomate] Dispatching render — job_id=${jobId}, source_mode=inline, webhook=${creatomateWebhookUrl || "none"}, metadata=${jobId}`);
 
         const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
