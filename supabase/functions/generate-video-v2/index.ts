@@ -1080,12 +1080,6 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
     fill_color: "#1a1a2e",
   };
 
-  const logoImage = {
-    name: "Logo-Image", type: "image", track: 2, time: 0,
-    source: "", dynamic: true, fit: "contain",
-    width: "12%", x: "97%", y: "95%", x_anchor: "100%", y_anchor: "100%",
-  };
-
   // Build a background element from a MediaScene — handles image, video, or missing
   const buildBgElement = (ms: MediaScene | null | undefined, track = 1): Record<string, any> => {
     if (!ms?.url) return solidBg;
@@ -1202,7 +1196,6 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
         elements: [
           buildBgElement(introMs),
           darkOverlay,
-          logoImage,
           {
             name: "Hook-Text", type: "text", track: 3, time: 0,
             text: script.hookText, dynamic: true,
@@ -1233,7 +1226,6 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
         elements: [
           buildBgElement(ctaMs),
           darkOverlay,
-          logoImage,
           {
             name: "CTA-Text", type: "text", track: 3, time: 0,
             text: script.ctaText, dynamic: true,
@@ -1308,6 +1300,7 @@ async function processVideoJob(
     const { data: business } = await supabase.from("businesses").select("*")
       .eq("id", businessId).eq("user_id", userId).single();
     if (!business) throw new Error("Business not found");
+    log(`Business: id=${business.id}, name=${business.business_name || business.name || "unknown"}`);
 
     const { data: locations } = await supabase.from("locations").select("*")
       .eq("business_id", businessId).eq("user_id", userId).limit(1);
