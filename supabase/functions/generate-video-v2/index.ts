@@ -1310,10 +1310,12 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
         const renderPayload: any = {
           modifications,
-          metadata: JSON.stringify({ job_id: jobId }),
+          metadata: jobId,
         };
         if (creatomateTemplateId) renderPayload.template_id = creatomateTemplateId;
         if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
+
+        console.log(`[creatomate] Dispatching render — job_id=${jobId}, template=${creatomateTemplateId || "none"}, webhook=${creatomateWebhookUrl || "none"}, metadata=${jobId}`);
 
         const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
           method: "POST",
@@ -1324,19 +1326,26 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
           body: JSON.stringify(renderPayload),
         });
 
+        console.log(`[creatomate] Response status: ${renderRes.status}`);
+
         if (renderRes.ok) {
           const renderData = await renderRes.json();
+          console.log(`[creatomate] Response body: ${JSON.stringify(renderData)}`);
           const renders = Array.isArray(renderData) ? renderData : [renderData];
           creatomateRenderId = renders[0]?.id || null;
+          console.log(`[creatomate] Render ID: ${creatomateRenderId}`);
           if (creatomateRenderId) {
-            await supabase.from("video_generation_jobs").update({ creatomate_render_id: creatomateRenderId }).eq("id", jobId);
+            const { error: ridErr } = await supabase.from("video_generation_jobs").update({ creatomate_render_id: creatomateRenderId }).eq("id", jobId);
+            if (ridErr) console.error(`[creatomate] Failed to store render_id: ${JSON.stringify(ridErr)}`);
             logPipeline(`Creatomate render started: ${creatomateRenderId}`);
           }
         } else {
           const errText = await renderRes.text();
+          console.log(`[creatomate] Error body: ${errText}`);
           logPipeline(`Creatomate render error [${renderRes.status}]: ${errText}`);
         }
       } catch (e: any) {
+        console.error(`[creatomate] Dispatch exception: ${e.message}`);
         logPipeline(`Creatomate dispatch error: ${e.message}`);
       }
     } else {

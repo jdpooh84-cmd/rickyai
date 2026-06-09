@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,21 +45,36 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const rawBody = await req.json();
+    console.log("[video-callback] RAW BODY:", JSON.stringify(rawBody));
 
     // Creatomate sends an array or single object
     const body = Array.isArray(rawBody) ? rawBody[0] : rawBody;
 
+    console.log("[video-callback] body.status:", body.status);
+    console.log("[video-callback] body.metadata raw:", body.metadata);
+
     // ── Resolve job_id ──
-    // Creatomate: body.metadata is a JSON string with { job_id }
+    // New format: metadata is a plain UUID string (e.g. "d214806b-...")
+    // Old format: metadata is a JSON string (e.g. '{"job_id":"d214806b-..."}')
     // Make.com legacy: body.job_id directly
     let job_id: string | null = null;
     if (body.metadata) {
-      try {
-        const meta = typeof body.metadata === "string" ? JSON.parse(body.metadata) : body.metadata;
-        job_id = meta?.job_id || null;
-      } catch (_) {}
+      const raw = String(body.metadata).trim();
+      // Plain UUID: 8-4-4-4-12 hex pattern
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
+        job_id = raw;
+      } else {
+        try {
+          const meta = JSON.parse(raw);
+          job_id = meta?.job_id || null;
+        } catch (_) {
+          // Last resort: use raw string as-is
+          job_id = raw || null;
+        }
+      }
     }
     job_id = job_id || body.job_id || null;
+    console.log("[video-callback] Extracted job_id:", job_id);
 
     // ── Resolve status ──
     // Creatomate uses "succeeded" / "failed" / "planned" / "rendering"
@@ -170,16 +185,21 @@ Deno.serve(async (req) => {
       callback_received_at: new Date().toISOString(),
     };
 
+    // Only update columns that exist in the table schema
     const updateFields: Record<string, any> = {
       status,
       video_url: finalVideoUrl,
-      result_payload: updatedPayload,
+      result_payload: {
+        ...updatedPayload,
+        completed_at: status === "completed" ? new Date().toISOString() : null,
+        original_provider_url: video_url || null,
+        creatomate_render_id: creatomate_render_id || null,
+      },
       error_message: status === "failed" ? (error_message || "Production failed") : null,
-      completed_at: status === "completed" ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
+    // creatomate_render_id column added via migration — include only if column exists
     if (creatomate_render_id) updateFields.creatomate_render_id = creatomate_render_id;
-    if (finalVideoUrl) updateFields.original_provider_url = video_url;
 
     const { error: updateErr } = await supabase
       .from("video_generation_jobs")
@@ -187,9 +207,10 @@ Deno.serve(async (req) => {
       .eq("id", job_id);
 
     if (updateErr) {
-      console.error("[video-callback] Failed to update job:", updateErr);
+      console.error("[video-callback] Failed to update job:", JSON.stringify(updateErr));
       throw new Error(`Failed to update job: ${updateErr.message}`);
     }
+    console.log(`[video-callback] DB update matched job ${job_id}: OK`);
 
     // If completed, update content_posts and business_media
     if (status === "completed" && finalVideoUrl) {
