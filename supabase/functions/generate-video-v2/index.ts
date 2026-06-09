@@ -805,6 +805,55 @@ function pickMediaForScene(library: BusinessMediaRow[], shotType: string, usedId
   return match || null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// FINAL VIDEO PLAN — single source of truth for the entire pipeline
+// ═══════════════════════════════════════════════════════════════════════
+interface ScriptScene {
+  index: number;
+  overlayText: string;
+  voiceoverText: string;
+  captionText: string;
+  shotType: string;
+  durationSeconds: number;
+}
+
+interface MediaScene {
+  index: number;
+  url: string;
+  mediaType: 'image' | 'video';
+  sourceType: 'upload' | 'legacy' | 'placeholder';
+}
+
+interface FinalVideoPlan {
+  jobId: string;
+  business: {
+    id: string;
+    name: string;
+    niche: string;
+    city: string;
+    tone: string;
+    cta: string;
+  };
+  script: {
+    title: string;
+    hookText: string;
+    scenes: ScriptScene[];
+    ctaText: string;
+    ctaSubtext: string;
+    voiceoverScript: string;
+    usedFallback: boolean;
+  };
+  media: {
+    scenes: MediaScene[];
+  };
+  voiceover: {
+    provider: 'google-chirp3-hd' | 'elevenlabs' | 'none';
+    audioUrl: string | null;
+    status: 'ready' | 'failed' | 'skipped';
+    failureReason?: string;
+  };
+}
+
 // ── Motion prompt builder for Runway per-scene animation ──
 const MOTION_PROMPTS: Record<string, string[]> = {
   food: [
@@ -966,28 +1015,10 @@ async function getSceneImage(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// CREATOMATE RENDER SOURCE BUILDER
-// Creatomate's REST API has no template-creation endpoint — templates are
-// dashboard-only. Instead we pass the full RenderScript directly as the
-// POST /v1/renders body. Values are injected at build time; no template_id
-// or modifications object is needed.
-//
-// Timeline: Intro(5s) + 6×Scene(8s) + CTA-Outro(7s) = 60s
-// Named elements (all dynamic: true):
-//   Business-Name, Hook-Text, Logo-Image, Voiceover-Audio, Background-Music
-//   Scene-{1-6}-Image, Scene-{1-6}-Text, Scene-{1-6}-Caption
-//   CTA-Text, CTA-Subtext
+// RENDER SCRIPT BUILDER — reads ONLY from FinalVideoPlan
 // ═══════════════════════════════════════════════════════════════════════
-function buildRenderSource(
-  script: any,
-  business: any,
-  sceneImageUrls: string[],
-  voiceoverUrl: string | null,
-): Record<string, any> {
-  const businessName = business.business_name || "Your Business";
-  const hookText = script.scenes?.[0]?.text_overlay || script.scenes?.[0]?.voiceover_line || businessName;
-  const lastScene = script.scenes?.[script.scenes.length - 1];
-  const ctaText = lastScene?.text_overlay || "Contact us today";
+function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
+  const { business, script, media, voiceover } = plan;
 
   const textFade = [
     { time: 0, type: "fade", duration: 0.3 },
@@ -998,7 +1029,6 @@ function buildRenderSource(
     { time: "end", type: "fade", duration: 0.5, reversed: true },
   ];
 
-  // Full-frame dark overlay applied on all image scenes
   const darkOverlay = {
     type: "shape", track: 2, time: 0,
     x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
@@ -1007,7 +1037,6 @@ function buildRenderSource(
     fill_color: "rgba(0,0,0,0.35)",
   };
 
-  // Semi-transparent lower-third bar behind captions
   const captionBar = {
     type: "shape", track: 4, time: 0,
     x: "50%", y: "100%", x_anchor: "50%", y_anchor: "100%",
@@ -1017,7 +1046,6 @@ function buildRenderSource(
     animations: textFade,
   };
 
-  // Solid dark background for Intro / CTA-Outro
   const solidBg = {
     type: "shape", track: 1, time: 0,
     x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
@@ -1026,60 +1054,56 @@ function buildRenderSource(
     fill_color: "#1a1a2e",
   };
 
-  // Logo appears in both Intro and CTA-Outro with the same name
   const logoImage = {
     name: "Logo-Image", type: "image", track: 2, time: 0,
     source: "", dynamic: true, fit: "contain",
     width: "12%", x: "97%", y: "95%", x_anchor: "100%", y_anchor: "100%",
   };
 
-  // Diagnostic: log inputs before building scenes
-  console.log(`[buildRenderSource] sceneImageUrls (${sceneImageUrls.length}):`, JSON.stringify(sceneImageUrls));
-  console.log(`[buildRenderSource] script.scenes (${script.scenes?.length ?? 0}):`, JSON.stringify((script.scenes || []).map((s: any) => ({ text_overlay: s.text_overlay, voiceover_line: s.voiceover_line?.substring(0, 60) }))));
-
-  // Build each of the 6 scene compositions
-  const buildScene = (n: number, startTime: number, duration = 8) => {
-    const imgUrl = sceneImageUrls[n - 1] || null;
-    console.log(`[buildRenderSource] scene ${n}: imgUrl=${imgUrl}, sceneText=${script.scenes?.[n-1]?.text_overlay?.substring(0,40)}`);
-    const sceneText = script.scenes?.[n - 1]?.text_overlay
-      || (script.scenes?.[n - 1]?.voiceover_line || "").split(" ").slice(0, 6).join(" ")
-      || "";
-    const captionText = script.scenes?.[n - 1]?.voiceover_line || "";
-
-    const elements: any[] = [];
-
-    if (imgUrl) {
-      const isVideoSrc = /\.(mp4|webm|mov)$/i.test(imgUrl);
-      if (isVideoSrc) {
-        // Business video clip — use type:video, no Ken Burns (animation not supported on video)
-        elements.push({
-          name: `Scene-${n}-Image`, type: "video", track: 1, time: 0,
-          source: imgUrl, dynamic: true, fit: "cover",
-          x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
-          width: "100%", height: "100%",
-          volume: 0,
-        });
-      } else {
-        // Static image — Ken Burns zoom-in 100% → 108%
-        elements.push({
-          name: `Scene-${n}-Image`, type: "image", track: 1, time: 0,
-          source: imgUrl, dynamic: true, fit: "cover",
-          x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
-          width: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
-          height: [{ time: 0, value: "100%", easing: "linear" }, { time: "end", value: "108%", easing: "linear" }],
-        });
-      }
-    } else {
-      // Fallback when no image available yet
-      elements.push({ ...solidBg, name: `Scene-${n}-Image`, dynamic: true });
+  // Build a background element from a MediaScene — handles image, video, or missing
+  const buildBgElement = (ms: MediaScene | null | undefined, track = 1): Record<string, any> => {
+    if (!ms?.url) return solidBg;
+    if (ms.mediaType === 'video') {
+      return {
+        type: "video", track, time: 0, source: ms.url, fit: "cover",
+        x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+        width: "100%", height: "100%", volume: 0,
+      };
     }
+    return {
+      type: "image", track, time: 0, source: ms.url, fit: "cover",
+      x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+      width: [
+        { time: 0, value: "100%", easing: "linear" },
+        { time: "end", value: "108%", easing: "linear" },
+      ],
+      height: [
+        { time: 0, value: "100%", easing: "linear" },
+        { time: "end", value: "108%", easing: "linear" },
+      ],
+    };
+  };
 
-    elements.push(darkOverlay);
+  // Build a named scene background element (same as above but with a name property)
+  const buildNamedBgElement = (ms: MediaScene | null | undefined, name: string, track = 1): Record<string, any> => {
+    const base = buildBgElement(ms, track);
+    return { ...base, name, dynamic: true };
+  };
 
-    if (sceneText) {
+  // Build one scene composition from plan data
+  const buildSceneComposition = (sceneIdx: number, startTime: number, duration = 8) => {
+    const ss = script.scenes[sceneIdx];
+    const ms = media.scenes[sceneIdx] ?? null;
+
+    const elements: any[] = [
+      buildNamedBgElement(ms, `Scene-${sceneIdx + 1}-Image`),
+      darkOverlay,
+    ];
+
+    if (ss?.overlayText) {
       elements.push({
-        name: `Scene-${n}-Text`, type: "text", track: 3, time: 0,
-        text: sceneText, dynamic: true,
+        name: `Scene-${sceneIdx + 1}-Text`, type: "text", track: 3, time: 0,
+        text: ss.overlayText, dynamic: true,
         x: "50%", y: "45%", x_anchor: "50%", y_anchor: "50%",
         width: "80%", height: "35%",
         fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
@@ -1088,11 +1112,11 @@ function buildRenderSource(
       });
     }
 
-    if (captionText) {
+    if (ss?.captionText) {
       elements.push(captionBar);
       elements.push({
-        name: `Scene-${n}-Caption`, type: "text", track: 5, time: 0,
-        text: captionText, dynamic: true,
+        name: `Scene-${sceneIdx + 1}-Caption`, type: "text", track: 5, time: 0,
+        text: ss.captionText, dynamic: true,
         x: "50%", y: "98%", x_anchor: "50%", y_anchor: "100%",
         width: "85%", height: "13%",
         fill_color: "#ffffff", font_family: "Montserrat", font_weight: "400",
@@ -1111,38 +1135,40 @@ function buildRenderSource(
     };
   };
 
-  const renderScript: Record<string, any> = {
+  const sceneCount = script.scenes.length;
+  const sceneCompositions: any[] = [];
+  for (let i = 0; i < sceneCount; i++) {
+    sceneCompositions.push(buildSceneComposition(i, 5 + i * 8));
+  }
+
+  const totalDuration = 5 + sceneCount * 8 + 7;
+  const introMs = media.scenes[0] ?? null;
+  const ctaMs = media.scenes[sceneCount - 1] ?? null;
+
+  return {
     output_format: "mp4",
     width: 1920,
     height: 1080,
     frame_rate: 30,
-    duration: 60,
+    duration: totalDuration,
     snapshot_time: 15,
     elements: [
-      // ── Global audio tracks ──────────────────────────────────────────
-      // Background music placeholder (source left empty — no default music)
-      // Voiceover injected only when a URL exists
-      ...(voiceoverUrl ? [{
+      ...(voiceover.audioUrl ? [{
         name: "Voiceover-Audio", type: "audio", track: 2, time: 0,
-        source: voiceoverUrl, audio_fade_in: 0.3, audio_fade_out: 0.3,
+        source: voiceover.audioUrl, audio_fade_in: 0.3, audio_fade_out: 0.3,
       }] : []),
 
-      // ── Intro (0–5s) ──────────────────────────────────────────────────
+      // Intro (0–5s)
       {
         type: "composition", track: 3, time: 0, duration: 5,
         animations: [{ time: "end", type: "fade", duration: 0.5, reversed: true }],
         elements: [
-          sceneImageUrls[0] ? {
-            type: "image", track: 1, time: 0,
-            source: sceneImageUrls[0], fit: "cover",
-            x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
-            width: "100%", height: "100%",
-          } : solidBg,
+          buildBgElement(introMs),
           darkOverlay,
           logoImage,
           {
             name: "Hook-Text", type: "text", track: 3, time: 0,
-            text: hookText, dynamic: true,
+            text: script.hookText, dynamic: true,
             x: "50%", y: "38%", x_anchor: "50%", y_anchor: "50%",
             width: "80%", height: "35%",
             fill_color: "#ffffff", font_family: "Montserrat", font_weight: "800",
@@ -1151,7 +1177,7 @@ function buildRenderSource(
           },
           {
             name: "Business-Name", type: "text", track: 4, time: 0.5,
-            text: businessName, dynamic: true,
+            text: business.name, dynamic: true,
             x: "50%", y: "64%", x_anchor: "50%", y_anchor: "50%",
             width: "80%", height: "18%",
             fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
@@ -1161,30 +1187,19 @@ function buildRenderSource(
         ],
       },
 
-      // ── Scenes 1–6 (5–53s, 8s each) ──────────────────────────────────
-      buildScene(1, 5),
-      buildScene(2, 13),
-      buildScene(3, 21),
-      buildScene(4, 29),
-      buildScene(5, 37),
-      buildScene(6, 45),
+      ...sceneCompositions,
 
-      // ── CTA-Outro (53–60s) ────────────────────────────────────────────
+      // CTA-Outro (last 7s)
       {
-        type: "composition", track: 3, time: 53, duration: 7,
+        type: "composition", track: 3, time: 5 + sceneCount * 8, duration: 7,
         animations: slowFade,
         elements: [
-          sceneImageUrls[sceneImageUrls.length - 1] ? {
-            type: "image", track: 1, time: 0,
-            source: sceneImageUrls[sceneImageUrls.length - 1], fit: "cover",
-            x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
-            width: "100%", height: "100%",
-          } : solidBg,
+          buildBgElement(ctaMs),
           darkOverlay,
           logoImage,
           {
             name: "CTA-Text", type: "text", track: 3, time: 0,
-            text: ctaText, dynamic: true,
+            text: script.ctaText, dynamic: true,
             x: "50%", y: "36%", x_anchor: "50%", y_anchor: "50%",
             width: "80%", height: "28%",
             fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
@@ -1193,17 +1208,16 @@ function buildRenderSource(
           },
           {
             name: "CTA-Subtext", type: "text", track: 4, time: 0.5,
-            text: "Call or visit us today", dynamic: true,
+            text: script.ctaSubtext, dynamic: true,
             x: "50%", y: "60%", x_anchor: "50%", y_anchor: "50%",
             width: "80%", height: "16%",
             fill_color: "#cccccc", font_family: "Montserrat", font_weight: "400",
             font_size: 36, x_alignment: "50%", y_alignment: "50%",
             animations: slowFade,
           },
-          // Business-Name same name as Intro — one modification updates both
           {
             name: "Business-Name", type: "text", track: 5, time: 1,
-            text: businessName, dynamic: true,
+            text: business.name, dynamic: true,
             x: "50%", y: "78%", x_anchor: "50%", y_anchor: "50%",
             width: "80%", height: "14%",
             fill_color: "#ffffff", font_family: "Montserrat", font_weight: "700",
@@ -1214,82 +1228,91 @@ function buildRenderSource(
       },
     ],
   };
-
-  return renderScript;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// MAIN PIPELINE
+// MAIN PIPELINE — FinalVideoPlan-driven
 // ═══════════════════════════════════════════════════════════════════════
-async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, lengthMode: string, orientation: Orientation = "landscape") {
+async function processVideoJob(
+  jobId: string,
+  userId: string,
+  businessId: string,
+  videoType: string,
+  lengthMode: string,
+  orientation: Orientation = "landscape",
+) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // ── BYOLLM enforcement: platform keys are admin-only ──
-  const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-  const { data: userKeys } = await supabase
-    .from("user_api_keys")
-    .select("provider, api_key_encrypted")
-    .eq("user_id", userId)
-    .eq("is_valid", true);
-  const keyMap: Record<string, string> = {};
-  userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
-
-  // Resolve AI key for script generation
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
-  // If no anthropicKey, script gen will use fallback templates
-
-  // Video rendering is handled by Creatomate via webhook callback
-  const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
   const googleTtsKey = Deno.env.get("GOOGLE_TTS_API_KEY") || "";
+  const creatomateKey = Deno.env.get("CREATOMATE_API_KEY") || "";
+  const creatomateWebhookUrl = Deno.env.get("CREATOMATE_WEBHOOK_URL") || "";
 
   const pipelineLogs: string[] = [];
-  const logPipeline = (msg: string) => { pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`); console.log(`[pipeline] ${msg}`); };
+  const log = (msg: string) => {
+    pipelineLogs.push(`[${new Date().toISOString()}] ${msg}`);
+    console.log(`[pipeline] ${msg}`);
+  };
   const updateJob = async (fields: Record<string, any>) => {
-    const stage = fields.pipeline_stage || fields.status || undefined;
-    const { error } = await supabase.from("video_generation_jobs").update({
+    await supabase.from("video_generation_jobs").update({
       ...fields,
-      ...(stage ? { pipeline_stage: stage } : {}),
-      result_payload: { ...(fields.result_payload || {}), pipeline_logs: pipelineLogs },
+      result_payload: {
+        ...(fields.result_payload || {}),
+        pipeline_logs: pipelineLogs,
+      },
       updated_at: new Date().toISOString(),
     }).eq("id", jobId);
-    if (error) console.error(`[updateJob] DB update failed for job ${jobId}:`, JSON.stringify(error));
   };
 
   try {
-    // ── Load business + location ──
-    const { data: business } = await supabase.from("businesses").select("*").eq("id", businessId).eq("user_id", userId).single();
+    // ── Load business + location ──────────────────────────────────────────
+    const { data: business } = await supabase.from("businesses").select("*")
+      .eq("id", businessId).eq("user_id", userId).single();
     if (!business) throw new Error("Business not found");
-    const { data: locations } = await supabase.from("locations").select("*").eq("business_id", businessId).eq("user_id", userId).limit(1);
+
+    const { data: locations } = await supabase.from("locations").select("*")
+      .eq("business_id", businessId).eq("user_id", userId).limit(1);
     const location = locations?.[0];
 
-    // ── Load saved strategy data (for script enrichment) ──
-    const { data: strategyRows } = await supabase.from("strategy_outputs").select("output_data").eq("business_id", businessId).eq("user_id", userId).order("step_number", { ascending: true }).limit(10);
-    const strategyData = strategyRows?.reduce((acc: any, row: any) => ({ ...acc, ...(row.output_data || {}) }), {}) || {};
+    const { data: strategyRows } = await supabase.from("strategy_outputs")
+      .select("output_data").eq("business_id", businessId).eq("user_id", userId)
+      .order("step_number", { ascending: true }).limit(10);
+    const strategyData = strategyRows?.reduce((acc: any, row: any) => ({
+      ...acc, ...(row.output_data || {}),
+    }), {}) || {};
+
+    // Resolve ElevenLabs key — user stored key takes priority
+    const { data: userKeys } = await supabase.from("user_api_keys")
+      .select("provider, api_key_encrypted").eq("user_id", userId).eq("is_valid", true);
+    const keyMap: Record<string, string> = {};
+    userKeys?.forEach((k: any) => { keyMap[k.provider] = k.api_key_encrypted; });
+    const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
 
     const preset = buildPreset(lengthMode, orientation);
-    logPipeline(`═══ Starting job ${jobId} ═══`);
-    logPipeline(`Preset: ${preset.label}, orientation=${preset.orientation}, ratio=${preset.ratio}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
-    logPipeline(`ElevenLabs: ${elevenlabsKey ? "YES" : "NO"}, Admin: ${isAdmin ? "YES" : "NO"}`);
+    log(`═══ Job ${jobId} START ═══`);
+    log(`Preset: ${preset.label}, scenes=${preset.sceneCount}, clipDur=${preset.clipDuration}s`);
+    log(`Keys: ElevenLabs=${!!elevenlabsKey}, GoogleTTS=${!!googleTtsKey}, Creatomate=${!!creatomateKey}`);
 
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 1: SCRIPT — use approved script if provided, else generate
-    // ════════════════════════════════════════════════════════════════════
-    await updateJob({ status: "generating_script", result_payload: { pipeline_step: "script", message: "✍️ Loading your approved script..." } });
+    // ────────────────────────────────────────────────────────────────────
+    // PHASE 1: SCRIPT
+    // ────────────────────────────────────────────────────────────────────
+    await updateJob({ status: "generating_script", result_payload: { message: "✍️ Loading script..." } });
 
-    let script: any;
-    let usedFallbackScript = false;
+    let rawScript: any;
+    let usedFallback = false;
 
-    // Check if an approved script was passed from the UI
-    const { data: jobRow } = await supabase.from("video_generation_jobs").select("request_payload").eq("id", jobId).single();
+    const { data: jobRow } = await supabase.from("video_generation_jobs")
+      .select("request_payload").eq("id", jobId).single();
     const passedScript = (jobRow?.request_payload as any)?.approvedScript;
 
     if (passedScript?.scenes?.length > 0) {
-      console.log(`[pipeline] Using pre-approved script: "${passedScript.title}"`);
-      script = passedScript;
-      usedFallbackScript = !!passedScript.usedFallbackScript;
+      log(`Using pre-approved script: "${passedScript.title}"`);
+      rawScript = passedScript;
+      usedFallback = !!passedScript.usedFallbackScript;
     } else {
+      log("No approved script — generating from AI");
       try {
         const prompt = buildAIPrompt(business, location, preset, strategyData);
         const res = await fetch(ANTHROPIC_API_URL, {
@@ -1306,453 +1329,429 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
             messages: [{ role: "user", content: prompt }],
           }),
         });
-        if (!res.ok) {
-          throw new Error(`AI error: ${res.status}`);
-        }
+        if (!res.ok) throw new Error(`Anthropic error ${res.status}`);
         const data = await res.json();
-        const rawText = data.content[0].text;
-        const cleaned = rawText.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
-        script = JSON.parse(cleaned);
-        script.usedFallbackScript = false;
-        console.log(`[pipeline] AI script generated: "${script.title}"`);
+        const cleaned = data.content[0].text.replace(/```json\s*/gi, "").replace(/```/g, "").trim();
+        rawScript = JSON.parse(cleaned);
+        rawScript.usedFallbackScript = false;
+        log(`AI script: "${rawScript.title}"`);
       } catch (e: any) {
-        console.log(`[pipeline] AI unavailable (${e.message}), building script from saved data + profile`);
-        usedFallbackScript = true;
-
-        const { data: lastScript } = await supabase.from("strategy_outputs").select("output_data")
-          .eq("business_id", businessId).eq("step_number", 8).order("updated_at", { ascending: false }).limit(1).maybeSingle();
-
-        if (lastScript?.output_data?.voiceover_script) {
-          console.log(`[pipeline] Using last saved script from strategy_outputs`);
-          script = lastScript.output_data;
-        } else {
-          script = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
-        }
-        script.usedFallbackScript = true;
+        log(`AI script failed (${e.message}) — using profile-based script`);
+        rawScript = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+        rawScript.usedFallbackScript = true;
+        usedFallback = true;
       }
     }
 
-    // Normalize scenes
-    if (!script.scene_captions?.length) {
-      script.scene_captions = (script.scenes || []).map((s: any) => s.voiceover_line || s.text_overlay || "");
+    // Normalize to exactly preset.sceneCount scenes
+    if (!rawScript.scenes?.length) {
+      rawScript = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
+      usedFallback = true;
     }
-    while ((script.scenes?.length || 0) < preset.sceneCount) {
+    while (rawScript.scenes.length < preset.sceneCount) {
       const extra = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
-      script.scenes = [...(script.scenes || []), ...extra.scenes.slice(0, preset.sceneCount - (script.scenes?.length || 0))];
+      rawScript.scenes.push(...extra.scenes.slice(0, preset.sceneCount - rawScript.scenes.length));
     }
-    script.scenes = script.scenes.slice(0, preset.sceneCount);
-    script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
-    script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
+    rawScript.scenes = rawScript.scenes.slice(0, preset.sceneCount);
 
-    // ═══ AI PROMPT FIXER — SELF-CORRECTION LOOP ═══
-    for (let fixAttempt = 1; fixAttempt <= MAX_SELF_CORRECT_ATTEMPTS; fixAttempt++) {
-      const issues = diagnoseScript(script, preset, business, location);
-      const criticalIssues = issues.filter(i => i.severity === "critical");
-
-      if (issues.length === 0) {
-        console.log(`[PromptFixer] ✅ Script passed all quality checks (attempt ${fixAttempt})`);
-        break;
-      }
-
-      logPromptFixer(fixAttempt, issues, criticalIssues.length > 0 ? "APPLYING FIXES" : "APPLYING POLISH");
-
-      await updateJob({
-        result_payload: {
-          ...script, pipeline_step: "prompt_fixer",
-          message: `🔧 AI Prompt Fixer: correcting ${issues.length} issue(s) (attempt ${fixAttempt}/${MAX_SELF_CORRECT_ATTEMPTS})...`,
-        },
-      });
-
-      script = applyScriptFixes(script, issues, preset, business, location, strategyData);
-
-      // Re-diagnose after fix
-      const remaining = diagnoseScript(script, preset, business, location);
-      const remainingCritical = remaining.filter(i => i.severity === "critical");
-      if (remainingCritical.length === 0) {
-        console.log(`[PromptFixer] ✅ All critical issues resolved after attempt ${fixAttempt}. ${remaining.length} minor warnings remain.`);
-        break;
-      }
-
-      if (fixAttempt === MAX_SELF_CORRECT_ATTEMPTS && remainingCritical.length > 0) {
-        console.warn(`[PromptFixer] ⚠️ ${remainingCritical.length} critical issues remain after ${MAX_SELF_CORRECT_ATTEMPTS} attempts. Proceeding with best-effort script.`);
-        // Final forced fix — ensure minimum scene count by brute force
-        while ((script.scenes?.length || 0) < preset.sceneCount) {
-          const emergency = buildScriptFromProfile(business, location, strategyData, preset.sceneCount, preset.clipDuration);
-          script.scenes = [...(script.scenes || []), ...emergency.scenes.slice(0, preset.sceneCount - (script.scenes?.length || 0))];
-        }
-        script.scenes = script.scenes.slice(0, preset.sceneCount);
-        script.voiceover_script = script.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
-        script.scene_captions = script.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
-      }
+    // Self-correction loop
+    for (let attempt = 1; attempt <= MAX_SELF_CORRECT_ATTEMPTS; attempt++) {
+      const issues = diagnoseScript(rawScript, preset, business, location);
+      const critical = issues.filter((i: any) => i.severity === "critical");
+      if (critical.length === 0) { log(`PromptFixer: passed attempt ${attempt}`); break; }
+      logPromptFixer(attempt, issues, "FIXING");
+      rawScript = applyScriptFixes(rawScript, issues, preset, business, location, strategyData);
+      rawScript.scenes = rawScript.scenes.slice(0, preset.sceneCount);
     }
 
-    // ═══ BUILD VISUAL SCRIPT (cinematic shot list) ═══
-    const visualScript = buildVisualScript(script, business, preset, jobId);
-    script.visual_script = visualScript;
+    // Rebuild derived fields from finalized scenes
+    rawScript.voiceover_script = rawScript.scenes.map((s: any) => s.voiceover_line).filter(Boolean).join(" ");
+    rawScript.scene_captions = rawScript.scenes.map((s: any) => s.voiceover_line || s.text_overlay || "");
 
-    console.log(`[pipeline] Script ready: ${script.scenes.length} scenes, ~${script.voiceover_script.split(" ").length} words, fallback=${usedFallbackScript}`);
-    console.log(`[pipeline] Visual script: ${visualScript.shots.length} shots, style=${visualScript.style}`);
+    // Build the canonical FinalVideoPlan.script
+    const planScript: FinalVideoPlan["script"] = {
+      title: rawScript.title || "Business Promo Video",
+      hookText: rawScript.scenes[0]?.text_overlay
+        || rawScript.scenes[0]?.voiceover_line?.split(" ").slice(0, 6).join(" ")
+        || business.business_name || "Welcome",
+      scenes: rawScript.scenes.map((s: any, i: number): ScriptScene => ({
+        index: i + 1,
+        overlayText: s.text_overlay || s.voiceover_line?.split(" ").slice(0, 6).join(" ") || "",
+        voiceoverText: s.voiceover_line || "",
+        captionText: s.voiceover_line || "",
+        shotType: s.shotType || "environment",
+        durationSeconds: s.duration_seconds || preset.clipDuration,
+      })),
+      ctaText: rawScript.cta
+        || rawScript.scenes[rawScript.scenes.length - 1]?.text_overlay
+        || "Contact Us Today",
+      ctaSubtext: business.services?.split(",")[0]?.trim() || "Call or visit us today",
+      voiceoverScript: rawScript.voiceover_script,
+      usedFallback,
+    };
 
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 2: IMAGES (business media library → old storage → AI → placeholder)
-    // ════════════════════════════════════════════════════════════════════
+    log(`Script ready: ${planScript.scenes.length} scenes, "${planScript.title}", fallback=${usedFallback}`);
+
+    // ────────────────────────────────────────────────────────────────────
+    // PHASE 2: MEDIA ASSIGNMENT (uploads-first, no mixing of media types)
+    // ────────────────────────────────────────────────────────────────────
     await updateJob({
       status: "generating_images",
-      result_payload: { ...script, scene_images: [], video_clips: [], pipeline_step: "images", message: "🎨 Finding best photos..." },
+      result_payload: { message: "🎨 Assigning scene photos...", pipeline_logs: pipelineLogs },
     });
 
     try { await supabase.storage.createBucket("media", { public: true }); } catch (_) {}
 
-    // Fetch business media library (user-uploaded assets)
     const businessMedia = await fetchBusinessMedia(supabase, businessId);
-    const businessVideos = businessMedia.filter(m => m.file_type === "video" || m.file_type?.startsWith("video/"));
-    const businessImages = businessMedia.filter(m => m.file_type === "image" || m.file_type?.startsWith("image/"));
-    console.log(`[pipeline] Business media library: ${businessImages.length} images, ${businessVideos.length} videos (business_id=${businessId}, total_rows=${businessMedia.length})`);
+    const businessImages = businessMedia.filter((m: BusinessMediaRow) =>
+      m.file_type === "image" || m.file_type?.startsWith("image/")
+    );
+    const businessVideos = businessMedia.filter((m: BusinessMediaRow) =>
+      m.file_type === "video" || m.file_type?.startsWith("video/")
+    );
+    log(`Business media: ${businessImages.length} images, ${businessVideos.length} videos`);
 
     const existingRealImages = await findAllExistingImages(supabase, userId);
-    console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in old storage`);
+    log(`Legacy storage: ${existingRealImages.length} images`);
 
-    const sceneImageUrls: string[] = [];
-    const sceneImageIsReal: boolean[] = [];
-    const sceneMotionPrompts: string[] = [];
-    const sceneVideoClipUrls: string[] = []; // pre-existing video clips from library
-    let imageCreditsExhausted = false;
     const usedMediaIds = new Set<string>();
+    const mediaScenes: MediaScene[] = [];
 
-    for (let i = 0; i < script.scenes.length; i++) {
-      const scene = script.scenes[i];
-      const shotType = scene?.shotType || "environment";
+    for (let i = 0; i < planScript.scenes.length; i++) {
+      const scene = planScript.scenes[i];
 
-      // Check for matching video clip in library first
-      const videoMatch = pickMediaForScene(businessVideos, shotType, usedMediaIds);
-      if (videoMatch) {
-        sceneVideoClipUrls.push(videoMatch.public_url);
-        sceneImageUrls.push(videoMatch.public_url); // placeholder for tracking
-        sceneImageIsReal.push(true);
-        sceneMotionPrompts.push(""); // no motion needed for video
-        console.log(`[pipeline] Scene ${i + 1}: using uploaded video clip (${videoMatch.file_name})`);
-      } else {
-        try {
-          const result = await getSceneImage(supabase, userId, jobId, i, scene, business, anthropicKey, imageCreditsExhausted, existingRealImages, businessImages, usedMediaIds);
-          sceneImageUrls.push(result.url);
-          sceneImageIsReal.push(result.isReal);
-          sceneMotionPrompts.push(result.motionPrompt);
-        } catch (e: any) {
-          if (e.message === "CREDITS_EXHAUSTED") imageCreditsExhausted = true;
-          const motionPrompt = getMotionPrompt(shotType, i);
-          if (existingRealImages.length > 0) {
-            sceneImageUrls.push(existingRealImages[i % existingRealImages.length]);
-            sceneImageIsReal.push(true);
-            sceneMotionPrompts.push(motionPrompt);
-          } else {
-            const png = create128Png(i);
-            const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
-            await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
-            const { data: u } = supabase.storage.from("media").getPublicUrl(fn);
-            sceneImageUrls.push(u.publicUrl);
-            sceneImageIsReal.push(false);
-            sceneMotionPrompts.push(motionPrompt);
-          }
+      // Priority 1: uploaded video clips (not stale CDN urls)
+      const videoMatch = pickMediaForScene(businessVideos, scene.shotType, usedMediaIds);
+      if (videoMatch
+        && !videoMatch.public_url.includes("cdn.creatomate.com")
+        && !videoMatch.public_url.includes("test-video")) {
+        mediaScenes.push({ index: i + 1, url: videoMatch.public_url, mediaType: 'video', sourceType: 'upload' });
+        log(`Scene ${i + 1}: uploaded video (${videoMatch.file_name})`);
+        continue;
+      }
+
+      // Priority 2: uploaded images
+      const imageMatch = pickMediaForScene(businessImages, scene.shotType, usedMediaIds);
+      if (imageMatch) {
+        const real = await isRealImage(imageMatch.public_url);
+        if (real) {
+          mediaScenes.push({ index: i + 1, url: imageMatch.public_url, mediaType: 'image', sourceType: 'upload' });
+          log(`Scene ${i + 1}: uploaded image (${imageMatch.file_name})`);
+          continue;
         }
       }
 
-      await updateJob({
-        result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "images", message: `🎨 Photos: ${sceneImageUrls.length}/${script.scenes.length}` },
-      });
+      // Priority 3: legacy storage images
+      if (existingRealImages.length > 0) {
+        const legacyUrl = existingRealImages[i % existingRealImages.length];
+        const real = await isRealImage(legacyUrl);
+        if (real) {
+          mediaScenes.push({ index: i + 1, url: legacyUrl, mediaType: 'image', sourceType: 'legacy' });
+          log(`Scene ${i + 1}: legacy storage image`);
+          continue;
+        }
+      }
+
+      // Fallback: dark placeholder
+      const png = create128Png(i);
+      const fn = `scenes/${userId}/${jobId}/scene-${i + 1}-placeholder.png`;
+      await supabase.storage.from("media").upload(fn, png, { contentType: "image/png", upsert: true });
+      const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
+      mediaScenes.push({ index: i + 1, url: urlData.publicUrl, mediaType: 'image', sourceType: 'placeholder' });
+      log(`Scene ${i + 1}: dark placeholder (no uploaded media found)`);
     }
 
-    const realImageCount = sceneImageIsReal.filter(Boolean).length;
-    console.log(`[pipeline] Images: ${sceneImageUrls.length} total, ${realImageCount} real, ${sceneVideoClipUrls.length} pre-existing video clips`);
+    const planMedia: FinalVideoPlan["media"] = { scenes: mediaScenes };
+    const uploadCount = mediaScenes.filter(m => m.sourceType === 'upload').length;
+    const placeholderCount = mediaScenes.filter(m => m.sourceType === 'placeholder').length;
+    log(`Media assigned: ${uploadCount} uploads, ${mediaScenes.filter(m => m.sourceType === 'legacy').length} legacy, ${placeholderCount} placeholders`);
 
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 3: VOICEOVER (ElevenLabs if user opted in, otherwise captions only)
-    // ════════════════════════════════════════════════════════════════════
-    let voiceoverUrl: string | null = null;
-    let voiceoverMessage = "";
+    // ────────────────────────────────────────────────────────────────────
+    // PHASE 3: VOICEOVER (always from planScript.voiceoverScript)
+    // ────────────────────────────────────────────────────────────────────
+    let planVoiceover: FinalVideoPlan["voiceover"] = { provider: 'none', audioUrl: null, status: 'skipped' };
+    const voiceoverText = planScript.voiceoverScript;
 
-    // Check if user explicitly enabled ElevenLabs voiceover
-    const { data: voToolDefault } = await supabase
-      .from("user_tool_defaults")
-      .select("default_provider")
-      .eq("user_id", userId)
-      .eq("tool_type", "voice")
-      .maybeSingle();
-    const useElevenLabs = voToolDefault?.default_provider === "elevenlabs";
+    if (voiceoverText) {
+      const { data: voToolDefault } = await supabase.from("user_tool_defaults")
+        .select("default_provider").eq("user_id", userId).eq("tool_type", "voice").maybeSingle();
+      const useElevenLabs = voToolDefault?.default_provider === "elevenlabs";
 
-    // Check if user chose a specific voice ID
-    const { data: voiceDefault } = await supabase
-      .from("user_tool_defaults")
-      .select("default_provider")
-      .eq("user_id", userId)
-      .eq("tool_type", "elevenlabs_voice_id")
-      .maybeSingle();
-    // Default to George (friendly male) if no voice chosen
-    const DEFAULT_VOICE_ID = "JBFqnCBsd6RMkjVDRZzb";
-    const voiceId = voiceDefault?.default_provider || DEFAULT_VOICE_ID;
-
-    if (useElevenLabs && elevenlabsKey && script.voiceover_script) {
-      try {
-        await updateJob({ status: "generating_voiceover", result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "voiceover", message: "🎙️ Recording voiceover with ElevenLabs..." } });
-        console.log(`[pipeline] Calling ElevenLabs TTS, voice=${voiceId}`);
-        const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
-          method: "POST",
-          headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: script.voiceover_script,
-            model_id: "eleven_multilingual_v2",
-            voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true, speed: 1.0 },
-          }),
+      if (useElevenLabs && elevenlabsKey) {
+        await updateJob({
+          status: "generating_voiceover",
+          result_payload: { message: "🎙️ Generating voiceover with ElevenLabs...", pipeline_logs: pipelineLogs },
         });
-        if (ttsRes.ok) {
-          const audioBlob = await ttsRes.blob();
-          const audioFn = `voiceovers/${userId}/${jobId}.mp3`;
-          const { error } = await supabase.storage.from("media").upload(audioFn, audioBlob, { contentType: "audio/mpeg", upsert: true });
-          if (!error) {
-            const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFn);
-            voiceoverUrl = urlData.publicUrl;
-            console.log(`[pipeline] ✅ ElevenLabs voiceover ready`);
-          }
-        } else {
-          const errBody = await ttsRes.text();
-          console.error(`[pipeline] ElevenLabs TTS failed [${ttsRes.status}]: ${errBody}`);
-          voiceoverMessage = "We couldn't reach ElevenLabs for voiceover this time, so we used captions only. You can retry later without losing your video.";
-        }
-      } catch (e) {
-        console.error("[pipeline] ElevenLabs voiceover error:", e);
-        voiceoverMessage = "We couldn't reach ElevenLabs for voiceover this time, so we used captions only. You can retry later without losing your video.";
-      }
-    } else if (useElevenLabs && !elevenlabsKey) {
-      console.log("[pipeline] User wants ElevenLabs but no key found — captions only");
-      voiceoverMessage = "ElevenLabs is enabled but no API key was found. Please reconnect your ElevenLabs account in Settings.";
-    } else if (!useElevenLabs && googleTtsKey && script.voiceover_script) {
-      // Google Cloud Text-to-Speech Chirp 3 HD — default when ElevenLabs is not selected
-      try {
-        await updateJob({ status: "generating_voiceover", result_payload: { ...script, scene_images: sceneImageUrls, video_clips: [], pipeline_step: "voiceover", message: "🎙️ Generating voiceover with Google TTS..." } });
-        console.log("[pipeline] Calling Google TTS Chirp 3 HD");
-        const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleTtsKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            input: { text: script.voiceover_script },
-            voice: { languageCode: "en-US", name: "en-US-Chirp3-HD-Aoede" },
-            audioConfig: { audioEncoding: "MP3" },
-          }),
-        });
-        if (ttsRes.ok) {
-          const ttsData = await ttsRes.json();
-          const audioBase64: string = ttsData.audioContent;
-          if (audioBase64) {
-            // Decode base64 → Uint8Array
-            const binaryStr = atob(audioBase64);
-            const audioBytes = new Uint8Array(binaryStr.length);
-            for (let i = 0; i < binaryStr.length; i++) audioBytes[i] = binaryStr.charCodeAt(i);
+        try {
+          const { data: voiceDefault } = await supabase.from("user_tool_defaults")
+            .select("default_provider").eq("user_id", userId).eq("tool_type", "elevenlabs_voice_id").maybeSingle();
+          const voiceId = voiceDefault?.default_provider || "JBFqnCBsd6RMkjVDRZzb";
+          log(`ElevenLabs TTS, voice=${voiceId}`);
+
+          const ttsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+            method: "POST",
+            headers: { "xi-api-key": elevenlabsKey, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: voiceoverText,
+              model_id: "eleven_multilingual_v2",
+              voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true, speed: 1.0 },
+            }),
+          });
+          if (ttsRes.ok) {
+            const audioBlob = await ttsRes.blob();
             const audioFn = `voiceovers/${userId}/${jobId}.mp3`;
-            const { error } = await supabase.storage.from("media").upload(audioFn, audioBytes, { contentType: "audio/mpeg", upsert: true });
+            const { error } = await supabase.storage.from("media").upload(audioFn, audioBlob, { contentType: "audio/mpeg", upsert: true });
             if (!error) {
               const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFn);
-              voiceoverUrl = urlData.publicUrl;
-              console.log("[pipeline] ✅ Google TTS voiceover ready");
+              planVoiceover = { provider: 'elevenlabs', audioUrl: urlData.publicUrl, status: 'ready' };
+              log("ElevenLabs voiceover ready");
             } else {
-              console.error("[pipeline] Google TTS storage upload failed:", JSON.stringify(error));
+              planVoiceover = { provider: 'elevenlabs', audioUrl: null, status: 'failed', failureReason: 'Storage upload failed' };
             }
+          } else {
+            const errBody = await ttsRes.text();
+            log(`ElevenLabs failed [${ttsRes.status}]: ${errBody}`);
+            planVoiceover = { provider: 'elevenlabs', audioUrl: null, status: 'failed', failureReason: `HTTP ${ttsRes.status}` };
           }
-        } else {
-          const errBody = await ttsRes.text();
-          console.error(`[pipeline] Google TTS failed [${ttsRes.status}]: ${errBody}`);
+        } catch (e: any) {
+          log(`ElevenLabs error: ${e.message}`);
+          planVoiceover = { provider: 'elevenlabs', audioUrl: null, status: 'failed', failureReason: e.message };
         }
-      } catch (e) {
-        console.error("[pipeline] Google TTS voiceover error:", e);
+      } else if (!useElevenLabs && googleTtsKey) {
+        await updateJob({
+          status: "generating_voiceover",
+          result_payload: { message: "🎙️ Generating voiceover with Google TTS...", pipeline_logs: pipelineLogs },
+        });
+        try {
+          log("Google TTS Chirp 3 HD");
+          const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${googleTtsKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              input: { text: voiceoverText },
+              voice: { languageCode: "en-US", name: "en-US-Chirp3-HD-Aoede" },
+              audioConfig: { audioEncoding: "MP3" },
+            }),
+          });
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json();
+            const audioBase64: string = ttsData.audioContent;
+            if (audioBase64) {
+              const binaryStr = atob(audioBase64);
+              const audioBytes = new Uint8Array(binaryStr.length);
+              for (let k = 0; k < binaryStr.length; k++) audioBytes[k] = binaryStr.charCodeAt(k);
+              const audioFn = `voiceovers/${userId}/${jobId}.mp3`;
+              const { error } = await supabase.storage.from("media").upload(audioFn, audioBytes, { contentType: "audio/mpeg", upsert: true });
+              if (!error) {
+                const { data: urlData } = supabase.storage.from("media").getPublicUrl(audioFn);
+                planVoiceover = { provider: 'google-chirp3-hd', audioUrl: urlData.publicUrl, status: 'ready' };
+                log("Google TTS voiceover ready");
+              } else {
+                planVoiceover = { provider: 'google-chirp3-hd', audioUrl: null, status: 'failed', failureReason: 'Storage upload failed' };
+              }
+            }
+          } else {
+            const errBody = await ttsRes.text();
+            log(`Google TTS failed [${ttsRes.status}]: ${errBody}`);
+            planVoiceover = { provider: 'google-chirp3-hd', audioUrl: null, status: 'failed', failureReason: `HTTP ${ttsRes.status}` };
+          }
+        } catch (e: any) {
+          log(`Google TTS error: ${e.message}`);
+          planVoiceover = { provider: 'google-chirp3-hd', audioUrl: null, status: 'failed', failureReason: e.message };
+        }
+      } else {
+        log("Voiceover: no provider configured — captions only");
       }
-    } else {
-      console.log("[pipeline] Voiceover not enabled — captions only");
     }
 
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 4: CREATOMATE VIDEO RENDER
-    // ════════════════════════════════════════════════════════════════════
-    const creatomateKey = Deno.env.get("CREATOMATE_API_KEY") || "";
-    const creatomateTemplateId = Deno.env.get("CREATOMATE_TEMPLATE_ID") || "";
-    const creatomateWebhookUrl = Deno.env.get("CREATOMATE_WEBHOOK_URL") || "";
+    // ────────────────────────────────────────────────────────────────────
+    // ASSEMBLE COMPLETE PLAN
+    // ────────────────────────────────────────────────────────────────────
+    const plan: FinalVideoPlan = {
+      jobId,
+      business: {
+        id: business.id,
+        name: business.business_name || "Your Business",
+        niche: business.business_category || "local business",
+        city: location?.city || "",
+        tone: business.brand_tone || "friendly",
+        cta: business.cta || "",
+      },
+      script: planScript,
+      media: planMedia,
+      voiceover: planVoiceover,
+    };
+
+    // ────────────────────────────────────────────────────────────────────
+    // OBSERVABILITY: Log full plan before dispatch
+    // ────────────────────────────────────────────────────────────────────
+    console.log("[plan] FinalVideoPlan:", JSON.stringify({
+      jobId: plan.jobId,
+      business: { name: plan.business.name, niche: plan.business.niche, city: plan.business.city },
+      script: {
+        title: plan.script.title,
+        hookText: plan.script.hookText,
+        ctaText: plan.script.ctaText,
+        scenes: plan.script.scenes.map(s => ({
+          idx: s.index,
+          overlay: s.overlayText,
+          vo: s.voiceoverText.substring(0, 60),
+        })),
+        voiceoverWords: plan.script.voiceoverScript.split(" ").length,
+        usedFallback: plan.script.usedFallback,
+      },
+      media: {
+        scenes: plan.media.scenes.map(m => ({
+          idx: m.index,
+          url: m.url.substring(0, 80),
+          type: m.mediaType,
+          source: m.sourceType,
+        })),
+      },
+      voiceover: {
+        provider: plan.voiceover.provider,
+        status: plan.voiceover.status,
+        hasAudio: !!plan.voiceover.audioUrl,
+      },
+    }));
+
+    // ────────────────────────────────────────────────────────────────────
+    // PHASE 4: BUILD RENDER SCRIPT (only after complete plan)
+    // ────────────────────────────────────────────────────────────────────
+    if (!creatomateKey) {
+      log("No CREATOMATE_API_KEY — completing without render");
+      await updateJob({
+        status: "completed",
+        result_payload: {
+          title: plan.script.title,
+          voiceover_script: plan.script.voiceoverScript,
+          scenes: rawScript.scenes,
+          scene_images: plan.media.scenes.map(m => m.url),
+          voiceover_url: plan.voiceover.audioUrl,
+          video_clips: [],
+          usedFallbackScript: plan.script.usedFallback,
+          message: "Script and voiceover ready. No Creatomate key configured.",
+          pipeline_steps: { script: "completed", voiceover: plan.voiceover.status, render: "not_configured" },
+          pipeline_logs: pipelineLogs,
+        },
+        video_url: null,
+      });
+      return;
+    }
+
+    await updateJob({
+      status: "rendering_video",
+      result_payload: { message: "🎬 Building RenderScript and dispatching to Creatomate...", pipeline_logs: pipelineLogs },
+    });
+
+    const renderScript = buildRenderScript(plan);
+
+    // ────────────────────────────────────────────────────────────────────
+    // PHASE 5: DISPATCH TO CREATOMATE
+    // ────────────────────────────────────────────────────────────────────
+    const renderPayload: any = { source: renderScript, metadata: jobId };
+    if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
+
+    log(`Dispatching: scenes=${plan.media.scenes.length}, voiceover=${plan.voiceover.status}, webhook=${!!creatomateWebhookUrl}`);
 
     let creatomateRenderId: string | null = null;
 
-    if (creatomateKey) {
-      await updateJob({
-        status: "rendering_video",
-        result_payload: {
-          ...script, scene_images: sceneImageUrls, voiceover_url: voiceoverUrl, video_clips: [],
-          pipeline_step: "creatomate", message: "🎬 Sending to Creatomate for rendering...",
-        },
+    try {
+      const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${creatomateKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify(renderPayload),
       });
+      log(`Creatomate response: ${renderRes.status}`);
 
-      try {
-        const cleanSceneImageUrls = sceneImageUrls.filter(url =>
-          url &&
-          !url.includes("cdn.creatomate.com") &&
-          !url.includes("test-video") &&
-          (url.includes("supabase.co") || url.startsWith("https://"))
-        );
-        console.log(`[creatomate] cleanSceneImageUrls: ${cleanSceneImageUrls.length}/${sceneImageUrls.length} valid`);
-        const renderSource = buildRenderSource(script, business, cleanSceneImageUrls, voiceoverUrl);
-        console.log(`[creatomate] renderSource keys for job ${jobId}:`, Object.keys(renderSource).join(", "));
-        console.log(`[creatomate] scene count: ${(renderSource.elements || []).filter((e: any) => e.type === "composition").length}`);
-
-        // Creatomate requires the RenderScript nested under a "source" key
-        const renderPayload: any = {
-          source: renderSource,
-          metadata: jobId,
-        };
-        if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
-
-        // Step 6: log Scene 1 values immediately before dispatch
-        const scene1Comp = (renderSource.elements || []).find((e: any) => e.type === "composition" && e.time === 5);
-        const scene1Img = (scene1Comp?.elements || []).find((e: any) => e.type === "image");
-        const scene1Txt = (scene1Comp?.elements || []).find((e: any) => e.type === "text");
-        console.log(`[creatomate] Scene 1 image: ${scene1Img?.source || "MISSING"}`);
-        console.log(`[creatomate] Scene 1 text: ${scene1Txt?.text || "MISSING"}`);
-        console.log(`[creatomate] Dispatching render — job_id=${jobId}, source_mode=inline, webhook=${creatomateWebhookUrl || "none"}, metadata=${jobId}`);
-
-        const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${creatomateKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(renderPayload),
-        });
-
-        console.log(`[creatomate] Response status: ${renderRes.status}`);
-
-        if (renderRes.ok) {
-          const renderData = await renderRes.json();
-          console.log(`[creatomate] Response body: ${JSON.stringify(renderData)}`);
-          const renders = Array.isArray(renderData) ? renderData : [renderData];
-          creatomateRenderId = renders[0]?.id || null;
-          console.log(`[creatomate] Render ID: ${creatomateRenderId}`);
-          if (creatomateRenderId) {
-            const { error: ridErr } = await supabase.from("video_generation_jobs").update({ creatomate_render_id: creatomateRenderId }).eq("id", jobId);
-            if (ridErr) console.error(`[creatomate] Failed to store render_id: ${JSON.stringify(ridErr)}`);
-            logPipeline(`Creatomate render started: ${creatomateRenderId}`);
-          }
-        } else {
-          const errText = await renderRes.text();
-          console.log(`[creatomate] Error body: ${errText}`);
-          logPipeline(`Creatomate render error [${renderRes.status}]: ${errText}`);
+      if (renderRes.ok) {
+        const renderData = await renderRes.json();
+        const renders = Array.isArray(renderData) ? renderData : [renderData];
+        creatomateRenderId = renders[0]?.id || null;
+        log(`Creatomate render ID: ${creatomateRenderId}`);
+        if (creatomateRenderId) {
+          await supabase.from("video_generation_jobs")
+            .update({ creatomate_render_id: creatomateRenderId }).eq("id", jobId);
         }
-      } catch (e: any) {
-        console.error(`[creatomate] Dispatch exception: ${e.message}`);
-        logPipeline(`Creatomate dispatch error: ${e.message}`);
+      } else {
+        const errText = await renderRes.text();
+        log(`Creatomate error [${renderRes.status}]: ${errText}`);
       }
-    } else {
-      logPipeline("No CREATOMATE_API_KEY — completing as slideshow");
-      const { data: mediaItems } = await supabase.from("business_media").select("public_url").eq("business_id", businessId).eq("file_type", "image").limit(12);
-      const sceneImages = mediaItems?.map((m: any) => m.public_url) || [];
-      await updateJob({ status: "completed", pipeline_stage: "complete", result_payload: { ...script, voiceover_url: voiceoverUrl, scene_images: sceneImages, video_clips: [], message: "Script and voiceover ready. Video assembled in browser.", pipeline_steps: { script: "completed", voiceover: voiceoverUrl ? "completed" : "captions_only", render: "client_side" } } });
+    } catch (e: any) {
+      log(`Creatomate dispatch exception: ${e.message}`);
     }
 
-    // ════════════════════════════════════════════════════════════════════
-    // STEP 5: FINAL RESULT
-    // ════════════════════════════════════════════════════════════════════
-    const videoClips: string[] = [...sceneVideoClipUrls];
-    const hasClips = videoClips.length > 0;
-    const hasImages = sceneImageUrls.length > 0;
-    const totalDuration = hasClips
-      ? videoClips.length * preset.clipDuration
-      : hasImages ? preset.targetSeconds : 0;
-
-    let statusMessage: string;
-    let finalStatus: string;
-    let isFallback = false;
-
-    if (creatomateRenderId) {
-      statusMessage = `🎬 Creatomate render started! Your video will be delivered via webhook when processing completes.`;
-      finalStatus = "processing";
-    } else if (hasClips) {
-      statusMessage = `🎬 ${videoClips.length} video clips ready (${totalDuration}s)!`;
-      finalStatus = "completed";
-    } else if (hasImages && realImageCount > 0) {
-      statusMessage = `🎬 ${sceneImageUrls.length} photos ready — assembling slideshow video (~${totalDuration}s) with captions${voiceoverUrl ? " and voiceover" : ""}.`;
-      finalStatus = "completed";
-    } else if (hasImages) {
-      statusMessage = `⚠️ Fallback mode: creating branded slideshow from available assets. Upload real photos for better results.`;
-      finalStatus = "completed";
-      isFallback = true;
-    } else {
-      statusMessage = `❌ No images available. Please upload photos for your business and try again.`;
-      finalStatus = "failed";
-    }
-
-    if (usedFallbackScript) {
-      statusMessage += " ℹ️ This video used your saved strategy data because AI credits were low.";
-    }
-    if (voiceoverMessage) {
-      statusMessage += ` 🎙️ ${voiceoverMessage}`;
-    }
+    // ────────────────────────────────────────────────────────────────────
+    // PHASE 6: FINAL JOB STATUS
+    // ────────────────────────────────────────────────────────────────────
+    const sceneImageUrls = plan.media.scenes.map(m => m.url);
+    const realCount = plan.media.scenes.filter(m => m.sourceType !== 'placeholder').length;
+    const totalDuration = 5 + plan.script.scenes.length * 8 + 7;
 
     const resultPayload = {
-      ...script,
+      title: plan.script.title,
+      voiceover_script: plan.script.voiceoverScript,
+      scenes: rawScript.scenes,
+      scene_captions: plan.script.scenes.map(s => s.voiceoverText),
+      caption: rawScript.caption,
+      hashtags: rawScript.hashtags,
+      cta: plan.script.ctaText,
+      target_platform: rawScript.target_platform,
+      usedFallbackScript: plan.script.usedFallback,
       scene_images: sceneImageUrls,
-      voiceover_url: voiceoverUrl,
-      video_clips: videoClips,
-      video_url: videoClips[0] || null,
+      voiceover_url: plan.voiceover.audioUrl,
+      video_clips: [],
       total_duration_seconds: totalDuration,
-      is_fallback: isFallback,
-      usedFallbackScript,
-      used_ai_script: !usedFallbackScript,
-      real_image_count: realImageCount,
+      real_image_count: realCount,
+      is_fallback: placeholderCount === planScript.scenes.length,
       length_mode: lengthMode,
       orientation,
       creatomate_render_id: creatomateRenderId,
-      video_config: {
-        ratio: preset.ratio,
-        clipDuration: preset.clipDuration,
-        orientation: preset.orientation,
-      },
       pipeline_steps: {
         script: "completed",
-        images: realImageCount > 0 ? "completed" : hasImages ? "placeholders_only" : "failed",
-        voiceover: voiceoverUrl ? "completed" : useElevenLabs ? "elevenlabs_failed" : "captions_only",
-        creatomate: creatomateRenderId ? "rendering" : creatomateKey ? "dispatch_failed" : "not_configured",
+        images: realCount > 0 ? "completed" : "placeholders_only",
+        voiceover: plan.voiceover.status,
+        creatomate: creatomateRenderId ? "rendering" : "dispatch_failed",
       },
-      message: statusMessage,
+      message: creatomateRenderId
+        ? "🎬 Pipeline complete — waiting for Creatomate render!"
+        : "⚠️ Creatomate dispatch failed — check logs.",
+      pipeline_logs: pipelineLogs,
     };
 
     await updateJob({
-      status: finalStatus,
+      status: creatomateRenderId ? "processing" : "failed",
       result_payload: resultPayload,
-      // When Creatomate is rendering (status=processing), leave video_url null so the
-      // webhook is the sole source of truth. Only write the fallback clip URL when
-      // Creatomate was not dispatched (status=completed with pre-existing clips).
-      video_url: creatomateRenderId ? null : (videoClips[0] || null),
-      ...(finalStatus === "failed" ? { error_message: statusMessage } : {}),
+      video_url: null,
+      ...(creatomateRenderId ? {} : { error_message: "Creatomate dispatch failed" }),
     });
 
-    // Save as content post
-    if (script.title && finalStatus !== "failed") {
+    // Save content post on success
+    if (plan.script.title && creatomateRenderId) {
       await supabase.from("content_posts").insert({
         user_id: userId,
         business_id: businessId,
-        location_id: locations?.[0]?.id ?? null,
-        title: script.title,
-        caption: script.caption || script.description,
-        hashtags: script.hashtags || [],
-        media_url: videoClips[0] || sceneImageUrls[0] || null,
-        media_type: hasClips ? "video" : "image",
-        platform: script.target_platform || "instagram",
-        video_script: script.voiceover_script,
-        voiceover_script: script.voiceover_script,
-        shot_list: script.scenes,
-        cta: script.cta,
+        location_id: location?.id ?? null,
+        title: plan.script.title,
+        caption: rawScript.caption || rawScript.description,
+        hashtags: rawScript.hashtags || [],
+        media_url: sceneImageUrls[0] || null,
+        media_type: "video",
+        platform: rawScript.target_platform || "instagram",
+        video_script: plan.script.voiceoverScript,
+        voiceover_script: plan.script.voiceoverScript,
+        shot_list: rawScript.scenes,
+        cta: plan.script.ctaText,
         status: "media_ready",
-        production_tool: creatomateRenderId ? "creatomate" : "rickyai_slideshow",
+        production_tool: "creatomate",
         thumbnail_url: sceneImageUrls[0] || null,
-      }).then(({ error }) => { if (error) console.error("[pipeline] content_posts error:", error); });
+      }).then(({ error }: any) => { if (error) console.error("[pipeline] content_posts error:", error); });
     }
 
-    console.log(`[pipeline] ═══ Job ${jobId} ${finalStatus} ═══`);
-    console.log(`[pipeline]   Clips: ${videoClips.length}, Images: ${sceneImageUrls.length} (${realImageCount} real), Duration: ${totalDuration}s, FallbackScript: ${usedFallbackScript}`);
-  } catch (error) {
-    console.error(`[pipeline] ═══ Job ${jobId} FATAL ERROR ═══`, error);
+    log(`═══ Job ${jobId} ${creatomateRenderId ? "PROCESSING" : "FAILED"} ═══`);
+    log(`  Scenes: ${plan.media.scenes.length} (${realCount} real, ${placeholderCount} placeholder), Duration: ${totalDuration}s`);
+  } catch (error: any) {
+    console.error(`[pipeline] ═══ Job ${jobId} FATAL ═══`, error);
     await updateJob({ status: "failed", error_message: error.message });
   }
 }
