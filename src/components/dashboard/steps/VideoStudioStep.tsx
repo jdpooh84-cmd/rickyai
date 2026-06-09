@@ -80,17 +80,22 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     if (!businessId || finalVideoUrl || generatingVideo || activeJobId) return;
     supabase
       .from("video_generation_jobs")
-      .select("video_url, result_payload, status")
+      .select("id, video_url, result_payload, status")
       .eq("business_id", businessId)
-      .not("video_url", "is", null)
       .in("status", ["completed", "processing"])
       .order("created_at", { ascending: false })
       .limit(1)
       .single()
       .then(({ data }) => {
-        if (data?.video_url) {
+        if (!data) return;
+        if (data.result_payload) setGeneratedVideoScript(data.result_payload as any);
+        if (data.video_url) {
           setFinalVideoUrl(data.video_url);
-          if (data.result_payload) setGeneratedVideoScript(data.result_payload as any);
+        } else if (data.status === "processing") {
+          // Creatomate is still rendering — resume the polling loop so the user
+          // sees a spinner instead of the demo video while waiting for the webhook.
+          setActiveJobId(data.id);
+          setGeneratingVideo(true);
         }
       });
   }, [businessId]);

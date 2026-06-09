@@ -1701,7 +1701,10 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
     await updateJob({
       status: finalStatus,
       result_payload: resultPayload,
-      video_url: videoClips[0] || null,
+      // When Creatomate is rendering (status=processing), leave video_url null so the
+      // webhook is the sole source of truth. Only write the fallback clip URL when
+      // Creatomate was not dispatched (status=completed with pre-existing clips).
+      video_url: creatomateRenderId ? null : (videoClips[0] || null),
       ...(finalStatus === "failed" ? { error_message: statusMessage } : {}),
     });
 
