@@ -1169,9 +1169,11 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
     duration: totalDuration,
     snapshot_time: 15,
     elements: [
-      ...(voiceover.audioUrl ? [{
-        name: "Voiceover-Audio", type: "audio", track: 2, time: 0,
-        source: voiceover.audioUrl, audio_fade_in: 0.3, audio_fade_out: 0.3,
+      ...(script.voiceoverScript ? [{
+        name: "Voiceover-Audio", type: "audio", track: 1, time: 0,
+        source: script.voiceoverScript,
+        provider: "elevenlabs model_id=eleven_multilingual_v2 voice_id=21m00Tcm4TlvDq8ikWAM",
+        audio_fade_out: 1,
       }] : []),
 
       // Avatar PIP — bottom-right corner, portrait 9:16 clip, spans full video
@@ -1794,7 +1796,7 @@ async function processVideoJob(
     let creatomateRenderId: string | null = null;
 
     try {
-      const renderRes = await fetch("https://api.creatomate.com/v1/renders", {
+      const renderRes = await fetch("https://api.creatomate.com/v2/renders", {
         method: "POST",
         headers: { "Authorization": `Bearer ${creatomateKey}`, "Content-Type": "application/json" },
         body: JSON.stringify(renderPayload),
