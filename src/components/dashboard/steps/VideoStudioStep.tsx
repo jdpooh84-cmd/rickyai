@@ -75,6 +75,26 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     writeLocalStorage(STATE_KEY, { lengthMode, generatedVideoScript, approvedScript, scriptApproved });
   }, [lengthMode, generatedVideoScript, approvedScript, scriptApproved]);
 
+  // ── Restore most recent completed video on mount ──
+  useEffect(() => {
+    if (!businessId || finalVideoUrl || generatingVideo || activeJobId) return;
+    supabase
+      .from("video_generation_jobs")
+      .select("video_url, result_payload, status")
+      .eq("business_id", businessId)
+      .not("video_url", "is", null)
+      .in("status", ["completed", "processing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data?.video_url) {
+          setFinalVideoUrl(data.video_url);
+          if (data.result_payload) setGeneratedVideoScript(data.result_payload as any);
+        }
+      });
+  }, [businessId]);
+
   // ── Poll active video generation job ──
   useEffect(() => {
     if (!activeJobId) return;
