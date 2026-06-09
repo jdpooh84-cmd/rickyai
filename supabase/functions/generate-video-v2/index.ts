@@ -1574,7 +1574,14 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       });
 
       try {
-        const renderSource = buildRenderSource(script, business, sceneImageUrls, voiceoverUrl);
+        const cleanSceneImageUrls = sceneImageUrls.filter(url =>
+          url &&
+          !url.includes("cdn.creatomate.com") &&
+          !url.includes("test-video") &&
+          (url.includes("supabase.co") || url.startsWith("https://"))
+        );
+        console.log(`[creatomate] cleanSceneImageUrls: ${cleanSceneImageUrls.length}/${sceneImageUrls.length} valid`);
+        const renderSource = buildRenderSource(script, business, cleanSceneImageUrls, voiceoverUrl);
         console.log(`[creatomate] renderSource keys for job ${jobId}:`, Object.keys(renderSource).join(", "));
         console.log(`[creatomate] scene count: ${(renderSource.elements || []).filter((e: any) => e.type === "composition").length}`);
 
