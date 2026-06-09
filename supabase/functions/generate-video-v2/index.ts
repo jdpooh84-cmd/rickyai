@@ -897,7 +897,7 @@ async function getSceneImage(
   const motionPrompt = getMotionPrompt(shotType, sceneIndex);
 
   // Priority 0: Business media library (user-uploaded assets)
-  const libraryMatch = pickMediaForScene(businessMedia.filter(m => m.file_type === "image"), shotType, usedMediaIds);
+  const libraryMatch = pickMediaForScene(businessMedia.filter(m => m.file_type === "image" || m.file_type?.startsWith("image/")), shotType, usedMediaIds);
   if (libraryMatch) {
     const real = await isRealImage(libraryMatch.public_url);
     if (real) {
@@ -1036,7 +1036,9 @@ function buildRenderSource(
   // Build each of the 6 scene compositions
   const buildScene = (n: number, startTime: number, duration = 8) => {
     const imgUrl = sceneImageUrls[n - 1] || null;
-    const sceneText = script.scenes?.[n - 1]?.text_overlay || "";
+    const sceneText = script.scenes?.[n - 1]?.text_overlay
+      || (script.scenes?.[n - 1]?.voiceover_line || "").split(" ").slice(0, 6).join(" ")
+      || "";
     const captionText = script.scenes?.[n - 1]?.voiceover_line || "";
 
     const elements: any[] = [];
@@ -1104,7 +1106,7 @@ function buildRenderSource(
       // Background music placeholder (source left empty — no default music)
       // Voiceover injected only when a URL exists
       ...(voiceoverUrl ? [{
-        name: "Voiceover-Audio", type: "audio", track: 2, time: 0, duration: 60,
+        name: "Voiceover-Audio", type: "audio", track: 2, time: 0,
         source: voiceoverUrl, audio_fade_in: 0.3, audio_fade_out: 0.3,
       }] : []),
 
@@ -1113,7 +1115,13 @@ function buildRenderSource(
         type: "composition", track: 3, time: 0, duration: 5,
         animations: [{ time: "end", type: "fade", duration: 0.5, reversed: true }],
         elements: [
-          solidBg,
+          sceneImageUrls[0] ? {
+            type: "image", track: 1, time: 0,
+            source: sceneImageUrls[0], fit: "cover",
+            x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+            width: "100%", height: "100%",
+          } : solidBg,
+          darkOverlay,
           logoImage,
           {
             name: "Hook-Text", type: "text", track: 3, time: 0,
@@ -1149,7 +1157,13 @@ function buildRenderSource(
         type: "composition", track: 3, time: 53, duration: 7,
         animations: slowFade,
         elements: [
-          solidBg,
+          sceneImageUrls[sceneImageUrls.length - 1] ? {
+            type: "image", track: 1, time: 0,
+            source: sceneImageUrls[sceneImageUrls.length - 1], fit: "cover",
+            x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
+            width: "100%", height: "100%",
+          } : solidBg,
+          darkOverlay,
           logoImage,
           {
             name: "CTA-Text", type: "text", track: 3, time: 0,
@@ -1374,9 +1388,9 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
 
     // Fetch business media library (user-uploaded assets)
     const businessMedia = await fetchBusinessMedia(supabase, businessId);
-    const businessVideos = businessMedia.filter(m => m.file_type === "video");
-    const businessImages = businessMedia.filter(m => m.file_type === "image");
-    console.log(`[pipeline] Business media library: ${businessImages.length} images, ${businessVideos.length} videos`);
+    const businessVideos = businessMedia.filter(m => m.file_type === "video" || m.file_type?.startsWith("video/"));
+    const businessImages = businessMedia.filter(m => m.file_type === "image" || m.file_type?.startsWith("image/"));
+    console.log(`[pipeline] Business media library: ${businessImages.length} images, ${businessVideos.length} videos (business_id=${businessId}, total_rows=${businessMedia.length})`);
 
     const existingRealImages = await findAllExistingImages(supabase, userId);
     console.log(`[pipeline] Found ${existingRealImages.length} existing real photos in old storage`);
