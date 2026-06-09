@@ -966,6 +966,38 @@ async function getSceneImage(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// CREATOMATE MODIFICATIONS BUILDER
+// ═══════════════════════════════════════════════════════════════════════
+function buildCreatomateModifications(
+  script: any,
+  business: any,
+  sceneImageUrls: string[],
+  voiceoverUrl: string | null,
+): Record<string, any> {
+  const modifications: Record<string, any> = {};
+
+  if (business.business_name) modifications["Business-Name"] = business.business_name;
+
+  const hookText = script.scenes?.[0]?.text_overlay || script.scenes?.[0]?.voiceover_line;
+  if (hookText) modifications["Hook-Text"] = hookText;
+
+  const lastScene = script.scenes?.[script.scenes.length - 1];
+  const ctaText = lastScene?.text_overlay || "Contact us today";
+  modifications["CTA-Text"] = ctaText;
+
+  if (voiceoverUrl) modifications["Voiceover-Audio"] = { source: voiceoverUrl };
+
+  (script.scenes || []).forEach((scene: any, i: number) => {
+    const n = i + 1;
+    if (sceneImageUrls[i]) modifications[`Scene-${n}-Image`] = { source: sceneImageUrls[i] };
+    if (scene.text_overlay) modifications[`Scene-${n}-Text`] = scene.text_overlay;
+    if (scene.voiceover_line) modifications[`Scene-${n}-Caption`] = scene.voiceover_line;
+  });
+
+  return modifications;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN PIPELINE
 // ═══════════════════════════════════════════════════════════════════════
 async function processVideoJob(jobId: string, userId: string, businessId: string, videoType: string, lengthMode: string, orientation: Orientation = "landscape") {
@@ -1295,18 +1327,8 @@ async function processVideoJob(jobId: string, userId: string, businessId: string
       });
 
       try {
-        const modifications: Record<string, any> = {};
-
-        script.scenes.forEach((scene: any, i: number) => {
-          const n = i + 1;
-          const imgUrl = sceneImageUrls[i];
-          if (imgUrl) modifications[`Scene-${n}-Image`] = { source: imgUrl };
-          if (scene.text_overlay) modifications[`Scene-${n}-Text`] = scene.text_overlay;
-          if (scene.voiceover_line) modifications[`Scene-${n}-Caption`] = scene.voiceover_line;
-        });
-
-        if (voiceoverUrl) modifications["Voiceover"] = { source: voiceoverUrl };
-        if (business.business_name) modifications["Business-Name"] = business.business_name;
+        const modifications = buildCreatomateModifications(script, business, sceneImageUrls, voiceoverUrl);
+        console.log(`[creatomate] modifications for job ${jobId}:`, JSON.stringify(modifications));
 
         const renderPayload: any = {
           modifications,
