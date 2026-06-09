@@ -821,7 +821,7 @@ interface MediaScene {
   index: number;
   url: string;
   mediaType: 'image' | 'video';
-  sourceType: 'upload' | 'legacy' | 'pexels' | 'placeholder';
+  sourceType: 'upload' | 'pexels' | 'placeholder';
 }
 
 interface FinalVideoPlan {
@@ -883,26 +883,6 @@ const MOTION_PROMPTS: Record<string, string[]> = {
 function getMotionPrompt(shotType: string, index: number): string {
   const pool = MOTION_PROMPTS[shotType] || MOTION_PROMPTS.environment;
   return pool[index % pool.length];
-}
-
-async function findAllExistingImages(supabase: any, userId: string): Promise<string[]> {
-  const urls: string[] = [];
-  const { data: folders } = await supabase.storage.from("media").list(`scenes/${userId}`, { limit: 50, sortBy: { column: "created_at", order: "desc" } });
-  if (!folders?.length) return urls;
-  for (const folder of folders) {
-    if (!folder.name) continue;
-    const { data: images } = await supabase.storage.from("media").list(`scenes/${userId}/${folder.name}`, { limit: 20 });
-    if (!images) continue;
-    for (const img of images) {
-      if (img.name?.includes("placeholder")) continue;
-      if (/\.(png|jpg|jpeg)$/i.test(img.name || "")) {
-        const { data: urlData } = supabase.storage.from("media").getPublicUrl(`scenes/${userId}/${folder.name}/${img.name}`);
-        if (urlData?.publicUrl) urls.push(urlData.publicUrl);
-      }
-    }
-    if (urls.length >= 10) break;
-  }
-  return urls;
 }
 
 // Fetch a landscape photo from Pexels — tries each query in order, returns first hit
@@ -1445,9 +1425,6 @@ async function processVideoJob(
     );
     log(`Business media: ${businessImages.length} images, ${businessVideos.length} videos`);
 
-    const existingRealImages = await findAllExistingImages(supabase, userId);
-    log(`Legacy storage: ${existingRealImages.length} images`);
-
     const usedMediaIds = new Set<string>();
     const mediaScenes: MediaScene[] = [];
 
@@ -1475,18 +1452,7 @@ async function processVideoJob(
         }
       }
 
-      // Priority 3: legacy storage images
-      if (existingRealImages.length > 0) {
-        const legacyUrl = existingRealImages[i % existingRealImages.length];
-        const real = await isRealImage(legacyUrl);
-        if (real) {
-          mediaScenes.push({ index: i + 1, url: legacyUrl, mediaType: 'image', sourceType: 'legacy' });
-          log(`Scene ${i + 1}: legacy storage image`);
-          continue;
-        }
-      }
-
-      // Priority 4: Pexels stock photo — niche-aware query with niche-only retry
+      // Priority 3: Pexels stock photo — niche-aware query with niche-only retry
       if (pexelsKey) {
         const sceneTemplates: Record<string, string> = {
           product: "technician working",
@@ -1516,7 +1482,7 @@ async function processVideoJob(
     const uploadCount = mediaScenes.filter(m => m.sourceType === 'upload').length;
     const pexelsCount = mediaScenes.filter(m => m.sourceType === 'pexels').length;
     const placeholderCount = mediaScenes.filter(m => m.sourceType === 'placeholder').length;
-    log(`Media assigned: ${uploadCount} uploads, ${mediaScenes.filter(m => m.sourceType === 'legacy').length} legacy, ${pexelsCount} pexels, ${placeholderCount} placeholders`);
+    log(`Media assigned: ${uploadCount} uploads, ${pexelsCount} pexels, ${placeholderCount} placeholders`);
 
     // ────────────────────────────────────────────────────────────────────
     // PHASE 3: VOICEOVER (always from planScript.voiceoverScript)
@@ -2010,13 +1976,19 @@ Deno.serve(async (req) => {
 
     if (jobErr) throw new Error(`Failed to create job: ${jobErr.message}`);
 
-    await processVideoJob(job.id, user.id, businessId, videoType || "promotional", lengthMode || "standard", orientation || "landscape");
+    // Return job_id immediately — pipeline runs in background so the HTTP
+    // handler is not blocked by TTS generation, HeyGen polling, or Creatomate.
+    const pipelineTask = processVideoJob(
+      job.id, user.id, businessId,
+      videoType || "promotional", lengthMode || "standard", orientation || "landscape",
+    );
+    (globalThis as any).EdgeRuntime?.waitUntil(pipelineTask);
 
     return new Response(JSON.stringify({
       success: true,
       job_id: job.id,
       status: "started",
-      message: "🎬 Pipeline complete — waiting for Creatomate render!",
+      message: "🎬 Pipeline started — your video is being produced!",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

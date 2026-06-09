@@ -22,7 +22,6 @@ const SPEED_TIERS: { key: SpeedTier; label: string; engine: string; speed: strin
   { key: "cinematic", label: "Cinematic", engine: "Creatomate", speed: "5-10 min", quality: "Best", emoji: "🎥", desc: "Full cinematic production — best quality, worth the wait." },
 ];
 
-const STATE_KEY = "rickyai-video-studio-state";
 const MAX_REWRITES = 3;
 
 const LENGTH_OPTIONS: { key: LengthMode; label: string; duration: string; emoji: string; desc: string }[] = [
@@ -34,12 +33,16 @@ const LENGTH_OPTIONS: { key: LengthMode; label: string; duration: string; emoji:
 
 const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   const { subscription } = useAuth();
-  const persisted = readLocalStorage(STATE_KEY, {
+
+  // State key scoped to the current business — prevents script bleed between businesses
+  const stateKey = businessId ? `rickyai-video-studio-state-${businessId}` : "rickyai-video-studio-state";
+  const persisted = readLocalStorage(stateKey, {
     lengthMode: "standard" as LengthMode,
     generatedVideoScript: null as any,
     approvedScript: null as any,
     scriptApproved: false,
   });
+
   const [lengthMode, setLengthMode] = useState<LengthMode>(persisted.lengthMode);
   const [generatingVideo, setGeneratingVideo] = useState(false);
   const [generatedVideoScript, setGeneratedVideoScript] = useState<any>(persisted.generatedVideoScript);
@@ -61,6 +64,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   // Speed tier selection
   const [speedTier, setSpeedTier] = useState<SpeedTier>("instant");
 
+  // Tracks previous businessId so we can detect switches without firing on mount
+  const prevBusinessIdRef = useRef<string | null>(businessId);
+
   // Cinematic tier gating
   const videoTier = useMemo(() => {
     const plan = subscription.plan;
@@ -71,10 +77,29 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     return "free";
   }, [subscription.plan]);
 
-  // Persist state
+  // Persist state (scoped to this business)
   useEffect(() => {
-    writeLocalStorage(STATE_KEY, { lengthMode, generatedVideoScript, approvedScript, scriptApproved });
-  }, [lengthMode, generatedVideoScript, approvedScript, scriptApproved]);
+    writeLocalStorage(stateKey, { lengthMode, generatedVideoScript, approvedScript, scriptApproved });
+  }, [stateKey, lengthMode, generatedVideoScript, approvedScript, scriptApproved]);
+
+  // ── Clear all session state when the user switches businesses ──
+  useEffect(() => {
+    if (prevBusinessIdRef.current === businessId) return;
+    prevBusinessIdRef.current = businessId;
+    if (!businessId) return;
+    setActiveJobId(null);
+    setGeneratingVideo(false);
+    setFinalVideoUrl(null);
+    setIsRestoredVideo(false);
+    setJobStatus("queued");
+    setGeneratedVideoScript(null);
+    setApprovedScript(null);
+    setScriptApproved(false);
+    setPendingScript(null);
+    setRewriteCount(0);
+    setSpeedTier("instant");
+    setScriptVersions([]);
+  }, [businessId]);
 
   // ── Restore most recent completed video on mount ──
   useEffect(() => {
@@ -275,7 +300,7 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setRewriteCount(0);
     setSpeedTier("instant");
     setScriptVersions([]);
-    removeLocalStorage(STATE_KEY);
+    removeLocalStorage(stateKey);
   };
 
   const copyToClipboard = (text: string, id: string) => {
