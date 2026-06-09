@@ -1060,10 +1060,13 @@ function buildRenderScript(plan: FinalVideoPlan): Record<string, any> {
     fill_color: "#1a1a2e",
   };
 
-  // Build a background element from a MediaScene — handles image, video, or missing
+  // Build a background element from a MediaScene — handles image, video, or missing.
+  // Always checks URL extension as a final guard: a .jpg/.png URL must never become
+  // type="video" in Creatomate even if mediaType was incorrectly labelled.
   const buildBgElement = (ms: MediaScene | null | undefined, track = 1): Record<string, any> => {
     if (!ms?.url) return solidBg;
-    if (ms.mediaType === 'video') {
+    const urlIsImage = /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(ms.url);
+    if (ms.mediaType === 'video' && !urlIsImage) {
       return {
         type: "video", track, time: 0, source: ms.url, fit: "cover",
         x: "50%", y: "50%", x_anchor: "50%", y_anchor: "50%",
@@ -1420,8 +1423,12 @@ async function processVideoJob(
     const businessImages = businessMedia.filter((m: BusinessMediaRow) =>
       m.file_type === "image" || m.file_type?.startsWith("image/")
     );
+    // Exclude entries whose URL looks like an image file even if file_type says "video".
+    // Prior callback runs could have stored a Creatomate snapshot (.jpg) as file_type="video",
+    // which causes Creatomate to receive type="video" with a .jpg source and silently fail.
     const businessVideos = businessMedia.filter((m: BusinessMediaRow) =>
-      m.file_type === "video" || m.file_type?.startsWith("video/")
+      (m.file_type === "video" || m.file_type?.startsWith("video/")) &&
+      !/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(m.public_url)
     );
     log(`Business media: ${businessImages.length} images, ${businessVideos.length} videos`);
 
@@ -1754,10 +1761,18 @@ async function processVideoJob(
     // ────────────────────────────────────────────────────────────────────
     // PHASE 5: DISPATCH TO CREATOMATE
     // ────────────────────────────────────────────────────────────────────
-    const renderPayload: any = { source: renderScript, metadata: jobId };
+    // output_format is also inside renderScript.source, but set it at the
+    // request level too so Creatomate v2 cannot default to image/snapshot.
+    const renderPayload: any = {
+      source: renderScript,
+      output_format: "mp4",
+      metadata: jobId,
+    };
     if (creatomateWebhookUrl) renderPayload.webhook_url = creatomateWebhookUrl;
 
     log(`Dispatching: scenes=${plan.media.scenes.length}, voiceover=${plan.voiceover.status}, webhook=${!!creatomateWebhookUrl}`);
+    log(`[debug] renderScript.output_format=${renderScript.output_format}, duration=${renderScript.duration}, elements=${renderScript.elements?.length}`);
+    console.log("[debug] renderScript:", JSON.stringify(renderScript).substring(0, 2000));
 
     let creatomateRenderId: string | null = null;
 
@@ -1771,9 +1786,11 @@ async function processVideoJob(
 
       if (renderRes.ok) {
         const renderData = await renderRes.json();
+        console.log("[debug] Creatomate renderData:", JSON.stringify(renderData).substring(0, 1000));
         const renders = Array.isArray(renderData) ? renderData : [renderData];
         creatomateRenderId = renders[0]?.id || null;
-        log(`Creatomate render ID: ${creatomateRenderId}`);
+        const renderOutputFormat = renders[0]?.output_format || renders[0]?.format || "unknown";
+        log(`Creatomate render ID: ${creatomateRenderId}, output_format: ${renderOutputFormat}`);
         if (creatomateRenderId) {
           await supabase.from("video_generation_jobs")
             .update({ creatomate_render_id: creatomateRenderId }).eq("id", jobId);

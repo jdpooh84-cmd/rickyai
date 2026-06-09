@@ -234,22 +234,31 @@ Deno.serve(async (req) => {
         console.error("[video-callback] content_posts update error:", postErr);
       }
 
-      const { error: mediaErr } = await supabase
-        .from("business_media")
-        .insert({
-          business_id: job.business_id,
-          user_id: job.user_id,
-          file_name: `creatomate-video-${job_id.substring(0, 8)}.mp4`,
-          file_type: "video",
-          shot_type: "environment",
-          storage_path: finalVideoUrl,
-          public_url: finalVideoUrl,
-          mime_type: "video/mp4",
-          tags: ["creatomate", "ai-generated", "promotional"],
-        });
+      // Only store in business_media if this is an actual video file, not a snapshot/image.
+      // Creatomate also returns snapshot_url (.jpg) via the same webhook; if the render
+      // failed silently it may send a .jpg as body.url — storing that as file_type="video"
+      // would poison future pipeline runs by feeding .jpg sources into video track slots.
+      const isActualVideoUrl = /\.(mp4|webm|mov)(\?|$)/i.test(finalVideoUrl);
+      if (isActualVideoUrl) {
+        const { error: mediaErr } = await supabase
+          .from("business_media")
+          .insert({
+            business_id: job.business_id,
+            user_id: job.user_id,
+            file_name: `creatomate-video-${job_id.substring(0, 8)}.mp4`,
+            file_type: "video",
+            shot_type: "environment",
+            storage_path: finalVideoUrl,
+            public_url: finalVideoUrl,
+            mime_type: "video/mp4",
+            tags: ["creatomate", "ai-generated", "promotional"],
+          });
 
-      if (mediaErr) {
-        console.error("[video-callback] business_media insert error:", mediaErr);
+        if (mediaErr) {
+          console.error("[video-callback] business_media insert error:", mediaErr);
+        }
+      } else {
+        console.warn(`[video-callback] Skipping business_media insert — URL does not look like a video file: ${finalVideoUrl}`);
       }
 
       console.log(`[video-callback] Job ${job_id} completed. Video saved.`);
