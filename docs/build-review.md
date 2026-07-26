@@ -84,3 +84,26 @@
 - DB query: job `b7a89281` status=completed, real render ID, real video URL ✅
 - Code inspection: `buildBgElement` at line 1064 — correct `type:"video"` for mp4 ✅
 - Code inspection: `buildRenderScript(plan)` called at line 1647 — after full plan assembly ✅
+
+
+## BYO Creatomate API Key — 2026-07-26
+
+### What was built
+- Part A: BYO-key gate — `generate-video-v2` now reads the Creatomate key exclusively from `user_api_keys` (provider=`creatomate`), not the owner's env var. HTTP 400 with `error:"NO_CREATOMATE_KEY"` is returned immediately if no key is stored.
+- Part A: Defense in depth — `processVideoJob` (background task) also resolves the Creatomate key from `keyMap["creatomate"]` with no env fallback; throws and marks job failed if absent.
+- Part A: The existing `ExternalAppConnections` UI (Creatomate already listed) now shows accurate descriptions and the "no keys needed" copy was corrected.
+- Part A: `VideoStudioStep` proactively checks for a Creatomate key on mount and shows an inline banner with instructions + creatomate.com link when absent.
+- Part A: `handleProduceVideo` handles `NO_CREATOMATE_KEY` response with a persistent toast and sets `hasCreatomateKey=false` to show the banner.
+
+### What was not changed
+- `video-callback` — already correct; no changes needed.
+- Polling loop in `VideoStudioStep` — no changes.
+- `user_api_keys` DB table — already exists with RLS; no migration needed.
+- `CREATOMATE_API_KEY` env var is still available in the environment for other uses (admin testing) but the production pipeline no longer reads it for user requests.
+
+### Checks run
+- `npm run build` ✅ clean build, no TypeScript errors
+
+### Risks remaining
+- Part B (end-to-end proof with real key) requires deploying the edge function via Supabase CLI, which requires a Creatomate test key and the CLI binary outside this container. This is a deployment/infrastructure step, not a code correctness issue.
+- The `user_api_keys.api_key_encrypted` column stores keys in plaintext despite the name — this pre-existing weakness is out of scope for this task.

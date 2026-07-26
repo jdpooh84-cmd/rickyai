@@ -64,6 +64,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
   // Speed tier selection
   const [speedTier, setSpeedTier] = useState<SpeedTier>("instant");
 
+  // Tracks whether the user has connected their Creatomate key
+  const [hasCreatomateKey, setHasCreatomateKey] = useState<boolean | null>(null);
+
   // Tracks previous businessId so we can detect switches without firing on mount
   const prevBusinessIdRef = useRef<string | null>(businessId);
 
@@ -100,6 +103,16 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     setSpeedTier("instant");
     setScriptVersions([]);
   }, [businessId]);
+
+  // ── Check if user has connected their Creatomate key ──
+  useEffect(() => {
+    supabase.from("user_api_keys")
+      .select("id")
+      .eq("provider", "creatomate")
+      .eq("is_valid", true)
+      .maybeSingle()
+      .then(({ data }) => setHasCreatomateKey(!!data));
+  }, []);
 
   // ── Restore most recent completed video on mount ──
   useEffect(() => {
@@ -274,8 +287,15 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           videoTier,
         },
       });
+      if (response.data?.error === "NO_CREATOMATE_KEY") {
+        setHasCreatomateKey(false);
+        setGeneratingVideo(false);
+        toast.error("Connect your Creatomate API key below to generate videos.", { duration: 8000 });
+        return;
+      }
       if (response.error) throw new Error(response.error.message);
       if (response.data?.job_id) {
+        setHasCreatomateKey(true);
         setActiveJobId(response.data.job_id);
         const tierLabel = speedTier === "cinematic" ? "5-10 min" : speedTier === "standard" ? "3-7 min" : "2-5 min";
         toast.info(`🎬 Creatomate is rendering your video (${tierLabel})`);
@@ -590,6 +610,19 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
           {!scriptApproved && !generatingVideo && (
             <div className="mt-3 p-2 rounded-lg bg-accent/10 border border-accent/20">
               <p className="text-[10px] text-accent-foreground">📝 Please approve your script above before producing the video.</p>
+            </div>
+          )}
+
+          {hasCreatomateKey === false && !generatingVideo && (
+            <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+              <p className="text-xs font-semibold text-destructive mb-1">🔑 Creatomate API key required</p>
+              <p className="text-[10px] text-muted-foreground">
+                RickyAI uses your own Creatomate account to render videos — your key is never shared.{" "}
+                <a href="https://creatomate.com/" target="_blank" rel="noopener noreferrer" className="underline text-primary">
+                  Get a free Creatomate key
+                </a>{" "}
+                then paste it in the <strong>Connect Your Tools</strong> panel below.
+              </p>
             </div>
           )}
 
