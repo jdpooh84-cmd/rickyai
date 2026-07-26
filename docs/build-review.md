@@ -107,3 +107,15 @@
 ### Risks remaining
 - Part B (end-to-end proof with real key) requires deploying the edge function via Supabase CLI, which requires a Creatomate test key and the CLI binary outside this container. This is a deployment/infrastructure step, not a code correctness issue.
 - The `user_api_keys.api_key_encrypted` column stores keys in plaintext despite the name — this pre-existing weakness is out of scope for this task.
+
+## Stop Reminder — 2026-07-26T13:08:19Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
