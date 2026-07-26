@@ -11,7 +11,7 @@ interface ConnectedApp {
 
 const SUPPORTED_APPS = [
   // AI & Research (recommended)
-  { id: "creatomate", name: "Creatomate", description: "AI-powered video rendering — powers RickyAI's Video Studio production pipeline", url: "https://creatomate.com/", cost: "Included in RickyAI plan", icon: "🎬", category: "AI & Research", recommended: true },
+  { id: "creatomate", name: "Creatomate", description: "Required — powers RickyAI's Video Studio. Use your own account key so your credits are never shared.", url: "https://creatomate.com/", cost: "Free trial available", icon: "🎬", category: "AI & Research", recommended: true },
   { id: "gemini", name: "Google Gemini", description: "AI-powered search & script research for better video content", url: "https://aistudio.google.com/apikey", cost: "Free tier / pay-as-you-go", icon: "💎", category: "AI & Research", recommended: true },
   // Video Production
   { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos — for manual use outside RickyAI", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
@@ -110,8 +110,8 @@ const ExternalAppConnections = () => {
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Connect external accounts to unlock direct video production, voiceovers, and social posting. 
-        <strong className="text-foreground"> No keys needed for basic AI video production</strong> — it's free and built in.
+        Connect your own API accounts for video production, voiceovers, and social posting.{" "}
+        <strong className="text-foreground">A Creatomate key is required to generate videos</strong> — RickyAI uses your account so your credits are never shared.
       </p>
 
       {categories.map(category => (

@@ -1261,7 +1261,6 @@ async function processVideoJob(
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
   const googleTtsKey = Deno.env.get("GOOGLE_TTS_API_KEY") || "";
-  const creatomateKey = Deno.env.get("CREATOMATE_API_KEY") || "";
   const creatomateWebhookUrl = Deno.env.get("CREATOMATE_WEBHOOK_URL") || "";
 
   const pipelineLogs: string[] = [];
@@ -1306,6 +1305,13 @@ async function processVideoJob(
     const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
     const heygenKey = Deno.env.get("HEYGEN_API_KEY") || "";
     const pexelsKey = Deno.env.get("PEXELS_API_KEY") || "";
+
+    // BYO-key: Creatomate key must come from the user's own stored key — no owner env fallback.
+    const creatomateKey = keyMap["creatomate"] || "";
+    if (!creatomateKey) {
+      await updateJob({ status: "failed", result_payload: { message: "❌ No Creatomate API key — connect one in the Connections panel below the video studio." } });
+      throw new Error("NO_CREATOMATE_KEY: Connect your Creatomate API key in the Connections panel to generate videos.");
+    }
 
     const preset = buildPreset(lengthMode, orientation);
     log(`═══ Job ${jobId} START ═══`);
@@ -1731,9 +1737,9 @@ async function processVideoJob(
     // PHASE 4: BUILD RENDER SCRIPT (only after complete plan)
     // ────────────────────────────────────────────────────────────────────
     if (!creatomateKey) {
-      log("No CREATOMATE_API_KEY — completing without render");
+      log("No Creatomate API key — cannot render");
       await updateJob({
-        status: "completed",
+        status: "failed",
         result_payload: {
           title: plan.script.title,
           voiceover_script: plan.script.voiceoverScript,
@@ -1742,8 +1748,8 @@ async function processVideoJob(
           voiceover_url: plan.voiceover.audioUrl,
           video_clips: [],
           usedFallbackScript: plan.script.usedFallback,
-          message: "Script and voiceover ready. No Creatomate key configured.",
-          pipeline_steps: { script: "completed", voiceover: plan.voiceover.status, render: "not_configured" },
+          message: "❌ No Creatomate API key — connect one in the Connections panel below the video studio.",
+          pipeline_steps: { script: "completed", voiceover: plan.voiceover.status, render: "no_key" },
           pipeline_logs: pipelineLogs,
         },
         video_url: null,
@@ -1976,6 +1982,20 @@ Deno.serve(async (req) => {
         script,
         usedFallbackScript,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── BYO-key gate: user must supply their own Creatomate API key ──
+    const { data: creatomateKeyRow } = await supabase.from("user_api_keys")
+      .select("api_key_encrypted")
+      .eq("user_id", user.id)
+      .eq("provider", "creatomate")
+      .eq("is_valid", true)
+      .maybeSingle();
+    if (!creatomateKeyRow?.api_key_encrypted) {
+      return new Response(JSON.stringify({
+        error: "NO_CREATOMATE_KEY",
+        message: "Connect your Creatomate API key in the Connections panel to generate videos.",
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: job, error: jobErr } = await supabase
