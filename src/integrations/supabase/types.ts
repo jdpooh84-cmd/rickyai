@@ -385,6 +385,57 @@ export type Database = {
         }
         Relationships: []
       }
+      clip_generation_jobs: {
+        Row: {
+          id: string
+          user_id: string
+          business_id: string
+          source_video_url: string
+          source_storage_path: string | null
+          provider: string
+          external_job_id: string | null
+          status: string
+          clip_urls: string[]
+          clip_count: number | null
+          result_payload: Json | null
+          error_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          business_id: string
+          source_video_url: string
+          source_storage_path?: string | null
+          provider?: string
+          external_job_id?: string | null
+          status?: string
+          clip_urls?: string[]
+          clip_count?: number | null
+          result_payload?: Json | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          business_id?: string
+          source_video_url?: string
+          source_storage_path?: string | null
+          provider?: string
+          external_job_id?: string | null
+          status?: string
+          clip_urls?: string[]
+          clip_count?: number | null
+          result_payload?: Json | null
+          error_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       businesses: {
         Row: {
           brand_tone: string | null
@@ -941,6 +992,7 @@ export type Database = {
           display_name: string | null
           email_marketing_opt_in: boolean
           id: string
+          is_test_account: boolean
           onboarding_completed: boolean
           ricky_limit_reached: boolean
           ricky_question_count: number
@@ -955,6 +1007,7 @@ export type Database = {
           display_name?: string | null
           email_marketing_opt_in?: boolean
           id?: string
+          is_test_account?: boolean
           onboarding_completed?: boolean
           ricky_limit_reached?: boolean
           ricky_question_count?: number
@@ -969,6 +1022,7 @@ export type Database = {
           display_name?: string | null
           email_marketing_opt_in?: boolean
           id?: string
+          is_test_account?: boolean
           onboarding_completed?: boolean
           ricky_limit_reached?: boolean
           ricky_question_count?: number

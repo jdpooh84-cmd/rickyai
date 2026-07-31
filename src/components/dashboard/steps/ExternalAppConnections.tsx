@@ -12,6 +12,7 @@ interface ConnectedApp {
 const SUPPORTED_APPS = [
   // AI & Research (recommended)
   { id: "creatomate", name: "Creatomate", description: "Required — powers RickyAI's Video Studio. Use your own account key so your credits are never shared.", url: "https://creatomate.com/", cost: "Free trial available", icon: "🎬", category: "AI & Research", recommended: true },
+  { id: "klap", name: "Klap", description: "Required for Raw Footage Clipping — AI auto-clips your recorded video into short-form content. Use your own key.", url: "https://klap.app", cost: "Paid plans from $18/mo", icon: "✂️", category: "AI & Research", recommended: true },
   { id: "gemini", name: "Google Gemini", description: "AI-powered search & script research for better video content", url: "https://aistudio.google.com/apikey", cost: "Free tier / pay-as-you-go", icon: "💎", category: "AI & Research", recommended: true },
   // Video Production
   { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos — for manual use outside RickyAI", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },

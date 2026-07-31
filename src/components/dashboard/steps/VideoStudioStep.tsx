@@ -3,7 +3,8 @@ import StepLayout from "./StepLayout";
 import VideoStudioGuide from "./VideoStudioGuide";
 import ExternalAppConnections from "./ExternalAppConnections";
 import MediaLibrary from "../MediaLibrary";
-import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2, Lock, Zap, Clapperboard } from "lucide-react";
+import RawFootageClipper from "./RawFootageClipper";
+import { Copy, Check, Film, Sparkles, Play, Download, Loader2, Clock, Image, FileText, RefreshCw, ThumbsUp, ThumbsDown, Link2, Lock, Zap, Clapperboard, Scissors } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -840,6 +841,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
             </video>
           </div>
         )}
+
+        {/* ═══ RAW FOOTAGE CLIPPER ═══ */}
+        <RawFootageClipper businessId={businessId} />
 
         {/* ═══ MEDIA LIBRARY ═══ */}
         <MediaLibrary businessId={businessId} />

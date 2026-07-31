@@ -2,3 +2,6 @@ project_id = "symbyrtzimafpxbzurjh"
 
 [functions.video-callback]
 verify_jwt = false
+
+[functions.clip-callback]
+verify_jwt = false

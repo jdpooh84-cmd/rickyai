@@ -215,3 +215,177 @@ Before final answer, confirm:
 - Lessons saved to LESSONS.md
 - Contracts preserved per CONTRACTS.md
 
+
+## Stop Reminder — 2026-07-26T14:22:35Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
+
+## Post-Edit Check — 2026-07-31T22:59:25Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T22:59:34Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:00:09Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:00:31Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:00:34Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:00:43Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:01:23Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:01:27Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:01:30Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:01:33Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:01:47Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-07-31T23:01:56Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Session: 2026-07-31 — Raw Footage Clipping + is_test_account + Klap BYO-key
+
+### What was built
+- `clip_generation_jobs` table: tracks upload → Klap → clips pipeline (provider, external_job_id, status, clip_urls[])
+- `is_test_account boolean` column on `profiles` — when true, `check-subscription` returns full access bypassing Stripe entirely
+- Test account created in migration: `partner@rickyai.test` / `TestRicky2026!`, `is_test_account=true`
+- `clip-video` edge function: auth check → BYO Klap key gate (NO_KLAP_KEY 400) → POST to Klap API → creates job row → background poll (EdgeRuntime.waitUntil, max 2min window) → returns `{ job_id }` immediately
+- `clip-callback` edge function: public webhook (verify_jwt=false) for Klap completion → resolves by external_job_id → updates clip_urls and status
+- `RawFootageClipper` React component: file picker → Supabase Storage upload → calls clip-video → polls clip_generation_jobs every 10s → renders video players + download links for each clip
+- `VideoStudioStep` wired to include `RawFootageClipper` above the MediaLibrary
+- `ExternalAppConnections` updated: Klap added to AI & Research section (recommended, with klap.app link)
+- `check-subscription` updated: is_test_account bypass returns subscribed=true with all add-ons, before Stripe calls
+- `supabase/config.toml`: clip-callback added with verify_jwt=false
+- `types.ts`: clip_generation_jobs table type + is_test_account field on profiles
+
+### What was not changed
+- `video-callback`, `generate-video-v2`, Stripe price IDs, RLS on existing tables — untouched
+- `user_api_keys` table — reused as-is; Klap just adds a new `provider='klap'` row
+
+### Checks run
+- `npm run build` ✅ (6.75s, clean, no TypeScript errors)
+
+### Remaining risks (all require deploy access from a machine with Supabase network access)
+- Migration not yet applied — container blocks *.supabase.co
+- `clip-video` and `clip-callback` not yet deployed
+- `check-subscription` not yet deployed (test account bypass inactive until deploy)
+- Klap API endpoint path (`/api/v1/project`) may need adjustment based on actual API key testing — error logs will make mismatches obvious
+- End-to-end test not run (blocked by same network constraint)
+

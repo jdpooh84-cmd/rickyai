@@ -70,12 +70,32 @@ serve(async (req) => {
       });
     }
 
-    // Check trial status
+    // Check profile (trial + test account flag)
     const { data: profile } = await supabaseClient
       .from("profiles")
-      .select("trial_ends_at")
+      .select("trial_ends_at, is_test_account")
       .eq("user_id", user.id)
       .single();
+
+    // ── TEST ACCOUNT BYPASS: skip Stripe entirely ──
+    if (profile?.is_test_account) {
+      logStep("Test account detected — granting full access bypass");
+      return new Response(JSON.stringify({
+        subscribed: true,
+        product_id: "test_account",
+        subscription_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_active: false,
+        trial_ends_at: null,
+        addon_product_ids: [
+          "prod_UEZOQ0OGfVdYPi",
+          "prod_UEZOL1ICzSWAnt",
+        ],
+        is_test_account: true,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
     const trialActive = profile?.trial_ends_at && new Date(profile.trial_ends_at) > new Date();
 
