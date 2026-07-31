@@ -389,3 +389,15 @@ Before claiming completion, verify:
 - Klap API endpoint path (`/api/v1/project`) may need adjustment based on actual API key testing — error logs will make mismatches obvious
 - End-to-end test not run (blocked by same network constraint)
 
+
+## Stop Reminder — 2026-07-31T23:03:07Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
