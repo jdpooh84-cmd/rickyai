@@ -18,6 +18,7 @@ All checks run from `evidence-platform/` with a clean npm install.
 | Unit tests | `npm run test:unit` | ✓ PASS — 83/83 (8 test files) |
 | Integration tests | `npm run test:integration` | ✓ PASS — 83/83 (4 test files) |
 | Full suite | `npm run test` | ✓ PASS — 166/166 (12 test files) |
+| E2E browser tests | `npm run test:e2e` | ✓ PASS — 19/19 runnable passed; 9 skipped (E2E_BLOCKED_DOCKER_UNAVAILABLE); 0 failed |
 
 ---
 
@@ -107,10 +108,20 @@ All checks run from `evidence-platform/` with a clean npm install.
 - `evidence-platform/src/lib/reports/apa7-renderer.ts` — APA 7 renderer with eligibility guards
 - `evidence-platform/src/app/api/cases/upload/route.ts` — multipart file upload endpoint
 - `evidence-platform/playwright.config.ts` — Playwright E2E configuration
-- `evidence-platform/tests/e2e/platform.spec.ts` — 11 E2E test cases
+- `evidence-platform/tests/e2e/platform.spec.ts` — 28 E2E test cases (19 Tier A + 9 Tier B)
 - `evidence-platform/tests/unit/apa7-renderer.test.ts` — 30 APA 7 renderer unit tests
 - `evidence-platform/tests/integration/job-execution.test.ts` — 29 retry/cron/backoff tests
 - `evidence-platform/docs/mvp-release-gates.md` — 8-gate release verification checklist
+
+### New files (E2E release gate session)
+- `evidence-platform/docs/e2e-testing.md` — E2E setup guide, architecture, environment variables
+- `evidence-platform/docs/e2e-verification-report.md` — actual E2E run output and results
+
+### Modified files (E2E release gate session)
+- `evidence-platform/src/app/api/health/route.ts` — added `ok: true` field to match documented contract
+- `evidence-platform/playwright.config.ts` — added executablePath for pre-installed Chromium, E2E_TEST_MODE, CRON_SECRET
+- `evidence-platform/tests/e2e/platform.spec.ts` — expanded from 11 to 28 tests; Tier B describe-level skip
+- `evidence-platform/.gitignore` — added Playwright artifact dirs
 
 ### Modified files (all sessions combined)
 - `evidence-platform/src/lib/jobs/worker.ts` — stages 2, 7, 8, 9, 11 rewritten; retry/backoff added; file upload pipeline added; APA 7 rendering added
@@ -131,7 +142,7 @@ All checks run from `evidence-platform/` with a clean npm install.
 |---|---|---|
 | Rate limiter not persistent across cold starts | Medium | In-memory; upgrade to Redis post-MVP |
 | No RLS integration tests | Medium | RLS enforced at DDL level; organization isolation not verified in test suite |
-| Playwright E2E tests require real Supabase credentials | Medium | Infrastructure in place; 7/11 tests run without credentials |
+| Tier B E2E tests require Docker + Supabase | Medium | 9 authenticated tests implemented but blocked by Docker unavailability in CI; all 19 Tier A tests pass |
 | APA 7 author heuristic for compound names | Low | Last-word-is-family; documented limitation |
 | No malware scanning for uploads | Low | MIME type + size validation in place |
 | DOI full-text resolution | Low | Metadata-only for DOIs; passages from URL sources only |

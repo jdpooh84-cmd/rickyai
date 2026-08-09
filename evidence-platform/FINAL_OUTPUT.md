@@ -29,7 +29,7 @@ A full-stack evidence verification platform where every verdict is traceable to 
 
 ### Tests
 166 passing: 83 unit + 83 integration (12 test files)  
-E2E: 11 Playwright tests (8 run without credentials, 3 require Supabase credentials)
+E2E: 28 Playwright tests — 19 pass in CI (Tier A: health, auth pages, 5 protected-route redirects, 8 API 401 assertions, 3 cron bearer cases); 9 skipped (Tier B: authenticated flows, file upload, org isolation — require Docker)
 
 ---
 

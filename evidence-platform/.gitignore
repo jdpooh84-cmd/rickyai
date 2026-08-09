@@ -40,6 +40,8 @@ yarn-error.log*
 # playwright
 playwright-report/
 test-results/
+tests/e2e/.results/
+tests/e2e/.report/
 
 # supabase local
 .supabase/
