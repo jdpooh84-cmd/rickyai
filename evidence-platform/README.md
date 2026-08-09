@@ -52,9 +52,11 @@ npm run dev
 ### Running Tests
 
 ```bash
-npm run test          # unit + integration
-npm run test:e2e      # Playwright end-to-end
-npm run test:coverage # coverage report
+npm run test              # unit + integration (111 tests)
+npm run test:unit         # unit tests only (53 tests)
+npm run test:integration  # integration tests only (58 tests)
+npm run test:e2e          # Playwright end-to-end
+npm run test:coverage     # coverage report
 ```
 
 ### Type Check and Lint
@@ -80,10 +82,21 @@ See `.env.example` for all required and optional variables.
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY` (server-only)
 - `ANTHROPIC_API_KEY` (server-only; omit to use mock provider)
+- `AI_PROVIDER` — set to `anthropic` in production
+- `CRON_SECRET` — authenticates the Vercel cron endpoint
+
+See `docs/founder-actions-required.md` for full setup instructions.
 
 ## Deployment
 
-The app is Vercel-compatible. Connect your repository and set environment variables in Vercel dashboard. Run Supabase migrations separately via `supabase db push --linked`.
+The app is Vercel-compatible. A `vercel.json` is included that registers a 1-minute cron job to process queued verification jobs. Connect your repository and set environment variables in Vercel dashboard. Apply Supabase migrations before first deploy:
+
+```bash
+supabase db push --linked  # applies migrations/001 and migrations/002
+```
+
+See `docs/launch-checklist.md` for the complete pre-launch checklist.
+See `docs/founder-actions-required.md` for step-by-step external actions.
 
 ## Architecture
 
