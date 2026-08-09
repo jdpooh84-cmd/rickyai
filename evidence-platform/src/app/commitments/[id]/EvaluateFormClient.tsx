@@ -116,7 +116,7 @@ export default function EvaluateFormClient({ commitmentId }: { commitmentId: str
           )}
           {result.single_provider_warning && (
             <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded px-2 py-1">
-              Single AI provider used. This verdict represents one model's reading of the evidence.
+              Single AI provider used. This verdict represents one model&apos;s reading of the evidence.
               Independent review is recommended for high-stakes decisions.
             </p>
           )}

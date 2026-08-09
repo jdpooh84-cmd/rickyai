@@ -14,7 +14,10 @@ import { PROSECUTOR_SYSTEM } from "@/lib/ai/prompts/prosecutor";
 import { scoreEvidence, SCORE_VERSION } from "@/lib/verification/scoring-engine";
 import { validateDoi } from "@/lib/retrieval/doi-validator";
 import { fetchUrl } from "@/lib/retrieval/url-fetcher";
+import { renderApa7References } from "@/lib/reports/apa7-renderer";
+import { parseFile } from "@/lib/verification/parsers";
 import type { EvidenceInput, ProsecutorInput } from "@/lib/verification/scoring-engine";
+import type { SourceForApa } from "@/lib/reports/apa7-renderer";
 import type { Json } from "@/lib/supabase/types";
 
 const PIPELINE_STAGES = [
@@ -67,10 +70,17 @@ async function failCase(
     .eq("id", jobId);
 }
 
+const BASE_BACKOFF_SECONDS = 30;
+
+function retryBackoffSeconds(attempt: number): number {
+  // Exponential backoff: 30s, 60s, 120s, capped at 300s
+  return Math.min(300, BASE_BACKOFF_SECONDS * Math.pow(2, attempt - 1));
+}
+
 export async function processJob(jobId: string): Promise<void> {
   const supabase = await createServiceClient();
 
-  // Claim the job
+  // Claim the job atomically: only succeeds if status is still "queued".
   const { data: job, error: jobError } = await supabase
     .from("verification_jobs")
     .update({ status: "running", started_at: new Date().toISOString() })
@@ -83,6 +93,16 @@ export async function processJob(jobId: string): Promise<void> {
     safeLog("warn", "Job not claimable", { jobId });
     return;
   }
+
+  // Increment attempts. The Supabase JS client doesn't support column expressions, so
+  // this is a safe separate update after the atomic claim above.
+  const newAttempts = (job.attempts ?? 0) + 1;
+  await supabase
+    .from("verification_jobs")
+    .update({ attempts: newAttempts })
+    .eq("id", jobId);
+
+  const maxAttempts = job.max_attempts ?? 3;
 
   const caseId = job.case_id;
 
@@ -111,7 +131,46 @@ export async function processJob(jobId: string): Promise<void> {
 
     // === Stage 2: text_extracted ===
     await updateCaseStage(supabase, caseId, "text_extracted");
-    const textContent = rawText ?? "";
+
+    let textContent: string;
+
+    if (verificationCase.input_type === "file_upload" && verificationCase.file_path) {
+      // Download the file from Supabase Storage and parse it.
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("case-uploads")
+        .download(verificationCase.file_path);
+
+      if (downloadError || !fileData) {
+        await failCase(supabase, caseId, jobId, `File download failed: ${downloadError?.message ?? "unknown"}`);
+        return;
+      }
+
+      const mimeType =
+        (verificationCase.user_context as Record<string, string> | null)?.mime_type ?? "application/octet-stream";
+
+      let parsed: { text: string };
+      try {
+        const buffer = Buffer.from(await fileData.arrayBuffer());
+        parsed = await parseFile(buffer, mimeType);
+      } catch (err) {
+        await failCase(supabase, caseId, jobId, `File parsing failed: ${String(err)}`);
+        return;
+      }
+
+      if (!parsed.text.trim()) {
+        await failCase(
+          supabase,
+          caseId,
+          jobId,
+          "No extractable text found in uploaded file. Scanned PDFs (image-only) are not supported.",
+        );
+        return;
+      }
+
+      textContent = parsed.text;
+    } else {
+      textContent = rawText ?? "";
+    }
 
     if (!textContent.trim()) {
       await failCase(supabase, caseId, jobId, "No text content to process");
@@ -206,6 +265,16 @@ export async function processJob(jobId: string): Promise<void> {
       if (source.source_type === "doi") {
         const validation = await validateDoi(source.raw_identifier).catch(() => null);
         if (validation) {
+          const doiMeta: Json = validation.metadata
+            ? {
+                volume: validation.metadata.volume ?? null,
+                issue: validation.metadata.issue ?? null,
+                pages: validation.metadata.pages ?? null,
+                publisher: validation.metadata.publisher ?? null,
+                work_type: validation.metadata.work_type ?? null,
+              }
+            : null;
+
           await supabase
             .from("evidence_sources")
             .update({
@@ -222,6 +291,7 @@ export async function processJob(jobId: string): Promise<void> {
                   : validation.status === "valid_not_found"
                   ? "not_found"
                   : "unresolved",
+              metadata: doiMeta,
             })
             .eq("id", source.id);
         }
@@ -495,14 +565,42 @@ export async function processJob(jobId: string): Promise<void> {
     // === Stage 11: report_generated ===
     await updateCaseStage(supabase, caseId, "report_generated");
 
-    const report = {
+    // Build APA 7 references for sources that are verified and linked to claims.
+    const { data: matchedSourceIds } = await supabase
+      .from("evidence_matches")
+      .select("source_id")
+      .eq("case_id", caseId);
+
+    const linkedSourceIds = new Set((matchedSourceIds ?? []).map((m) => m.source_id));
+
+    const apaSourceRows = (validatedSources ?? []).map((s): SourceForApa => ({
+      id: s.id,
+      source_type: s.source_type as "doi" | "url" | "upload",
+      raw_identifier: s.raw_identifier,
+      normalized_identifier: s.normalized_identifier,
+      title: s.title,
+      authors: s.authors as string[] | null,
+      published_at: s.published_at,
+      journal: s.journal,
+      identity_status: s.identity_status,
+      doi_status: s.doi_status,
+      retraction_status: s.retraction_status,
+      is_accessible: s.is_accessible,
+      metadata: s.metadata as Record<string, unknown> | null,
+    }));
+
+    const apaResult = renderApa7References(apaSourceRows, linkedSourceIds);
+
+    const report: Json = {
       verdict: scoreResult.verdict,
       score: scoreResult.components.total_score,
-      explanation: scoreResult.explanation,
+      explanation: scoreResult.explanation as unknown as Json,
       claims_count: verifiableClaims.length,
       sources_count: (validatedSources ?? []).length,
       limitations: scoreResult.explanation.limitations,
       generated_at: new Date().toISOString(),
+      apa_limitations: apaResult.limitations as unknown as Json,
+      apa_renderer_version: apaResult.renderer_version,
     };
 
     await supabase.from("verification_reports").insert({
@@ -510,7 +608,7 @@ export async function processJob(jobId: string): Promise<void> {
       organization_id: ctx.organizationId,
       report_type: "full",
       content: report,
-      apa_references: [],
+      apa_references: apaResult.rendered,
     });
 
     // === Completed ===
@@ -526,8 +624,25 @@ export async function processJob(jobId: string): Promise<void> {
 
     safeLog("info", "Pipeline completed", { caseId, verdict: scoreResult.verdict });
   } catch (err) {
-    safeLog("error", "Pipeline error", { caseId, error: err });
-    await failCase(supabase, caseId, jobId, String(err instanceof Error ? err.message : err));
+    const errMessage = String(err instanceof Error ? err.message : err);
+    safeLog("error", "Pipeline error", { caseId, error: errMessage, attempt: newAttempts, maxAttempts });
+
+    if (newAttempts < maxAttempts) {
+      // Re-queue with exponential backoff; case stays in failed-but-retryable state.
+      const backoffSeconds = retryBackoffSeconds(newAttempts);
+      const runAfter = new Date(Date.now() + backoffSeconds * 1000).toISOString();
+      await supabase
+        .from("verification_jobs")
+        .update({ status: "queued", error_message: errMessage, run_after: runAfter })
+        .eq("id", jobId);
+      await supabase
+        .from("verification_cases")
+        .update({ status: "queued", error_message: errMessage })
+        .eq("id", caseId);
+      safeLog("info", "Job re-queued after failure", { jobId, caseId, attempt: newAttempts, runAfter });
+    } else {
+      await failCase(supabase, caseId, jobId, errMessage);
+    }
   }
 }
 

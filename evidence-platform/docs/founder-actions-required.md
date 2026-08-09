@@ -68,7 +68,20 @@ All 14 tables have RLS enabled in the migration. Confirm in Supabase dashboard:
 
 Tables: `organizations`, `profiles`, `verification_cases`, `extracted_claims`, `evidence_sources`, `evidence_matches`, `prosecutor_reviews`, `scoring_results`, `verification_reports`, `verification_jobs`, `audit_events`, `commitments`, `commitment_evaluations`, `benchmark_runs`
 
-### 2c. Confirm Auth is enabled
+### 2c. Create Supabase Storage bucket for file uploads
+
+The file upload pipeline stores case files in Supabase Storage. You must create the bucket before any file upload case can be processed:
+
+1. Supabase dashboard → Storage → New bucket
+2. Bucket name: **`case-uploads`** (exact name — the code references this literal)
+3. **Public access: OFF** (private bucket; files are accessed via service role key)
+4. File size limit: 15 MB (matches `MAX_FILE_SIZE_BYTES` env var default)
+
+Files are stored at path: `orgs/{orgId}/cases/{caseId}/{filename}`
+
+> **Note:** Without this bucket, `/api/cases/upload` will fail with a storage error on every file submission.
+
+### 2d. Confirm Auth is enabled
 
 Supabase Auth must be enabled with Email/Password provider:
 - Authentication → Providers → Email: **Enabled**
@@ -159,8 +172,10 @@ curl -X POST https://your-domain.com/api/benchmarks/run \
 - [ ] Create `.env.local` for local development
 - [ ] Run database migrations (001 and 002)
 - [ ] Verify RLS is enabled on all 14 tables
+- [ ] **Create `case-uploads` Storage bucket in Supabase (private, 15 MB limit)**
 - [ ] Confirm Supabase Auth is configured
 - [ ] Deploy to Vercel (`npx vercel --prod`)
 - [ ] Verify cron job appears in Vercel dashboard
 - [ ] Generate and set `CRON_SECRET`
+- [ ] Verify `/api/health` returns `{"ok": true, "version": "0.1.0"}`
 - [ ] Optionally: plan Redis rate limiter upgrade

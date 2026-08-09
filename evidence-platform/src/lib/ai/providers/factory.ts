@@ -1,6 +1,10 @@
 import "server-only";
 import type { AIProvider } from "./interface";
 import { MockAIProvider } from "./mock";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { AnthropicProvider } = require("./anthropic") as {
+  AnthropicProvider: new () => AIProvider;
+};
 
 let _provider: AIProvider | null = null;
 
@@ -10,9 +14,6 @@ export function getAIProvider(): AIProvider {
   const configured = process.env["AI_PROVIDER"] ?? "mock";
 
   if (configured === "anthropic" && process.env["ANTHROPIC_API_KEY"]) {
-    const { AnthropicProvider } = require("./anthropic") as {
-      AnthropicProvider: new () => AIProvider;
-    };
     _provider = new AnthropicProvider();
   } else {
     if (configured === "anthropic") {

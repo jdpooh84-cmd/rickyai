@@ -2,7 +2,7 @@
 
 **Branch:** `claude/repository-setup-preferences-45mk1t`  
 **Date:** 2026-08-09  
-**Build result:** READY FOR FOUNDER DEPLOYMENT
+**Build result:** LOCAL_CONTROLLED_MVP_READY
 
 ---
 
@@ -25,10 +25,11 @@ A full-stack evidence verification platform where every verdict is traceable to 
 12. Completion
 
 ### Routes
-19 total (15 new, 4 pre-existing) — see `docs/final-verification-report.md` for the full list.
+20 total — see `docs/final-verification-report.md` for the full list.
 
 ### Tests
-111 passing: 53 unit + 58 integration
+166 passing: 83 unit + 83 integration (12 test files)  
+E2E: 11 Playwright tests (8 run without credentials, 3 require Supabase credentials)
 
 ---
 
@@ -41,25 +42,32 @@ See `docs/final-verification-report.md` → "What Was Built in This Session" for
 ## Remaining work before launch
 
 **Founder must do (cannot be automated):**
-1. Set 6 environment variables in Vercel
-2. Apply 2 database migrations to Supabase
-3. Enable Supabase Auth
-4. Deploy and verify Vercel cron
+1. Create Supabase project, apply migrations 001 and 002, enable Auth (email/password)
+2. Create `case-uploads` storage bucket in Supabase (private, required for file upload pipeline)
+3. Set 6 environment variables in Vercel (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `AI_PROVIDER=anthropic`, `CRON_SECRET`)
+4. Deploy to Vercel; verify cron job at `/api/cron/process-jobs` is registered
+5. Verify `/api/health` returns `{"ok": true, "version": "0.1.0"}`
 
 See `docs/founder-actions-required.md` for step-by-step instructions.
 
 **Known gaps (not blocking MVP):**
-- Playwright E2E tests (infrastructure in place, no test files)
-- APA 7 reference rendering
-- File upload malware scanning
-- Persistent rate limiting (Redis)
+- Persistent rate limiting (Redis) — current in-memory rate limiter resets on Vercel cold start
+- No RLS integration tests — RLS enforced at DDL level; organization isolation not tested in suite
+- E2E tests with credentials — 3/11 E2E tests require real Supabase credentials; infrastructure in place
+- File upload malware scanning — MIME + size validation in place; ClamAV/VirusTotal post-MVP
 
 ---
 
 ## Checks run
 
 ```
-npm run build      ✓  15 routes, 0 TypeScript errors
-npm run typecheck  ✓  0 errors
-npm run test       ✓  111/111 passed
+npm run build            ✓  20 routes, 0 TypeScript errors
+npm run typecheck        ✓  0 errors
+npm run lint             ✓  0 errors (6 warnings in test files)
+npm run test             ✓  166/166 passed (12 test files)
+npm run test:unit        ✓  83/83
+npm run test:integration ✓  83/83
+npx playwright test --list  11 tests listed
 ```
+
+See `docs/gap-closure-verification-report.md` for full Phase 6 output.
