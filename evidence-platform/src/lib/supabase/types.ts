@@ -8,7 +8,9 @@ export type EvidenceRelationship =
   | "partially_supports"
   | "contradicts"
   | "context_only"
-  | "not_relevant";
+  | "not_relevant"
+  | "irrelevant"
+  | "cannot_verify";
 export type SourceIdentityStatus =
   | "verified"
   | "metadata_only"
