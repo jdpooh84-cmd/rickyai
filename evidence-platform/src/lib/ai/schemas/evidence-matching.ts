@@ -6,6 +6,7 @@ export const EvidenceMatchSchema = z.object({
     "partially_supports",
     "contradicts",
     "context_only",
+    "not_relevant",
     "irrelevant",
     "cannot_verify",
   ]),

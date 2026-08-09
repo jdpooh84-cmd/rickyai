@@ -47,8 +47,18 @@ export class FetchError extends Error {
   }
 }
 
-function isPrivateAddress(hostname: string): boolean {
-  if (BLOCKED_HOSTS.has(hostname.toLowerCase())) return true;
+function normalizeHostname(hostname: string): string {
+  // WHATWG URL preserves brackets on IPv6: "[::1]" → strip them
+  if (hostname.startsWith("[") && hostname.endsWith("]")) {
+    return hostname.slice(1, -1);
+  }
+  return hostname.toLowerCase();
+}
+
+function isPrivateAddress(rawHostname: string): boolean {
+  if (!rawHostname) return true; // empty host is never safe
+  const hostname = normalizeHostname(rawHostname);
+  if (BLOCKED_HOSTS.has(hostname)) return true;
   return PRIVATE_IP_RANGES.some((re) => re.test(hostname));
 }
 
@@ -62,6 +72,10 @@ function validateUrl(urlStr: string): URL {
 
   if (!["http:", "https:"].includes(url.protocol)) {
     throw new SSRFError(`Protocol ${url.protocol} is not allowed`);
+  }
+
+  if (!url.hostname) {
+    throw new SSRFError("URL has no host");
   }
 
   const port = url.port ? parseInt(url.port, 10) : url.protocol === "https:" ? 443 : 80;

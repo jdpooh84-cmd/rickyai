@@ -152,8 +152,8 @@ function scoreEvidenceCompleteness(evidence: EvidenceInput[], prosecutor: Prosec
   if (evidence.length === 0) return 0;
   let base = 8;
   if (prosecutor) {
-    const critical = prosecutor.objections.filter((o) => o.severity === "critical").length;
-    const high = prosecutor.objections.filter((o) => o.severity === "high").length;
+    const critical = (prosecutor.objections ?? []).filter((o) => o.severity === "critical").length;
+    const high = (prosecutor.objections ?? []).filter((o) => o.severity === "high").length;
     base -= critical * 4;
     base -= high * 2;
   }
@@ -177,7 +177,7 @@ function penaltyRetraction(evidence: EvidenceInput[]): number {
 
 function penaltyMissingContext(prosecutor: ProsecutorInput | null): number {
   if (!prosecutor) return 0;
-  const missingCtx = prosecutor.objections.filter((o) => o.objection_type === "missing_context");
+  const missingCtx = (prosecutor.objections ?? []).filter((o) => o.objection_type === "missing_context");
   if (missingCtx.some((o) => o.severity === "critical")) return 15;
   if (missingCtx.some((o) => o.severity === "high")) return 8;
   if (missingCtx.length > 0) return 4;
@@ -194,7 +194,7 @@ function applyPolicyOverrides(
   const overrides: PolicyOverride[] = [];
 
   const fabricatedOrMismatched =
-    prosecutor?.objections.some(
+    (prosecutor?.objections ?? []).some(
       (o) => o.objection_type === "fabricated_citation" || o.objection_type === "mismatched_citation",
     ) ?? false;
 
@@ -216,7 +216,7 @@ function applyPolicyOverrides(
   const highStakesUnresolved =
     stakes_level === "high" &&
     (prosecutor?.recommendation === "require_qualified_review" ||
-      prosecutor?.objections.some((o) => o.objection_type === "high_stakes_unsafe") === true);
+      (prosecutor?.objections ?? []).some((o) => o.objection_type === "high_stakes_unsafe") === true);
   overrides.push({
     rule: "c",
     applied: highStakesUnresolved,
