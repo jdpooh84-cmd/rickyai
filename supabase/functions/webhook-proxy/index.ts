@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,31 +25,23 @@ Deno.serve(async (req) => {
 
     const { scenario, businessId, keyword, videoType, productionMode } = await req.json();
 
-    // Check usage limits before proceeding
+    // Compute billing period bounds.
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const { data: usage } = await supabase
+    const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+    const RENDER_LIMIT = 50; // per seat per month
+
+    // Read current usage (non-locking) only to surface the current count to the
+    // caller before the atomic check-and-increment below actually gates access.
+    const { data: currentUsage } = await supabase
       .from("usage_tracking")
-      .select("*")
+      .select("render_jobs_used")
       .eq("user_id", user.id)
       .gte("period_start", periodStart)
       .limit(1)
       .maybeSingle();
 
-    const renderJobsUsed = usage?.render_jobs_used || 0;
-    const RENDER_LIMIT = 50; // per seat per month
-
-    if (renderJobsUsed >= RENDER_LIMIT) {
-      return new Response(JSON.stringify({
-        error: "Monthly video limit reached",
-        code: "USAGE_LIMIT_REACHED",
-        usage: { render_jobs_used: renderJobsUsed, limit: RENDER_LIMIT },
-        upgrade_required: true,
-      }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const renderJobsUsed = currentUsage?.render_jobs_used || 0;
 
     // Get webhook config from admin table
     const { data: webhookConfig } = await supabase
@@ -117,8 +109,23 @@ Deno.serve(async (req) => {
         throw new Error(`Webhook error: ${webhookResponse.status} - ${errText}`);
       }
 
-      // Increment usage
-      await incrementUsage(supabase, user.id, periodStart);
+      // Atomic quota check + increment (prevents double-counting under concurrency).
+      const { data: usageResult, error: usageErr } = await supabase.rpc("check_and_increment_render_usage", {
+        p_user_id: user.id,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_limit: RENDER_LIMIT,
+      });
+      if (usageErr) throw new Error(`Usage update failed: ${usageErr.message}`);
+      const usageRow = usageResult?.[0];
+      if (!usageRow?.allowed) {
+        return new Response(JSON.stringify({
+          error: "Monthly video limit reached",
+          code: "USAGE_LIMIT_REACHED",
+          usage: { render_jobs_used: usageRow?.render_jobs_used ?? renderJobsUsed, limit: RENDER_LIMIT },
+          upgrade_required: true,
+        }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       const result = await webhookResponse.json().catch(() => ({ status: "triggered" }));
 
@@ -136,7 +143,7 @@ Deno.serve(async (req) => {
         scenario,
         data: result,
         message: messageMap[scenario] || "Workflow triggered.",
-        usage: { render_jobs_used: renderJobsUsed + 1, limit: RENDER_LIMIT },
+        usage: { render_jobs_used: usageRow.render_jobs_used, limit: RENDER_LIMIT },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -187,7 +194,22 @@ Keyword: ${keyword || "not specified"}`
       content = { raw: scriptData.content[0].text };
     }
 
-    await incrementUsage(supabase, user.id, periodStart);
+    const { data: usageResult2, error: usageErr2 } = await supabase.rpc("check_and_increment_render_usage", {
+      p_user_id: user.id,
+      p_period_start: periodStart,
+      p_period_end: periodEnd,
+      p_limit: RENDER_LIMIT,
+    });
+    if (usageErr2) throw new Error(`Usage update failed: ${usageErr2.message}`);
+    const usageRow2 = usageResult2?.[0];
+    if (!usageRow2?.allowed) {
+      return new Response(JSON.stringify({
+        error: "Monthly video limit reached",
+        code: "USAGE_LIMIT_REACHED",
+        usage: { render_jobs_used: usageRow2?.render_jobs_used ?? renderJobsUsed, limit: RENDER_LIMIT },
+        upgrade_required: true,
+      }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -196,7 +218,7 @@ Keyword: ${keyword || "not specified"}`
       script: content,
       business_name: business.business_name,
       production_mode: productionMode,
-      usage: { render_jobs_used: renderJobsUsed + 1, limit: RENDER_LIMIT },
+      usage: { render_jobs_used: usageRow2.render_jobs_used, limit: RENDER_LIMIT },
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -210,25 +232,3 @@ Keyword: ${keyword || "not specified"}`
   }
 });
 
-async function incrementUsage(supabase: any, userId: string, periodStart: string) {
-  const periodEnd = new Date(new Date(periodStart).getFullYear(), new Date(periodStart).getMonth() + 1, 1).toISOString();
-  
-  const { data: existing } = await supabase
-    .from("usage_tracking")
-    .select("id, render_jobs_used")
-    .eq("user_id", userId)
-    .gte("period_start", periodStart)
-    .limit(1)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from("usage_tracking")
-      .update({ render_jobs_used: (existing.render_jobs_used || 0) + 1, updated_at: new Date().toISOString() })
-      .eq("id", existing.id);
-  } else {
-    await supabase
-      .from("usage_tracking")
-      .insert({ user_id: userId, render_jobs_used: 1, period_start: periodStart, period_end: periodEnd });
-  }
-}

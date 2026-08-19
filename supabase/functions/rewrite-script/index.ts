@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
       .join("\n") || JSON.stringify(currentScript);
 
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    const providerUsed = ANTHROPIC_API_KEY ? "anthropic" : "template_fallback";
+    let providerUsed = ANTHROPIC_API_KEY ? "anthropic" : "template_fallback";
 
     if (!ANTHROPIC_API_KEY) {
       const rewrittenScript = templateRewrite(currentScript, biz, loc);

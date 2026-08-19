@@ -226,9 +226,9 @@ Or use a dedicated usage ledger table with immutable append-only events and a ma
 |---|---|---|---|
 | B-01 | 🔴 Open | — | Before GTM phase |
 | B-02 | 🔴 Open | — | Before any new webhook |
-| C-01 | 🔴 Open | — | Sprint 1 |
-| C-02 | 🔴 Open | — | Sprint 1 |
-| C-03 | 🔴 Open | — | Sprint 1 |
+| C-01 | ✅ Resolved | Claude | 2026-08-19: migration 20260819000000_atomic_render_usage.sql + webhook-proxy wired to check_and_increment_render_usage RPC |
+| C-02 | ✅ Resolved | Claude | 2026-08-19: `const providerUsed` → `let providerUsed` in rewrite-script/index.ts |
+| C-03 | ✅ Resolved | Claude | 2026-08-19: supabase/config.toml project_id updated to psmxeckstfeyxlqzzkgw |
 | C-04 | 🔴 Open | — | Inspect immediately |
 | H-01 | 🔴 Open | — | Sprint 2 |
 | H-02 | 🔴 Open | — | Sprint 1 |
