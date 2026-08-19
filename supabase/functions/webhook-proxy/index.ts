@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { decrypt } from "../_shared/credential-service.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,14 +53,24 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // Get user's external API keys (HeyGen, ElevenLabs etc.)
+    // Get user's external API keys (HeyGen, ElevenLabs etc.) — includes iv and version for decryption
     const { data: userKeys } = await supabase
       .from("user_api_keys")
-      .select("provider, api_key_encrypted")
+      .select("provider, api_key_encrypted, key_iv, key_version")
       .eq("user_id", user.id);
 
     const keyMap: Record<string, string> = {};
-    userKeys?.forEach(k => { keyMap[k.provider] = k.api_key_encrypted; });
+    for (const k of (userKeys ?? [])) {
+      if (k.key_version === "v1-aes256gcm" && k.key_iv) {
+        try {
+          keyMap[k.provider] = await decrypt(k.api_key_encrypted, k.key_iv);
+        } catch {
+          // Decryption failure — skip key; Make.com payload falls through to placeholder
+        }
+      } else if (!k.key_version || k.key_version === "v0-plaintext") {
+        keyMap[k.provider] = k.api_key_encrypted;
+      }
+    }
 
     // Fetch business data
     const { data: business } = await supabase

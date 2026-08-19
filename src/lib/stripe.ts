@@ -45,7 +45,7 @@ export const PLANS = {
     can_use_grant_search: true,
     can_sell_marketplace: true,
     has_team_collaboration: false,
-    steps_available: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+    steps_available: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   },
   agency: {
     name: "Agency",
@@ -60,7 +60,7 @@ export const PLANS = {
     can_use_grant_search: true,
     can_sell_marketplace: true,
     has_team_collaboration: true,
-    steps_available: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+    steps_available: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   },
 } as const;
 
