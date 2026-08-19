@@ -972,42 +972,7 @@ async function getSceneImage(
     }
   }
 
-  // Priority 2: AI image generation - skipped, using Pexels stock photos instead
-  if (false && !creditsExhausted) {
-    try {
-      const res = await fetch(ANTHROPIC_API_URL, {
-        method: "POST",
-        headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: ANTHROPIC_MODEL, max_tokens: 100, messages: [{ role: "user", content: "placeholder" }] }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const images = data.choices?.[0]?.message?.images;
-        if (images?.length > 0) {
-          let b64 = images[0]?.image_url?.url || "";
-          if (b64.startsWith("data:") && b64.includes(";base64,")) b64 = b64.split(";base64,")[1];
-          if (b64) {
-            const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-            if (bytes.length >= MIN_REAL_IMAGE_BYTES) {
-              const fn = `scenes/${userId}/${jobId}/scene-${sceneIndex + 1}.png`;
-              const { error } = await supabase.storage.from("media").upload(fn, bytes, { contentType: "image/png", upsert: true });
-              if (!error) {
-                const { data: urlData } = supabase.storage.from("media").getPublicUrl(fn);
-                return { url: urlData.publicUrl, isReal: true, motionPrompt };
-              }
-            }
-          }
-        }
-      } else if (res.status === 402) {
-        throw new Error("CREDITS_EXHAUSTED");
-      }
-    } catch (e: any) {
-      if (e.message === "CREDITS_EXHAUSTED") throw e;
-      console.error(`[pipeline] AI image error scene ${sceneIndex + 1}:`, e);
-    }
-  }
-
-  // Priority 3: Cycle existing images
+  // Priority 2: Cycle existing images
   if (existingImages.length > 0) {
     return { url: existingImages[sceneIndex % existingImages.length], isReal: true, motionPrompt };
   }

@@ -10,31 +10,31 @@ interface ConnectedApp {
 }
 
 const SUPPORTED_APPS = [
-  // AI & Research (recommended)
+  // AI & Research (recommended) — API key required; RickyAI uses these keys directly
   { id: "creatomate", name: "Creatomate", description: "Required — powers RickyAI's Video Studio. Use your own account key so your credits are never shared.", url: "https://creatomate.com/", cost: "Free trial available", icon: "🎬", category: "AI & Research", recommended: true },
   { id: "klap", name: "Klap", description: "Required for Raw Footage Clipping — AI auto-clips your recorded video into short-form content. Use your own key.", url: "https://klap.app", cost: "Paid plans from $18/mo", icon: "✂️", category: "AI & Research", recommended: true },
   { id: "gemini", name: "Google Gemini", description: "AI-powered search & script research for better video content", url: "https://aistudio.google.com/apikey", cost: "Free tier / pay-as-you-go", icon: "💎", category: "AI & Research", recommended: true },
-  // Video Production
-  { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos — for manual use outside RickyAI", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
+  // Video Production — API key required; RickyAI uses these keys directly
+  { id: "heygen", name: "HeyGen", description: "AI avatar talking-head videos", url: "https://app.heygen.com/settings?tab=API", cost: "$24/mo+", icon: "✨", category: "Video" },
   { id: "elevenlabs", name: "ElevenLabs", description: "AI voiceovers & dubbing", url: "https://elevenlabs.io/app/settings/api-keys", cost: "Free tier / $5/mo+", icon: "🎙️", category: "Voice" },
   { id: "pictory", name: "Pictory AI", description: "Script-to-video, blog-to-video AI production", url: "https://app.pictory.ai/home", cost: "Free trial / $19/mo+", icon: "🎬", category: "Video" },
   { id: "capcut", name: "CapCut", description: "Free video editing & templates", url: "https://www.capcut.com/", cost: "Free / Pro $8/mo", icon: "✂️", category: "Video" },
   { id: "canva", name: "Canva", description: "Thumbnails, graphics & short video", url: "https://www.canva.com/", cost: "Free / Pro $13/mo", icon: "🎨", category: "Video" },
   { id: "opusclip", name: "OpusClip", description: "Repurpose long videos into clips", url: "https://www.opus.pro/", cost: "Free tier / $15/mo+", icon: "✂️", category: "Video" },
-  // Automation
+  // Automation — API key required
   { id: "make", name: "Make.com", description: "Workflow automation (webhook URL)", url: "https://www.make.com/en/apikey", cost: "Free tier / $9/mo+", icon: "⚡", category: "Automation" },
-  // Social Platforms
-  { id: "facebook", name: "Facebook", description: "Page posting & ads", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📘", category: "Social" },
-  { id: "instagram", name: "Instagram", description: "Reels, Stories & feed posts", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📸", category: "Social" },
-  { id: "tiktok", name: "TikTok", description: "Short-form video posting", url: "https://developers.tiktok.com/", cost: "Free", icon: "🎵", category: "Social" },
-  { id: "youtube", name: "YouTube", description: "Video uploads & analytics", url: "https://console.developers.google.com/", cost: "Free", icon: "▶️", category: "Social" },
-  { id: "linkedin", name: "LinkedIn", description: "Professional content posting", url: "https://www.linkedin.com/developers/apps", cost: "Free", icon: "💼", category: "Social" },
-  { id: "threads", name: "Threads", description: "Text & image micro-posts", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "🧵", category: "Social" },
-  { id: "x", name: "X (Twitter)", description: "Short posts, threads & Spaces", url: "https://developer.x.com/", cost: "Free", icon: "✖️", category: "Social" },
-  { id: "bluesky", name: "Bluesky", description: "Decentralized social posting", url: "https://bsky.app/", cost: "Free", icon: "🦋", category: "Social" },
-  { id: "lemon8", name: "Lemon8", description: "Visual lifestyle content", url: "https://www.lemon8-app.com/", cost: "Free", icon: "🍋", category: "Social" },
-  { id: "substack", name: "Substack", description: "Newsletter & long-form publishing", url: "https://substack.com/", cost: "Free", icon: "📰", category: "Social" },
-  { id: "clapper", name: "Clapper", description: "Short-form video community", url: "https://www.clapper.app/", cost: "Free", icon: "👏", category: "Social" },
+  // Social Platforms — setup guide only; direct posting requires your own OAuth app
+  { id: "facebook", name: "Facebook", description: "Page posting & ads — set up your own Meta developer app to enable posting", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📘", category: "Social", setupOnly: true },
+  { id: "instagram", name: "Instagram", description: "Reels, Stories & feed posts — requires Meta developer app with Instagram Graph API", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "📸", category: "Social", setupOnly: true },
+  { id: "tiktok", name: "TikTok", description: "Short-form video posting — requires TikTok for Developers app approval", url: "https://developers.tiktok.com/", cost: "Free", icon: "🎵", category: "Social", setupOnly: true },
+  { id: "youtube", name: "YouTube", description: "Video uploads & analytics — requires Google Cloud OAuth credentials", url: "https://console.developers.google.com/", cost: "Free", icon: "▶️", category: "Social", setupOnly: true },
+  { id: "linkedin", name: "LinkedIn", description: "Professional content posting — requires LinkedIn developer app", url: "https://www.linkedin.com/developers/apps", cost: "Free", icon: "💼", category: "Social", setupOnly: true },
+  { id: "threads", name: "Threads", description: "Text & image micro-posts — requires Meta developer app", url: "https://developers.facebook.com/apps/", cost: "Free", icon: "🧵", category: "Social", setupOnly: true },
+  { id: "x", name: "X (Twitter)", description: "Short posts, threads & Spaces — requires X developer portal app", url: "https://developer.x.com/", cost: "Free", icon: "✖️", category: "Social", setupOnly: true },
+  { id: "bluesky", name: "Bluesky", description: "Decentralized social posting — use the Bluesky app directly", url: "https://bsky.app/", cost: "Free", icon: "🦋", category: "Social", setupOnly: true },
+  { id: "lemon8", name: "Lemon8", description: "Visual lifestyle content — post manually via the Lemon8 app", url: "https://www.lemon8-app.com/", cost: "Free", icon: "🍋", category: "Social", setupOnly: true },
+  { id: "substack", name: "Substack", description: "Newsletter & long-form publishing — publish via Substack directly", url: "https://substack.com/", cost: "Free", icon: "📰", category: "Social", setupOnly: true },
+  { id: "clapper", name: "Clapper", description: "Short-form video community — post via the Clapper app", url: "https://www.clapper.app/", cost: "Free", icon: "👏", category: "Social", setupOnly: true },
 ];
 
 const ExternalAppConnections = () => {
@@ -141,7 +141,12 @@ const ExternalAppConnections = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      {connected?.is_valid ? (
+                      {(app as any).setupOnly ? (
+                        <a href={app.url} target="_blank" rel="noopener noreferrer"
+                          className="text-[10px] px-2 py-1 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30 flex items-center gap-1 transition-colors">
+                          <ExternalLink className="w-3 h-3" /> Integration Guide
+                        </a>
+                      ) : connected?.is_valid ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary flex items-center gap-1">
                             <Check className="w-3 h-3" /> Connected
@@ -159,7 +164,7 @@ const ExternalAppConnections = () => {
                     </div>
                   </div>
 
-                  {showKeyInput === app.id && (
+                  {showKeyInput === app.id && !(app as any).setupOnly && (
                     <div className="mt-2 space-y-2">
                       <a href={app.url} target="_blank" rel="noopener noreferrer"
                         className="text-[10px] text-primary hover:underline flex items-center gap-1">
