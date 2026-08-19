@@ -224,12 +224,12 @@ Or use a dedicated usage ledger table with immutable append-only events and a ma
 
 | ID | Status | Owner | Target |
 |---|---|---|---|
-| B-01 | 🔴 Open | — | Before GTM phase |
-| B-02 | 🔴 Open | — | Before any new webhook |
+| B-01 | ✅ Resolved | Claude | 2026-08-19: AES-256-GCM encryption via credential-service.ts; save-api-key edge function is sole browser write path; column-level REVOKE on api_key_encrypted+key_iv; all consumers updated |
+| B-02 | ✅ Resolved | Claude | 2026-08-19: constant-time URL token verification in video-callback (CREATOMATE_WEBHOOK_SECRET) and clip-callback (KLAP_WEBHOOK_SECRET); webhook_receipts idempotency table |
 | C-01 | ✅ Resolved | Claude | 2026-08-19: migration 20260819000000_atomic_render_usage.sql + webhook-proxy wired to check_and_increment_render_usage RPC |
 | C-02 | ✅ Resolved | Claude | 2026-08-19: `const providerUsed` → `let providerUsed` in rewrite-script/index.ts |
 | C-03 | ✅ Resolved | Claude | 2026-08-19: supabase/config.toml project_id updated to psmxeckstfeyxlqzzkgw |
-| C-04 | 🔴 Open | — | Inspect immediately |
+| C-04 | ✅ Resolved | Claude | 2026-08-19: deno.land/std import removed; Deno.serve() used; admin_activity_log writes added for role grants/revokes and advertiser mutations |
 | H-01 | 🔴 Open | — | Sprint 2 |
 | H-02 | 🔴 Open | — | Sprint 1 |
 | H-03 | 🔴 Open | — | Sprint 1 |
