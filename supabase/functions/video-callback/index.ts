@@ -1,13 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-webhook-secret, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
 /**
  * video-callback — Webhook endpoint for Creatomate (and Make.com legacy) to POST
  * finished video results back.
+ *
+ * B-02 SECURITY: This endpoint is public (verify_jwt = false) but is protected by
+ * a pre-shared token embedded in the callback URL registered with Creatomate:
+ *   https://<project>.supabase.co/functions/v1/video-callback?secret=<CREATOMATE_WEBHOOK_SECRET>
+ *
+ * The token is compared with constant-time equality to prevent timing attacks.
+ * Requests without a matching token receive 401.  Duplicate callbacks are
+ * rejected via webhook_receipts idempotency store.
  *
  * Creatomate webhook payload (single render object or array):
  * {
@@ -15,7 +18,7 @@ const corsHeaders = {
  *   status: "succeeded" | "failed",
  *   url?: string,              // final video URL
  *   snapshot_url?: string,
- *   metadata: string,          // JSON string: { "job_id": "..." }
+ *   metadata: string,          // JSON string or plain UUID: our job_id
  *   error_message?: string,
  * }
  *
@@ -24,9 +27,24 @@ const corsHeaders = {
  *   job_id: string,
  *   status: "completed" | "failed",
  *   video_url?: string,
- *   ...
  * }
  */
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,6 +55,22 @@ Deno.serve(async (req) => {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // ── B-02: Token verification ──
+  const webhookSecret = Deno.env.get("CREATOMATE_WEBHOOK_SECRET");
+  if (webhookSecret) {
+    const url = new URL(req.url);
+    const provided = url.searchParams.get("secret") ?? "";
+    if (!constantTimeEqual(provided, webhookSecret)) {
+      console.warn("[video-callback] Rejected: invalid secret token");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    console.warn("[video-callback] CREATOMATE_WEBHOOK_SECRET not set — token check skipped (set it to enable protection)");
   }
 
   try {
@@ -54,13 +88,9 @@ Deno.serve(async (req) => {
     console.log("[video-callback] body.metadata raw:", body.metadata);
 
     // ── Resolve job_id ──
-    // New format: metadata is a plain UUID string (e.g. "d214806b-...")
-    // Old format: metadata is a JSON string (e.g. '{"job_id":"d214806b-..."}')
-    // Make.com legacy: body.job_id directly
     let job_id: string | null = null;
     if (body.metadata) {
       const raw = String(body.metadata).trim();
-      // Plain UUID: 8-4-4-4-12 hex pattern
       if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw)) {
         job_id = raw;
       } else {
@@ -68,7 +98,6 @@ Deno.serve(async (req) => {
           const meta = JSON.parse(raw);
           job_id = meta?.job_id || null;
         } catch (_) {
-          // Last resort: use raw string as-is
           job_id = raw || null;
         }
       }
@@ -77,14 +106,11 @@ Deno.serve(async (req) => {
     console.log("[video-callback] Extracted job_id:", job_id);
 
     // ── Resolve status ──
-    // Creatomate uses "succeeded" / "failed" / "planned" / "rendering"
-    // Make.com uses "completed" / "failed"
     const rawStatus: string = body.status || "";
     let status: "completed" | "failed" | null = null;
     if (rawStatus === "succeeded" || rawStatus === "completed") status = "completed";
     else if (rawStatus === "failed") status = "failed";
 
-    // Ignore in-progress Creatomate status pings
     if (!status) {
       return new Response(JSON.stringify({ ok: true, ignored: true, raw_status: rawStatus }), {
         status: 200,
@@ -92,13 +118,37 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── B-02: Idempotency check ──
+    const creatomateRenderId: string | null = body.id || null;
+    const fingerprint = creatomateRenderId
+      ? `creatomate:${creatomateRenderId}:${rawStatus}`
+      : `job:${job_id}:${rawStatus}`;
+
+    const { error: receiptErr } = await supabase
+      .from("webhook_receipts")
+      .insert({
+        provider: "creatomate",
+        event_fingerprint: fingerprint,
+        payload_summary: JSON.stringify({ job_id, status, render_id: creatomateRenderId }),
+      });
+
+    if (receiptErr) {
+      if (receiptErr.code === "23505") {
+        // Duplicate — already processed
+        console.log(`[video-callback] Duplicate callback ignored for fingerprint: ${fingerprint}`);
+        return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.error("[video-callback] Receipt insert error:", receiptErr.message);
+    }
+
     // ── Resolve video URL ──
     const video_url = body.url || body.video_url || body.direct_mp4_url || body.merged_video_url || null;
     const thumbnail_url = body.snapshot_url || body.thumbnail_url || null;
     const error_message = body.error_message || body.error || null;
     const duration_seconds = body.duration_seconds || null;
-    const creatomate_render_id = body.id || null;
-    const metadata = body.metadata || null;
     const voiceover_url = body.voiceover_url || null;
 
     if (!job_id) {
@@ -108,7 +158,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Look up the job
     const { data: job, error: jobErr } = await supabase
       .from("video_generation_jobs")
       .select("id, user_id, business_id, result_payload, status")
@@ -122,11 +171,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[video-callback] Received callback for job ${job_id}: status=${status}, render_id=${creatomate_render_id}`);
+    console.log(`[video-callback] Received callback for job ${job_id}: status=${status}, render_id=${creatomateRenderId}`);
 
     let finalVideoUrl: string | null = video_url;
 
-    // Re-host external video in Supabase storage for reliable playback
     if (status === "completed" && finalVideoUrl && !finalVideoUrl.includes(supabaseUrl)) {
       try {
         console.log(`[video-callback] Downloading video from: ${finalVideoUrl}`);
@@ -150,9 +198,8 @@ Deno.serve(async (req) => {
               });
 
             if (!uploadErr) {
-              const publicUrl = `${supabaseUrl}/storage/v1/object/public/media/${storagePath}`;
-              console.log(`[video-callback] Re-hosted video: ${publicUrl}`);
-              finalVideoUrl = publicUrl;
+              finalVideoUrl = `${supabaseUrl}/storage/v1/object/public/media/${storagePath}`;
+              console.log(`[video-callback] Re-hosted video: ${finalVideoUrl}`);
             } else {
               console.error("[video-callback] Storage upload failed:", uploadErr.message);
             }
@@ -167,7 +214,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update the job
     const existingPayload = (job.result_payload as Record<string, any>) || {};
     const updatedPayload = {
       ...existingPayload,
@@ -194,13 +240,13 @@ Deno.serve(async (req) => {
         ...updatedPayload,
         completed_at: status === "completed" ? nowIso : null,
         original_provider_url: video_url || null,
-        creatomate_render_id: creatomate_render_id || null,
+        creatomate_render_id: creatomateRenderId || null,
       },
       error_message: status === "failed" ? (error_message || "Production failed") : null,
       updated_at: nowIso,
     };
     if (status === "completed") updateFields.completed_at = nowIso;
-    if (creatomate_render_id) updateFields.creatomate_render_id = creatomate_render_id;
+    if (creatomateRenderId) updateFields.creatomate_render_id = creatomateRenderId;
 
     const { error: updateErr } = await supabase
       .from("video_generation_jobs")
@@ -213,9 +259,8 @@ Deno.serve(async (req) => {
     }
     console.log(`[video-callback] DB update matched job ${job_id}: OK`);
 
-    // If completed, update content_posts and business_media
     if (status === "completed" && finalVideoUrl) {
-      const { error: postErr } = await supabase
+      await supabase
         .from("content_posts")
         .update({
           media_url: finalVideoUrl,
@@ -230,17 +275,9 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1);
 
-      if (postErr) {
-        console.error("[video-callback] content_posts update error:", postErr);
-      }
-
-      // Only store in business_media if this is an actual video file, not a snapshot/image.
-      // Creatomate also returns snapshot_url (.jpg) via the same webhook; if the render
-      // failed silently it may send a .jpg as body.url — storing that as file_type="video"
-      // would poison future pipeline runs by feeding .jpg sources into video track slots.
       const isActualVideoUrl = /\.(mp4|webm|mov)(\?|$)/i.test(finalVideoUrl);
       if (isActualVideoUrl) {
-        const { error: mediaErr } = await supabase
+        await supabase
           .from("business_media")
           .insert({
             business_id: job.business_id,
@@ -253,12 +290,6 @@ Deno.serve(async (req) => {
             mime_type: "video/mp4",
             tags: ["creatomate", "ai-generated", "promotional"],
           });
-
-        if (mediaErr) {
-          console.error("[video-callback] business_media insert error:", mediaErr);
-        }
-      } else {
-        console.warn(`[video-callback] Skipping business_media insert — URL does not look like a video file: ${finalVideoUrl}`);
       }
 
       console.log(`[video-callback] Job ${job_id} completed. Video saved.`);
@@ -278,7 +309,7 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error("[video-callback] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

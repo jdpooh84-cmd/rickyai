@@ -51,17 +51,23 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
     }
     setSaving(true);
     try {
-      const existing = savedKeys.find(k => k.provider === providerId);
-      if (existing) {
-        await supabase
-          .from("user_api_keys")
-          .update({ api_key_encrypted: keyInput.trim(), is_valid: true, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
-      } else {
-        await supabase
-          .from("user_api_keys")
-          .insert({ user_id: user.id, provider: providerId, api_key_encrypted: keyInput.trim() });
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-api-key`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ provider: providerId, api_key: keyInput.trim() }),
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Failed to save key");
 
       const { data } = await supabase
         .from("user_api_keys")
@@ -75,8 +81,8 @@ const ConnectStep = ({ onComplete }: ConnectStepProps) => {
       toast.success(`${providerId} key saved!`);
 
       if (data && data.length > 0) onComplete?.();
-    } catch {
-      toast.error("Failed to save key");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save key");
     } finally {
       setSaving(false);
     }

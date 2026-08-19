@@ -1,7 +1,21 @@
 project_id = "psmxeckstfeyxlqzzkgw"
 
+# JWT verification policy
+# Default for all functions: verify_jwt = true (safe).
+# Functions listed below deviate from the default with an explicit justification.
+
+# Public webhook endpoints — no JWT because external providers (Creatomate, Klap)
+# cannot present a Supabase JWT.  Each endpoint authenticates the caller via a
+# pre-shared secret token embedded in the callback URL registered with the provider.
+# See B-02 in RICKY_PHASE_0_AUDIT.md for the full verification implementation.
 [functions.video-callback]
 verify_jwt = false
 
 [functions.clip-callback]
 verify_jwt = false
+
+# save-api-key requires a valid user JWT — browser must be signed in.
+# verify_jwt = true is the default and does not need to be listed, but it is
+# included here for explicit documentation of the write path for B-01.
+[functions.save-api-key]
+verify_jwt = true

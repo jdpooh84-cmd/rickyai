@@ -59,21 +59,23 @@ const ExternalAppConnections = () => {
     if (!apiKeyInput.trim()) { toast.error("Please enter an API key"); return; }
     setSaving(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
 
-      const { data: existing } = await supabase.from("user_api_keys")
-        .select("id").eq("provider", provider).eq("user_id", user.id).maybeSingle();
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-api-key`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ provider, api_key: apiKeyInput.trim() }),
+        }
+      );
 
-      if (existing) {
-        await supabase.from("user_api_keys").update({
-          api_key_encrypted: apiKeyInput.trim(), is_valid: true, updated_at: new Date().toISOString(),
-        }).eq("id", existing.id);
-      } else {
-        await supabase.from("user_api_keys").insert({
-          user_id: user.id, provider, api_key_encrypted: apiKeyInput.trim(), is_valid: true,
-        });
-      }
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Failed to save key");
 
       toast.success(`${provider} API key saved!`);
       setShowKeyInput(null);

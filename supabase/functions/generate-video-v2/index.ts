@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { decrypt } from "../_shared/credential-service.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1261,7 +1262,12 @@ async function processVideoJob(
 
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || "";
   const googleTtsKey = Deno.env.get("GOOGLE_TTS_API_KEY") || "";
-  const creatomateWebhookUrl = Deno.env.get("CREATOMATE_WEBHOOK_URL") || "";
+  // Append secret token to webhook URL for B-02 verification in video-callback
+  const creatomateWebhookBase = Deno.env.get("CREATOMATE_WEBHOOK_URL") || "";
+  const creatomateWebhookSecret = Deno.env.get("CREATOMATE_WEBHOOK_SECRET") || "";
+  const creatomateWebhookUrl = creatomateWebhookBase && creatomateWebhookSecret
+    ? `${creatomateWebhookBase}?secret=${encodeURIComponent(creatomateWebhookSecret)}`
+    : creatomateWebhookBase;
 
   const pipelineLogs: string[] = [];
   const log = (msg: string) => {
@@ -1297,11 +1303,22 @@ async function processVideoJob(
       ...acc, ...(row.output_data || {}),
     }), {}) || {};
 
-    // Resolve ElevenLabs key — user stored key takes priority
+    // Resolve provider keys — stored keys are AES-256-GCM encrypted (v1) or legacy plaintext (v0)
     const { data: userKeys } = await supabase.from("user_api_keys")
-      .select("provider, api_key_encrypted").eq("user_id", userId).eq("is_valid", true);
+      .select("provider, api_key_encrypted, key_iv, key_version")
+      .eq("user_id", userId).eq("is_valid", true);
     const keyMap: Record<string, string> = {};
-    userKeys?.forEach((k: any) => { keyMap[k.provider] = k.api_key_encrypted; });
+    for (const k of (userKeys || [])) {
+      try {
+        if (k.key_version === "v1-aes256gcm" && k.key_iv) {
+          keyMap[k.provider] = await decrypt(k.api_key_encrypted, k.key_iv);
+        } else {
+          keyMap[k.provider] = k.api_key_encrypted;
+        }
+      } catch (decryptErr: any) {
+        console.error(`[generate-video-v2] Failed to decrypt key for provider ${k.provider}:`, decryptErr?.message);
+      }
+    }
     const elevenlabsKey = keyMap["elevenlabs"] || Deno.env.get("ELEVENLABS_API_KEY") || "";
     const heygenKey = Deno.env.get("HEYGEN_API_KEY") || "";
     const pexelsKey = Deno.env.get("PEXELS_API_KEY") || "";

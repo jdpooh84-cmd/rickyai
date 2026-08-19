@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { decrypt } from "../_shared/credential-service.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +66,7 @@ Deno.serve(async (req) => {
     // ── BYO-key gate: user must supply their own Klap API key ──
     const { data: klapKeyRow } = await supabase
       .from("user_api_keys")
-      .select("api_key_encrypted")
+      .select("api_key_encrypted, key_iv, key_version")
       .eq("user_id", user.id)
       .eq("provider", "klap")
       .eq("is_valid", true)
@@ -78,7 +79,19 @@ Deno.serve(async (req) => {
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const klapKey = klapKeyRow.api_key_encrypted;
+    let klapKey: string;
+    try {
+      if (klapKeyRow.key_version === "v1-aes256gcm" && klapKeyRow.key_iv) {
+        klapKey = await decrypt(klapKeyRow.api_key_encrypted, klapKeyRow.key_iv);
+      } else {
+        klapKey = klapKeyRow.api_key_encrypted;
+      }
+    } catch (decryptErr: any) {
+      console.error("[clip-video] Failed to decrypt Klap key:", decryptErr?.message);
+      return new Response(JSON.stringify({ error: "KEY_DECRYPT_FAILED", message: "Could not read your Klap API key. Please re-enter it in the Connections panel." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ── Submit video to Klap ──
     console.log(`[clip-video] Submitting video to Klap for user ${user.id}: ${sourceVideoUrl}`);

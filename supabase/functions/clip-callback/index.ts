@@ -3,17 +3,20 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 /**
  * clip-callback — Webhook endpoint for Klap to POST when a project finishes.
  *
- * Set this URL in your Klap dashboard → Project settings → Webhook:
- *   https://psmxeckstfeyxlqzzkgw.supabase.co/functions/v1/clip-callback
+ * B-02 SECURITY: This endpoint is public (verify_jwt = false) but is protected by
+ * a pre-shared token embedded in the callback URL registered in the Klap dashboard:
+ *   https://<project>.supabase.co/functions/v1/clip-callback?secret=<KLAP_WEBHOOK_SECRET>
+ *
+ * The token is compared with constant-time equality to prevent timing attacks.
+ * Requests without a matching token receive 401.  Duplicate callbacks are
+ * rejected via webhook_receipts idempotency store.
  *
  * Klap webhook payload shape (approximate — may vary by API version):
  * {
- *   "id": "project-uuid",        // Klap project ID (= external_job_id in our DB)
+ *   "id": "project-uuid",
  *   "status": "done" | "failed",
- *   "clips": [
- *     { "id": "...", "video_url": "...", "title": "..." }
- *   ],
- *   "error": "..."               // present on failure
+ *   "clips": [{ "id": "...", "video_url": "...", "title": "..." }],
+ *   "error": "..."
  * }
  *
  * verify_jwt = false in config.toml — this is a public webhook endpoint.
@@ -21,8 +24,18 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -33,6 +46,22 @@ Deno.serve(async (req) => {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // ── B-02: Token verification ──
+  const webhookSecret = Deno.env.get("KLAP_WEBHOOK_SECRET");
+  if (webhookSecret) {
+    const url = new URL(req.url);
+    const provided = url.searchParams.get("secret") ?? "";
+    if (!constantTimeEqual(provided, webhookSecret)) {
+      console.warn("[clip-callback] Rejected: invalid secret token");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  } else {
+    console.warn("[clip-callback] KLAP_WEBHOOK_SECRET not set — token check skipped (set it to enable protection)");
   }
 
   try {
@@ -55,13 +84,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Map Klap status → our status
     let status: "completed" | "failed" | null = null;
     if (klapStatus === "done" || klapStatus === "succeeded") status = "completed";
     else if (klapStatus === "failed" || klapStatus === "error") status = "failed";
 
     if (!status) {
-      // In-progress ping — ignore
       console.log(`[clip-callback] Ignoring in-progress ping for ${externalJobId} (status=${klapStatus})`);
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         status: 200,
@@ -69,7 +96,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find the job row by external_job_id
+    // ── B-02: Idempotency check ──
+    const fingerprint = `klap:${externalJobId}:${klapStatus}`;
+    const { error: receiptErr } = await supabase
+      .from("webhook_receipts")
+      .insert({
+        provider: "klap",
+        event_fingerprint: fingerprint,
+        payload_summary: JSON.stringify({ external_job_id: externalJobId, status }),
+      });
+
+    if (receiptErr) {
+      if (receiptErr.code === "23505") {
+        console.log(`[clip-callback] Duplicate callback ignored for fingerprint: ${fingerprint}`);
+        return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      console.error("[clip-callback] Receipt insert error:", receiptErr.message);
+    }
+
     const { data: job, error: lookupErr } = await supabase
       .from("clip_generation_jobs")
       .select("id, user_id, business_id")
@@ -117,10 +164,10 @@ Deno.serve(async (req) => {
 
     console.log(`[clip-callback] Job ${job.id} updated — ${clipUrls.length} clips`);
 
-    return new Response(JSON.stringify({ success: true, job_id: job.id, status, clip_count: clipUrls.length }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: true, job_id: job.id, status, clip_count: clipUrls.length }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err) {
     console.error("[clip-callback] Error:", err);
     return new Response(JSON.stringify({ error: (err as Error).message }), {
