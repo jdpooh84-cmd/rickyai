@@ -251,7 +251,8 @@ Deno.serve(async (req) => {
     const { error: updateErr } = await supabase
       .from("video_generation_jobs")
       .update(updateFields)
-      .eq("id", job_id);
+      .eq("id", job_id)
+      .eq("user_id", job.user_id);
 
     if (updateErr) {
       console.error("[video-callback] Failed to update job:", JSON.stringify(updateErr));

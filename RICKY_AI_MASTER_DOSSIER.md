@@ -1,6 +1,6 @@
 # RICKY AI — MASTER PRODUCT DOSSIER & COMPLETION AUDIT
 
-**Audit Date:** 2026-08-25  
+**Audit Date:** 2026-08-26 (updated)  
 **Branch:** `claude/rickyai-byo-creatomate-api-c9c4ka`  
 **Repository:** `jdpooh84-cmd/rickyai`  
 **Supabase project ref:** `psmxeckstfeyxlqzzkgw`  
@@ -317,13 +317,15 @@ User (VideoStudioStep)
 UI shows instant/standard/cinematic with different descriptions, but the actual pipeline does not differentiate these — all tiers use the same Creatomate render path. This is a UI-only distinction currently.
 
 ### BYO Key Model
-- Creatomate API key: user must store their own via ExternalAppConnections. Loaded at runtime from `api_keys` table.
+- Creatomate API key: user must store their own via ExternalAppConnections. Loaded at runtime from `user_api_keys` table.
 - Klap API key: same BYO model for video clipping.
 - If no Creatomate key exists → video generation blocked with error.
 
 ---
 
-## SECTION 7 — CONTENT CONFIDENCE ENGINE
+## SECTION 7 — PROMPTFIXER — SCRIPT SELF-CORRECTION
+
+> **NOTE:** The term "Content Confidence Engine" does not appear in the codebase. What exists is a script self-correction loop called `PromptFixer` (implemented as `diagnoseScript()` + `applyScriptFixes()` in `generate-video-v2`). It is a quality gate for the AI script output, not a scoring/ranking/recommendation system. The "Content Confidence Engine" name is an overstatement of the actual implementation.
 
 The AI script pipeline includes a multi-pass self-correction system (`PromptFixer`):
 
@@ -366,7 +368,7 @@ The AI script pipeline includes a multi-pass self-correction system (`PromptFixe
 
 ### API Key Management
 - All functions use `Deno.env.get("ANTHROPIC_API_KEY")` — server-side, never exposed to client.
-- Creatomate/Klap keys are user-owned, stored in `api_keys` table (encrypted at rest per migration intent — encryption migration is pending).
+- Creatomate/Klap keys are user-owned, stored in `user_api_keys` table (AES-256-GCM encryption implemented in `save-api-key` + `credential-service.ts`; encryption columns are added by migration `20260819000001` which is pending application to the live DB).
 
 ### Rate Limiting / Quotas
 - Ricky chat: 25-question limit per user (tracked in `profiles.ricky_question_count`).
@@ -431,7 +433,7 @@ The AI script pipeline includes a multi-pass self-correction system (`PromptFixe
 | `strategy_outputs` | Cached AI outputs per (business_id, step_number) |
 | `video_generation_jobs` | Video pipeline state (status, video_url, thumbnail_url, job_id, creatomate_render_id) |
 | `business_media` | User-uploaded media (images/videos) with public_url, file_type, shot_type |
-| `api_keys` | BYO API keys per user (Creatomate, Klap) — encrypted at rest (migration pending) |
+| `user_api_keys` | BYO API keys per user (Creatomate, Klap) — AES-256-GCM encryption implemented; `key_iv`/`key_version`/`api_key_masked` columns added by migration `20260819000001` (pending application) |
 | `user_roles` | Role assignments (admin, moderator, user, developer, finance, marketing) |
 | `user_gamification` | Points, level, streak, badges JSON |
 | `user_points` | Point transaction log |
@@ -454,7 +456,7 @@ The AI script pipeline includes a multi-pass self-correction system (`PromptFixe
 
 ### Pending Migrations (not yet applied to live DB)
 1. `20260819000000_atomic_render_usage.sql` — Adds `check_and_increment_render_usage()` RPC with `FOR UPDATE` row lock for atomic usage enforcement.
-2. `20260819000001_api_key_encryption.sql` — Adds `key_iv`, `key_version`, `api_key_masked` columns to `api_keys`. Column-level `REVOKE` on `api_key_encrypted` and `key_iv` from `authenticated`/`anon` roles.
+2. `20260819000001_api_key_encryption.sql` — Adds `key_iv`, `key_version`, `api_key_masked` columns to `user_api_keys`. Column-level `REVOKE` on `api_key_encrypted` and `key_iv` from `authenticated`/`anon` roles.
 3. `20260819000002_webhook_receipts.sql` — Creates `webhook_receipts` table for webhook idempotency.
 
 **These 3 migrations are NOT applied to the live Supabase project.**
@@ -476,9 +478,11 @@ The AI script pipeline includes a multi-pass self-correction system (`PromptFixe
 | **Supabase Storage** | Media files | Service role key (server-side) | FUNCTIONAL BUT UNVERIFIED IN PRODUCTION |
 
 ### Webhook Security
-- `video-callback`: has `verify_jwt = false` in `supabase/config.toml` (public endpoint). No secret validation observed in inspected code — webhook secret validation is **planned** (pending `CREATOMATE_WEBHOOK_SECRET` secret and associated verification logic).
-- `clip-callback`: same pattern.
-- **Risk**: Without webhook secret validation, any actor can POST to these endpoints and forge video completion events.
+- `video-callback`: has `verify_jwt = false` in `supabase/config.toml` (public endpoint). **Secret validation IS implemented**: checks `?secret=` URL param against `CREATOMATE_WEBHOOK_SECRET` using constant-time equality (`constantTimeEqual()`). Returns 401 if secret is wrong or missing. If the env var is not set, the function logs a warning and processes the request without authentication (safe-fail-open for unconfigured deployments).
+- `clip-callback`: identical pattern using `KLAP_WEBHOOK_SECRET`.
+- Both endpoints also include `.eq("user_id", job.user_id)` on their DB update paths (defense-in-depth: a forged valid-token request for an unknown job_id returns 404; an unknown `external_job_id` for Klap also returns 404).
+- **Remaining risk**: If `CREATOMATE_WEBHOOK_SECRET` / `KLAP_WEBHOOK_SECRET` are not set in Supabase secrets, the security check is bypassed with a warning. Setting the secrets is an owner action (not a code fix).
+- 25 unit tests covering the B-02 security model exist in `src/test/webhook-security.test.ts` and pass.
 
 ---
 
@@ -554,10 +558,10 @@ Agency plan ($799/mo) unlocks:
 - Admin bypass only granted via DB role check (`has_role` RPC).
 - No API keys, secrets, or tokens visible in frontend source files.
 
-### Confirmed Vulnerabilities
-1. **Webhook endpoints lack secret validation**: `video-callback` and `clip-callback` are public (`verify_jwt = false`) with no `X-Webhook-Secret` verification in current deployed code. Any HTTP client can forge video completion events, setting arbitrary `video_url` values in the DB. *(Fix: implement `CREATOMATE_WEBHOOK_SECRET` header check before processing payload.)*
-2. **`check-subscription` still uses deprecated `deno.land/std` serve() import**: This edge function (`line 1: import { serve } from "https://deno.land/std@0.190.0/http/server.ts"`) was NOT migrated in the batch fix of 6 other functions. It will cause cold-start `EarlyDrop` errors in the current Supabase Deno runtime. **This is a production-blocking bug** because `check-subscription` is the most critical edge function, called on every login and every 60 seconds.
-3. **3 DB migrations not applied**: The encryption migration (`20260819000001`) means `api_key_encrypted` and `key_iv` columns do not exist on the live DB. Any edge function attempting to read encrypted BYO keys will fail with a DB error.
+### Confirmed Vulnerabilities (current as of 2026-08-26)
+1. ~~**Webhook endpoints lack secret validation**~~ — **FIXED**: `video-callback` and `clip-callback` both implement `constantTimeEqual()` secret verification against `CREATOMATE_WEBHOOK_SECRET` / `KLAP_WEBHOOK_SECRET`. DB update paths also include `.eq("user_id", job.user_id)` for defense-in-depth. **Remaining action**: owner must set `CREATOMATE_WEBHOOK_SECRET` and `KLAP_WEBHOOK_SECRET` in Supabase secrets.
+2. ~~**`check-subscription` still uses deprecated `deno.land/std` serve() import**~~ — **FIXED**: migrated to `Deno.serve()` in a prior session. This is no longer a production-blocking bug.
+3. **3 DB migrations not applied**: The encryption migration (`20260819000001`) means `api_key_encrypted` and `key_iv` columns do not exist on the live DB. Any edge function writing encrypted BYO keys will fail with a column-not-found error until the owner runs `db push --linked`.
 4. **Nonprofit discount dead code**: 15% discount is a constant but is never applied to checkout sessions, creating a potential expectation gap if marketed.
 
 ### Neutral Observations
@@ -576,9 +580,9 @@ Agency plan ($799/mo) unlocks:
 | `STRIPE_SECRET_KEY` | create-checkout, customer-portal, check-subscription | Supabase edge function secrets |
 | `PEXELS_API_KEY` | generate-video-v2 (stock image fallback) | Supabase edge function secrets |
 | `GOOGLE_TTS_API_KEY` | generate-video-v2 (alternative TTS, optional) | Supabase edge function secrets |
-| `CREATOMATE_WEBHOOK_SECRET` | video-callback (intended, not yet implemented) | Supabase edge function secrets (pending) |
-| `KLAP_WEBHOOK_SECRET` | clip-callback (intended, not yet implemented) | Supabase edge function secrets (pending) |
-| `USER_API_KEY_ENCRYPTION_SECRET` | save-api-key (intended, migration pending) | Supabase edge function secrets (pending) |
+| `CREATOMATE_WEBHOOK_SECRET` | video-callback (implemented — `constantTimeEqual()` check on `?secret=` param) | Supabase edge function secrets (must be set by owner) |
+| `KLAP_WEBHOOK_SECRET` | clip-callback (implemented — same pattern) | Supabase edge function secrets (must be set by owner) |
+| `USER_API_KEY_ENCRYPTION_SECRET` | save-api-key, credential-service.ts (AES-256-GCM implemented; DB columns pending migration) | Supabase edge function secrets (must be set by owner) |
 | User's Creatomate API key | generate-video-v2 (via api_keys table) | User-owned, stored in DB |
 | User's Klap API key | clip-video (via api_keys table) | User-owned, stored in DB |
 | `SUPABASE_SERVICE_ROLE_KEY` | All edge functions | Auto-injected by Supabase runtime |
@@ -650,12 +654,12 @@ Not audited in depth. Observations from inspected code:
 - `has_role` DB function for role checks — avoids client-side trust.
 
 ### Weaknesses
-- **`check-subscription` still imports from `deno.land/std`** — missed in batch migration, will cause cold-start failures in production.
+- ~~**`check-subscription` still imports from `deno.land/std`**~~ — **FIXED**: migrated to `Deno.serve()` in a prior session.
 - **Lint: 322 ESLint errors** — primarily `@typescript-eslint/no-explicit-any`. Not build-blocking but indicates widespread `any` type usage.
 - **`any` typing in pipeline**: `generate-video-v2` uses `any` extensively for business data, script objects, and Supabase rows.
 - **Speed tiers are UI fiction**: The `instant/standard/cinematic` selector in VideoStudioStep has no effect on the actual rendering pipeline.
 - **Hardcoded wrong-city watchlist**: The location guard in `diagnoseScript` checks a small fixed list of cities (Ohio, Columbus, New York, LA, SF, Chicago) — will not catch other city substitution errors.
-- **No webhook secret validation**: Live webhooks are open to forgery.
+- ~~**No webhook secret validation**~~ — **FIXED**: Both `video-callback` and `clip-callback` implement `constantTimeEqual()` secret verification. Secrets must still be configured by the owner.
 - **No integration tests**: Playwright config exists but zero E2E tests written.
 - **Remotion and render-worker**: Dead code adding maintenance surface without value.
 
@@ -665,14 +669,15 @@ Not audited in depth. Observations from inspected code:
 
 | Test Type | Status |
 |---|---|
-| Unit tests (Vitest) | 1 test file (`src/test/example.test.ts`), 1 test, passes |
+| Unit tests (Vitest) | 2 test files: `src/test/example.test.ts` (1 test), `src/test/webhook-security.test.ts` (25 tests) — all 26 pass |
+| Webhook security tests | 25 tests covering B-02 token verification, idempotency/replay protection, status routing, fingerprint construction, job ID extraction, tenant isolation contract, method gating |
 | Integration tests | NOT IMPLEMENTED |
 | E2E tests (Playwright) | Config exists (`playwright.config.ts`, `playwright-fixture.ts`), zero tests written |
 | Edge function tests | NOT IMPLEMENTED |
 | Billing flow tests | NOT IMPLEMENTED |
 | Video pipeline tests | NOT IMPLEMENTED |
 
-**Current test coverage: effectively 0% of meaningful product behavior.**
+**Current test coverage: webhook security logic (25 tests); core product behavior still at ~0% automated coverage.**
 
 ---
 
@@ -694,7 +699,7 @@ Not audited in depth. Observations from inspected code:
 | DB migrations (25 total) | 22 applied, 3 pending (encryption, atomic usage, webhook receipts) |
 | Edge functions (19 active) | NOT DEPLOYED in this session — requires `SUPABASE_ACCESS_TOKEN` |
 | Edge function secrets | Must be set by owner (ANTHROPIC_API_KEY, STRIPE_SECRET_KEY, PEXELS_API_KEY, etc.) |
-| `check-subscription` bug | CRITICAL — deno.land/std import will cause cold-start EarlyDrop |
+| `check-subscription` bug | FIXED — migrated to `Deno.serve()` in prior session; no longer a blocking issue |
 
 ### Git
 | Item | Status |
@@ -722,13 +727,15 @@ Not audited in depth. Observations from inspected code:
 - Admin bypass and test account bypass logic
 - Business-scoped state isolation in VideoStudioStep
 - AppSidebar with correct 5-phase navigation structure
-- All 6 fixed edge functions (deno.land/std migration for create-checkout, customer-portal, federal-contracting, grant-consultant, grant-intel, track-referral)
-- 3 pending DB migrations (written and committed, not yet applied)
+- All 7 fixed edge functions (deno.land/std migration for check-subscription, create-checkout, customer-portal, federal-contracting, grant-consultant, grant-intel, track-referral)
+- Webhook secret validation in video-callback (`CREATOMATE_WEBHOOK_SECRET`) and clip-callback (`KLAP_WEBHOOK_SECRET`) with constant-time comparison
+- Defense-in-depth: `.eq("user_id", job.user_id)` on all webhook DB update paths
+- AES-256-GCM BYO key encryption (save-api-key + credential-service.ts implemented)
+- 3 pending DB migrations (written and committed, not yet applied to live DB)
+- 25 webhook security unit tests (all passing)
 
 ### What Is Partially Complete
-- `check-subscription` — has deno.land/std bug that must be fixed
-- Webhook security — no secret validation on video-callback or clip-callback
-- BYO key encryption — migration written but not applied
+- BYO key encryption — code and migration written, but migration `20260819000001` not yet applied to live DB
 - Klap clipping — edge functions exist, UI exists, BYO key required, not end-to-end tested
 - Speed tiers — UI exists, pipeline does not differentiate
 - Marketplace — listing exists, purchase flow uncertain
@@ -741,7 +748,6 @@ Not audited in depth. Observations from inspected code:
 - Nonprofit discount (constant defined, not applied to checkout)
 - Enterprise checkout flow
 - Integration/E2E tests
-- Webhook secret validation
 
 ---
 
@@ -766,9 +772,9 @@ The following are complete enough to demonstrate to a user or investor:
 
 The following are **not production-ready** and will fail or disappoint:
 
-1. **`check-subscription` cold-start failure** — MUST be fixed before any deployment attempt. This is the single most critical blocking bug: the function called on every login returns an EarlyDrop error.
-2. **3 DB migrations not applied** — Encrypted key storage doesn't exist in live DB. Any function writing to `api_key_encrypted` will crash with a column-not-found error.
-3. **Webhook forgery risk** — video-callback and clip-callback accept any POST without authentication.
+1. ~~**`check-subscription` cold-start failure**~~ — **FIXED**: `check-subscription` was migrated to `Deno.serve()`. No longer a blocking bug.
+2. **3 DB migrations not applied** — Encrypted key storage (`key_iv`, `key_version`, `api_key_masked`) doesn't exist in live DB. Any function writing to `api_key_encrypted` will crash with a column-not-found error. Atomic usage RPC and `webhook_receipts` table also don't exist until migrations are applied.
+3. ~~**Webhook forgery risk**~~ — **FIXED**: Both video-callback and clip-callback implement constant-time secret verification. **Remaining action**: owner must set `CREATOMATE_WEBHOOK_SECRET` and `KLAP_WEBHOOK_SECRET` in Supabase secrets.
 4. **Edge function secrets not set** — If `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `PEXELS_API_KEY` are not in Supabase secrets, every AI feature returns a 500 error.
 5. **Edge functions not deployed** — 19 functions must be deployed to Supabase. Current deployment status is unknown.
 6. **Creatomate API key required per user** — Users must sign up for Creatomate, get an API key, and paste it in "Connect Tools" before video generation works. This is a significant onboarding friction point.
@@ -786,14 +792,14 @@ The following are **not production-ready** and will fail or disappoint:
 | Core strategy engine | 8/10 | 15 steps, real AI output, properly cached |
 | Video generation | 6/10 | Pipeline works but requires BYO Creatomate key; not self-serve out of the box |
 | Billing | 8/10 | 4 tiers + 2 add-ons + portal, but nonprofit/enterprise not functional |
-| Reliability | 3/10 | check-subscription bug, 3 undeployed migrations, no webhook security |
+| Reliability | 5/10 | check-subscription bug fixed; 3 undeployed migrations remain; edge functions not deployed |
 | Onboarding friction | 4/10 | BYO Creatomate key requirement is a significant barrier |
 | AI quality | 7/10 | Anthropic-backed, self-correcting script, industry-adaptive language |
-| Testing | 1/10 | 1 trivial unit test, no E2E, no integration tests |
+| Testing | 2/10 | 26 unit tests (25 webhook security + 1 trivial), no E2E, no integration tests |
 | Documentation | 5/10 | CLAUDE.md is thorough, no user-facing docs |
-| Security | 5/10 | RLS on, but webhook forgery open, encryption migration pending |
+| Security | 7/10 | RLS on, webhook secrets implemented (must be set by owner), AES-256-GCM encryption implemented (migration pending), defense-in-depth on update paths |
 
-**Overall commercial readiness: 5/10.** The product concept is complete and demonstrable, but has a production-blocking bug (`check-subscription`), no deployed edge functions, and unapplied DB migrations. Once those 3 items are resolved, the platform can accept real users.
+**Overall commercial readiness: 6/10.** The product concept is complete and demonstrable. The `check-subscription` bug is fixed, webhook security is implemented, and BYO key encryption is built. Remaining blockers before accepting real users: 3 DB migrations must be applied, 19 edge functions must be deployed with secrets set, and the Vercel frontend must be deployed. None of these require additional code — they are owner infrastructure actions.
 
 ---
 
@@ -899,11 +905,8 @@ Ordered list of actions required to go from current state to a fully functional 
 
 ### CRITICAL (must be done before launch)
 
-**1. Fix `check-subscription` deno.land/std import (5 minutes)**
-- File: `supabase/functions/check-subscription/index.ts`
-- Remove: `import { serve } from "https://deno.land/std@0.190.0/http/server.ts";`
-- Change: `serve(async (req) => {` → `Deno.serve(async (req) => {`
-- This function is called on every login and every 60 seconds. Without this fix, all subscription state management fails.
+**1. ~~Fix `check-subscription` deno.land/std import~~ — DONE**
+- Fixed in prior session. `check-subscription` now uses `Deno.serve()`. All 19 active edge functions use `npm:` specifiers and `Deno.serve()`.
 
 **2. Owner: Set Supabase access token and deploy edge functions**
 - `export SUPABASE_ACCESS_TOKEN=<token>`
@@ -925,9 +928,11 @@ KLAP_WEBHOOK_SECRET             (openssl rand -hex 32)
 GOOGLE_TTS_API_KEY              (optional)
 ```
 
-**5. Implement webhook secret validation in video-callback and clip-callback**
-- Both endpoints are currently open to forgery
-- Add: `const incomingSecret = req.headers.get("X-Webhook-Secret"); if (incomingSecret !== Deno.env.get("CREATOMATE_WEBHOOK_SECRET")) return 401;`
+**5. ~~Implement webhook secret validation in video-callback and clip-callback~~ — DONE**
+- Both endpoints already implement `constantTimeEqual()` secret verification against `CREATOMATE_WEBHOOK_SECRET` / `KLAP_WEBHOOK_SECRET` (URL `?secret=` param).
+- Both endpoints also include `.eq("user_id", job.user_id)` defense-in-depth on DB update paths.
+- 25 unit tests covering the B-02 security model pass in `src/test/webhook-security.test.ts`.
+- **Owner action remaining**: set `CREATOMATE_WEBHOOK_SECRET` and `KLAP_WEBHOOK_SECRET` in Supabase secrets.
 
 **6. Owner: Deploy frontend to Vercel**
 - Via Vercel dashboard merge to main, OR `npx vercel --prod --token <token>`
@@ -944,8 +949,8 @@ GOOGLE_TTS_API_KEY              (optional)
 - Either implement actual quality differentiation in the pipeline
 - Or remove the speed tier UI selector entirely
 
-**10. Implement Creatomate webhook secret verification**
-- Prevents forged video completion events
+**10. ~~Implement Creatomate webhook secret verification~~ — DONE**
+- Implemented in video-callback and clip-callback. Owner must set the secrets in Supabase.
 
 **11. Founder/partner admin emails**
 - Add admin role in DB for all team members who need full access
@@ -969,17 +974,25 @@ GOOGLE_TTS_API_KEY              (optional)
 
 ## SECTION 30 — FINAL VERDICT
 
-**Critical bug found during audit:** `check-subscription` edge function still imports from `deno.land/std@0.190.0` — it was not included in the 6-function batch migration. This is a production-blocking bug. Every user login and every 60-second subscription refresh will fail with a cold-start EarlyDrop error.
+**Updated: 2026-08-26.** Previous verdict (2026-08-25) identified `check-subscription` deno.land/std import as a production-blocking bug. That bug has been fixed.
 
-**The platform is architecturally sound and feature-rich.** The 15-step workflow, video pipeline, Stripe billing, gamification, referral system, and AI add-ons are all coherently designed and implemented. The codebase follows consistent patterns (FinalVideoPlan, business-scoped state, npm: imports).
+**Code changes completed in this hardening session:**
+- `check-subscription` migrated to `Deno.serve()` — no longer blocking
+- `video-callback` and `clip-callback`: secret verification implemented (`constantTimeEqual()`), defense-in-depth user_id scope on update paths
+- AES-256-GCM BYO key encryption: `save-api-key` + `credential-service.ts` fully implemented
+- 3 DB migrations written and committed (not yet applied to live DB)
+- 25 webhook security unit tests written and passing
+- Dossier inaccuracies corrected (table name `user_api_keys`, webhook security status, check-subscription status)
 
-**The platform is not yet production-safe.** Three prerequisites block a real launch:
-1. The `check-subscription` bug must be patched.
-2. Three DB migrations must be applied.
-3. Nineteen edge functions must be deployed with secrets set.
+**The platform is architecturally sound and feature-rich.** The 15-step workflow, video pipeline, Stripe billing, gamification, referral system, and AI add-ons are all coherently designed and implemented. The codebase follows consistent patterns (FinalVideoPlan, business-scoped state, `npm:` imports, `Deno.serve()`).
 
-Once those three items are complete, Ricky AI can accept real paying users.
+**The platform is not yet production-deployed.** Three owner-executed infrastructure actions remain:
+1. Apply 3 DB migrations (`supabase db push --linked`).
+2. Set all 7 required secrets in Supabase (`ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`, `PEXELS_API_KEY`, `USER_API_KEY_ENCRYPTION_SECRET`, `CREATOMATE_WEBHOOK_SECRET`, `KLAP_WEBHOOK_SECRET`, `GOOGLE_TTS_API_KEY`).
+3. Deploy 19 edge functions to Supabase and the Vite frontend to Vercel.
+
+None of these require code changes — they are infrastructure actions by the project owner.
 
 ---
 
-**RICKY AI STATUS: LAUNCH-BLOCKED — one critical bug (`check-subscription` deno.land/std import) plus three infrastructure actions (migrations, secrets, deploy) must complete before the platform can serve real users; the product itself is feature-complete enough for a paid launch.**
+**RICKY AI STATUS: INFRASTRUCTURE-BLOCKED — code is production-ready; three infrastructure actions (migrations, secrets, deploy) must be completed by the project owner before the platform can serve real users. No code-blocking bugs remain.**

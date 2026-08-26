@@ -155,7 +155,8 @@ Deno.serve(async (req) => {
     const { error: updateErr } = await supabase
       .from("clip_generation_jobs")
       .update(updateFields)
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .eq("user_id", job.user_id);
 
     if (updateErr) {
       console.error("[clip-callback] DB update failed:", updateErr);
