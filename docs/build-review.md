@@ -804,3 +804,15 @@ Before claiming completion, verify:
 - 3 DB migrations unapplied to live DB — encrypted key storage, atomic usage RPC, webhook_receipts table do not exist in production yet
 - No E2E tests — product behavior is unverified in production
 - Speed tier UI is UI-only fiction (instant/standard/cinematic have no effect on pipeline)
+
+## Stop Reminder — 2026-08-26T03:19:33Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
