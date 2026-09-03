@@ -48,6 +48,7 @@ import CampaignExecution from "@/components/dashboard/CampaignExecution";
 import GrowthLab from "@/components/dashboard/GrowthLab";
 import GrowthGenome from "@/components/dashboard/GrowthGenome";
 import ProfitYield from "@/components/dashboard/ProfitYield";
+import LandingPages from "@/components/dashboard/LandingPages";
 import HealthMonitor from "@/components/dashboard/HealthMonitor";
 import ExecutiveBrief from "@/components/dashboard/ExecutiveBrief";
 import { useAuth } from "@/contexts/AuthContext";
@@ -210,6 +211,7 @@ const Dashboard = () => {
     if (activeSection === "growth-genome") return <GrowthGenome businessId={selectedBusiness} />;
     if (activeSection === "profit-yield") return <ProfitYield businessId={selectedBusiness} />;
     if (activeSection === "health") return <HealthMonitor businessId={selectedBusiness} />;
+    if (activeSection === "landing-pages") return <LandingPages businessId={selectedBusiness} />;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;

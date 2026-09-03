@@ -4,7 +4,7 @@ import {
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
   Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp,
   Phone, Inbox, Bot, RefreshCw, Gift, Target, HeartHandshake, CheckSquare, Megaphone,
-  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar
+  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar, Globe
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -91,6 +91,7 @@ const rickyOsItems = [
   { id: "growth-genome", icon: Network, title: "Growth Genome" },
   { id: "profit-yield", icon: DollarSign, title: "Profit Yield" },
   { id: "health", icon: AlertCircle, title: "Health Monitor" },
+  { id: "landing-pages", icon: Globe, title: "Landing Pages" },
 ];
 
 interface AppSidebarProps {

@@ -34,3 +34,23 @@ verify_jwt = false
 # Same authentication model as handle-call: Twilio HMAC-SHA1 via TWILIO_AUTH_TOKEN.
 [functions.handle-call-gather]
 verify_jwt = false
+
+# run-automations is called by pg_cron — no user JWT available.
+# Authenticates via RECONCILE_SECRET query param.
+[functions.run-automations]
+verify_jwt = false
+
+# send-appointment-reminders is called by pg_cron — no user JWT available.
+# Authenticates via RECONCILE_SECRET query param.
+[functions.send-appointment-reminders]
+verify_jwt = false
+
+# aggregate-genome is called by pg_cron — no user JWT available.
+# Authenticates via RECONCILE_SECRET query param.
+[functions.aggregate-genome]
+verify_jwt = false
+
+# landing-page serves public HTML pages for offers/campaigns.
+# No JWT — visitors arrive from external links with no Supabase session.
+[functions.landing-page]
+verify_jwt = false

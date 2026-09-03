@@ -49,10 +49,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Find business by phone number
+    // Find business by phone number — also load timezone from businesses for after_hours logic
     const { data: settings } = await supabase
       .from("phone_settings")
-      .select("*, businesses(id, business_name)")
+      .select("*, businesses!inner(id, business_name, timezone)")
       .eq("ai_number", to)
       .maybeSingle();
 
@@ -66,6 +66,60 @@ Deno.serve(async (req) => {
     const mode = settings.phone_mode;
     const greeting = settings.greeting_message || "Thank you for calling. How can I help you today?";
     const fallback = settings.fallback_number;
+
+    // -----------------------------------------------------------------------
+    // After-hours time-of-day check (applies only when mode === "after_hours")
+    //
+    // after_hours_start / after_hours_end are Postgres time strings e.g. "17:00:00".
+    // During business hours (start ≤ now < end) → forward to human (fallback).
+    // Outside business hours → Ricky AI answers.
+    // If no after_hours window is configured, proceed to AI path.
+    // -----------------------------------------------------------------------
+    if (mode === "after_hours") {
+      const afterStart: string | null = settings.after_hours_start ?? null;
+      const afterEnd: string | null = settings.after_hours_end ?? null;
+      const timezone: string =
+        (settings.businesses as Record<string, unknown> | null)?.timezone as string
+          ?? "America/New_York";
+
+      if (afterStart && afterEnd) {
+        // Get current HH:MM in the business timezone using Intl
+        let currentTimeStr = "00:00";
+        try {
+          const parts = new Intl.DateTimeFormat("en-US", {
+            timeZone: timezone,
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).formatToParts(new Date());
+          const h = parts.find((p) => p.type === "hour")?.value ?? "00";
+          const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+          currentTimeStr = `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+        } catch {
+          // If timezone resolution fails, default to AI path (safe fallback)
+          currentTimeStr = "00:00";
+        }
+
+        // Normalise time strings to HH:MM for comparison
+        const normalise = (t: string) => t.slice(0, 5); // "17:00:00" → "17:00"
+        const start = normalise(afterStart);
+        const end = normalise(afterEnd);
+
+        const withinBusinessHours =
+          currentTimeStr >= start && currentTimeStr < end;
+
+        if (withinBusinessHours) {
+          // Business hours → forward to human if fallback number is set
+          if (fallback) {
+            return twimlResponse(`<?xml version="1.0" encoding="UTF-8"?>
+<Response><Dial>${fallback}</Dial></Response>`);
+          }
+          // No fallback configured → fall through to AI path
+        }
+        // Outside business hours → fall through to AI path below
+      }
+      // mode is "after_hours" but window not configured → fall through to AI path
+    }
 
     // Log the call
     await supabase.from("phone_calls").insert({
