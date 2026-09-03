@@ -1356,3 +1356,279 @@ Before claiming completion, verify:
 - Did this create a durable lesson for LESSONS.md?
 - Are edge function imports using npm: specifiers (not esm.sh)?
 
+
+## Stop Reminder — 2026-09-03T06:53:23Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
+
+## Post-Edit Check — 2026-09-03T06:53:26Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:54:02Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:54:32Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:54:58Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:55:25Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:55:51Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:56:22Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:56:51Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:57:12Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:57:37Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:58:02Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:58:29Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:59:05Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:59:33Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:00:13Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:00:34Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:01:01Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:02:01Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:04:58Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:05:11Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:05:30Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:05:38Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:05:50Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T07:05:59Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+

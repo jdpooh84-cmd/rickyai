@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
-  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp
+  Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp,
+  Phone, Inbox, Bot, RefreshCw, Gift, Target, HeartHandshake, CheckSquare, Megaphone,
+  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -68,6 +70,27 @@ const extras = [
   { id: "score", icon: Trophy, title: "Growth Score" },
   { id: "community", icon: MessageSquare, title: "Community" },
   { id: "marketplace", icon: ShoppingBag, title: "Marketplace" },
+];
+
+const rickyOsItems = [
+  { id: "brief", icon: BarChart2, title: "Executive Brief" },
+  { id: "contacts", icon: Users, title: "Contacts" },
+  { id: "knowledge", icon: BookOpen, title: "Knowledge" },
+  { id: "appointments", icon: Calendar, title: "Appointments" },
+  { id: "scheduling", icon: ClipboardCheck, title: "Scheduling" },
+  { id: "reception", icon: Phone, title: "Reception" },
+  { id: "reception-setup", icon: Monitor, title: "Phone Setup" },
+  { id: "inbox", icon: Inbox, title: "Messaging" },
+  { id: "automations", icon: Bot, title: "Automations" },
+  { id: "offers", icon: Gift, title: "Offers" },
+  { id: "pipeline", icon: Target, title: "Pipeline" },
+  { id: "retention", icon: HeartHandshake, title: "Retention" },
+  { id: "approvals", icon: CheckSquare, title: "Approvals" },
+  { id: "campaigns", icon: Megaphone, title: "Campaigns" },
+  { id: "growth-lab", icon: FlaskConical, title: "Growth Lab" },
+  { id: "growth-genome", icon: Network, title: "Growth Genome" },
+  { id: "profit-yield", icon: DollarSign, title: "Profit Yield" },
+  { id: "health", icon: AlertCircle, title: "Health Monitor" },
 ];
 
 interface AppSidebarProps {
@@ -166,6 +189,33 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
           <SidebarGroupContent>
             <SidebarMenu>
               {extras.map(item => {
+                const isActive = activeSection === item.id;
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      onClick={() => onSectionClick?.(item.id)}
+                      className={`cursor-pointer transition-all ${isActive ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}
+                    >
+                      <div className="flex items-center gap-3 w-full">
+                        <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? "text-primary" : ""}`} />
+                        {!collapsed && <span className="text-sm font-medium">{item.title}</span>}
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Ricky OS */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground/60">
+            {!collapsed && "Ricky OS"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {rickyOsItems.map(item => {
                 const isActive = activeSection === item.id;
                 return (
                   <SidebarMenuItem key={item.id}>

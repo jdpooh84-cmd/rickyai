@@ -31,6 +31,25 @@ import ExternalAppConnections from "@/components/dashboard/steps/ExternalAppConn
 import AddOnPaywall from "@/components/dashboard/AddOnPaywall";
 import WatchVideo from "@/components/dashboard/WatchVideo";
 import PerformanceStep from "@/components/dashboard/steps/PerformanceStep";
+import EasyStart from "@/components/dashboard/EasyStart";
+import ContactsInbox from "@/components/dashboard/ContactsInbox";
+import KnowledgeVerifier from "@/components/dashboard/KnowledgeVerifier";
+import AppointmentCalendar from "@/components/dashboard/AppointmentCalendar";
+import SchedulingSetup from "@/components/dashboard/SchedulingSetup";
+import ReceptionDashboard from "@/components/dashboard/ReceptionDashboard";
+import ReceptionSetup from "@/components/dashboard/ReceptionSetup";
+import MessagingInbox from "@/components/dashboard/MessagingInbox";
+import AutomationBuilder from "@/components/dashboard/AutomationBuilder";
+import OffersManager from "@/components/dashboard/OffersManager";
+import OpportunitiesPipeline from "@/components/dashboard/OpportunitiesPipeline";
+import RetentionCenter from "@/components/dashboard/RetentionCenter";
+import ApprovalCenter from "@/components/dashboard/ApprovalCenter";
+import CampaignExecution from "@/components/dashboard/CampaignExecution";
+import GrowthLab from "@/components/dashboard/GrowthLab";
+import GrowthGenome from "@/components/dashboard/GrowthGenome";
+import ProfitYield from "@/components/dashboard/ProfitYield";
+import HealthMonitor from "@/components/dashboard/HealthMonitor";
+import ExecutiveBrief from "@/components/dashboard/ExecutiveBrief";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { ChevronDown, LogOut, Check } from "lucide-react";
@@ -50,10 +69,11 @@ const Dashboard = () => {
   const [showBizDropdown, setShowBizDropdown] = useState(false);
   const [showLocDropdown, setShowLocDropdown] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showEasyStart, setShowEasyStart] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation, refresh: refreshBusinessData } = useBusinessData();
 
-  // Check if first-time user
+  // Check if first-time user or easystart not yet completed
   useEffect(() => {
     if (!user || onboardingChecked) return;
     const checkOnboarding = async () => {
@@ -63,14 +83,28 @@ const Dashboard = () => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      // Show onboarding if no profile or not completed, AND no businesses exist
       if ((!profile || !profile.onboarding_completed) && businesses.length === 0) {
         setShowOnboarding(true);
+        setOnboardingChecked(true);
+        return;
       }
+
+      // If business exists but easystart not completed, show EasyStart
+      if (businesses.length > 0 && selectedBusiness) {
+        const { data: biz } = await supabase
+          .from("businesses")
+          .select("easystart_completed")
+          .eq("id", selectedBusiness)
+          .maybeSingle();
+        if (biz && !biz.easystart_completed) {
+          setShowEasyStart(true);
+        }
+      }
+
       setOnboardingChecked(true);
     };
     checkOnboarding();
-  }, [user, onboardingChecked, businesses.length]);
+  }, [user, onboardingChecked, businesses.length, selectedBusiness]);
 
   useEffect(() => {
     writeLocalStorage(DASHBOARD_STATE_KEY, { activeStep, activeSection, completedSteps });
@@ -120,7 +154,7 @@ const Dashboard = () => {
   };
 
   const renderContent = () => {
-    // Show onboarding for first-time users
+    // Show first-time video onboarding (creates the business)
     if (showOnboarding) {
       return (
         <CreateVideoFlow
@@ -128,6 +162,19 @@ const Dashboard = () => {
           onSkip={() => {
             setShowOnboarding(false);
             setActiveStep(1);
+          }}
+        />
+      );
+    }
+
+    // Show EasyStart wizard for businesses that haven't completed it
+    if (showEasyStart) {
+      return (
+        <EasyStart
+          businessId={selectedBusiness}
+          onComplete={() => {
+            setShowEasyStart(false);
+            setOnboardingChecked(false); // re-check so state refreshes
           }}
         />
       );
@@ -143,6 +190,26 @@ const Dashboard = () => {
     if (activeSection === "federal-contracting") return <AddOnPaywall addOnKey="federal_contracting"><FederalContractingStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
     if (activeSection === "grant-intel") return <AddOnPaywall addOnKey="grant_intel"><GrantIntelStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
     if (activeSection === "grant-consultant") return <AddOnPaywall addOnKey="grant_intel"><GrantConsultantStep businessId={selectedBusiness} locationId={selectedLocation} /></AddOnPaywall>;
+
+    // Ricky OS sections
+    if (activeSection === "brief") return <ExecutiveBrief businessId={selectedBusiness} onNavigate={handleSectionClick} />;
+    if (activeSection === "contacts") return <ContactsInbox businessId={selectedBusiness} locationId={selectedLocation} />;
+    if (activeSection === "knowledge") return <KnowledgeVerifier businessId={selectedBusiness} />;
+    if (activeSection === "appointments") return <AppointmentCalendar businessId={selectedBusiness} locationId={selectedLocation} />;
+    if (activeSection === "scheduling") return <SchedulingSetup businessId={selectedBusiness} locationId={selectedLocation} />;
+    if (activeSection === "reception") return <ReceptionDashboard businessId={selectedBusiness} />;
+    if (activeSection === "reception-setup") return <ReceptionSetup businessId={selectedBusiness} />;
+    if (activeSection === "inbox") return <MessagingInbox businessId={selectedBusiness} />;
+    if (activeSection === "automations") return <AutomationBuilder businessId={selectedBusiness} />;
+    if (activeSection === "offers") return <OffersManager businessId={selectedBusiness} />;
+    if (activeSection === "pipeline") return <OpportunitiesPipeline businessId={selectedBusiness} />;
+    if (activeSection === "retention") return <RetentionCenter businessId={selectedBusiness} />;
+    if (activeSection === "approvals") return <ApprovalCenter businessId={selectedBusiness} />;
+    if (activeSection === "campaigns") return <CampaignExecution businessId={selectedBusiness} />;
+    if (activeSection === "growth-lab") return <GrowthLab businessId={selectedBusiness} />;
+    if (activeSection === "growth-genome") return <GrowthGenome businessId={selectedBusiness} />;
+    if (activeSection === "profit-yield") return <ProfitYield businessId={selectedBusiness} />;
+    if (activeSection === "health") return <HealthMonitor businessId={selectedBusiness} />;
 
     switch (activeStep) {
       case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
