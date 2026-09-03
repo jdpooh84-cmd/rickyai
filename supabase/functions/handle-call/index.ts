@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
     <Number>${fallback}</Number>
   </Dial>
   <Say>${greeting}</Say>
-  <Gather input="speech" timeout="5" action="/handle-call/gather"><Say>How can Ricky help you today?</Say></Gather>
+  <Gather input="speech" timeout="5" action="${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-call-gather"><Say>How can Ricky help you today?</Say></Gather>
 </Response>`);
     }
 
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     return twimlResponse(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say>${greeting}</Say>
-  <Gather input="speech" timeout="10" action="/handle-call/gather">
+  <Gather input="speech" timeout="10" action="${Deno.env.get("SUPABASE_URL")}/functions/v1/handle-call-gather">
     <Say>Please tell me how I can help you.</Say>
   </Gather>
   <Say>I didn't catch that. Please call back and we'll be happy to help.</Say>

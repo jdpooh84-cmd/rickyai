@@ -29,3 +29,8 @@ verify_jwt = true
 # Signature validation is performed inside the function using TWILIO_AUTH_TOKEN.
 [functions.handle-call]
 verify_jwt = false
+
+# handle-call-gather is the <Gather> callback for the AI voice conversation loop.
+# Same authentication model as handle-call: Twilio HMAC-SHA1 via TWILIO_AUTH_TOKEN.
+[functions.handle-call-gather]
+verify_jwt = false
