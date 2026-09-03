@@ -33,7 +33,25 @@ Deno.serve(async (req) => {
 
     const { priceId } = await req.json();
     if (!priceId) throw new Error("Price ID is required");
-    logStep("Price ID received", { priceId });
+
+    // Server-side allowlist — reject any price ID not on this list to prevent
+    // clients from substituting arbitrary Stripe prices (e.g. $1 test prices).
+    const VALID_PRICE_IDS = new Set([
+      "price_1TeGX2RUytwslneZ7OMOagHD", // Creator $59/mo
+      "price_1TeGX2RUytwslneZLs6JpyHL", // Business Starter $169/mo
+      "price_1TeGX1RUytwslneZpYfpkgXd", // Growth $249/mo
+      "price_1TeGX1RUytwslneZCWA5jEqx", // Agency $799/mo
+      "price_1TeGX3RUytwslneZ98JVVxM0", // Federal Contracting add-on $50/mo
+      "price_1TeGX1RUytwslneZ29hrgbs3", // Grant Intelligence add-on $50/mo
+    ]);
+    if (!VALID_PRICE_IDS.has(priceId)) {
+      logStep("REJECTED: unknown price ID", { priceId });
+      return new Response(JSON.stringify({ error: "Invalid price ID" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+    logStep("Price ID validated", { priceId });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2025-08-27.basil" });
 

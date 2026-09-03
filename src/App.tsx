@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TermsAcceptanceGate from "@/components/auth/TermsAcceptanceGate";
 import BanCheck from "@/components/auth/BanCheck";
@@ -15,6 +16,7 @@ import ResetPassword from "./pages/ResetPassword.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
 import TermsOfService from "./pages/TermsOfService.tsx";
+import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
 import InstallApp from "./pages/InstallApp.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import DemoVideoShowcase from "./pages/DemoVideoShowcase.tsx";
@@ -23,6 +25,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   return (
+    <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
@@ -35,6 +38,7 @@ const App = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/install" element={<InstallApp />} />
               <Route path="/reset-password" element={<ResetPassword />} />
@@ -69,6 +73,7 @@ const App = () => {
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

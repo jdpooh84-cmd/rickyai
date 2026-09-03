@@ -70,7 +70,11 @@ Deno.serve(async (req) => {
       });
     }
   } else {
-    console.warn("[video-callback] CREATOMATE_WEBHOOK_SECRET not set — token check skipped (set it to enable protection)");
+    console.error("[video-callback] CREATOMATE_WEBHOOK_SECRET not configured — all webhook calls rejected for safety");
+    return new Response(JSON.stringify({ error: "Webhook endpoint not configured" }), {
+      status: 503,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

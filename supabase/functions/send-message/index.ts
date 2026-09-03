@@ -196,11 +196,12 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Business not found" }), { status: 403, headers: corsHeaders });
     }
 
-    // Load contact with required fields
+    // Load contact with required fields — must belong to the verified business (tenant isolation)
     const { data: contact } = await supabase
       .from("contacts")
       .select("id, phone, email, do_not_contact, sms_consent_status, email_consent_status")
       .eq("id", contactId)
+      .eq("business_id", businessId)
       .maybeSingle();
     if (!contact) {
       return new Response(JSON.stringify({ error: "Contact not found" }), { status: 404, headers: corsHeaders });

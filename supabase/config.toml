@@ -54,3 +54,9 @@ verify_jwt = false
 # No JWT — visitors arrive from external links with no Supabase session.
 [functions.landing-page]
 verify_jwt = false
+
+# stripe-webhook receives Stripe subscription lifecycle events.
+# No JWT — Stripe cannot present a Supabase JWT.
+# Authentication: Stripe-Signature HMAC-SHA256 validated via STRIPE_WEBHOOK_SECRET.
+[functions.stripe-webhook]
+verify_jwt = false

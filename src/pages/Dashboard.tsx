@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/dashboard/AppSidebar";
@@ -54,6 +54,8 @@ import HealthMonitor from "@/components/dashboard/HealthMonitor";
 import ExecutiveBrief from "@/components/dashboard/ExecutiveBrief";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
+import { useEntitlement } from "@/hooks/useEntitlement";
+import { LockedStep } from "@/components/dashboard/LockedStep";
 import { ChevronDown, LogOut, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,7 @@ const Dashboard = () => {
   const [showEasyStart, setShowEasyStart] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const { businesses, locations, selectedBusiness, selectedLocation, selectBusiness, setSelectedLocation, refresh: refreshBusinessData } = useBusinessData();
+  const { checkStep } = useEntitlement();
 
   // Check if first-time user or easystart not yet completed
   useEffect(() => {
@@ -215,22 +218,38 @@ const Dashboard = () => {
     if (activeSection === "health") return <HealthMonitor businessId={selectedBusiness} />;
     if (activeSection === "landing-pages") return <LandingPages businessId={selectedBusiness} />;
 
+    // Helper: render step content only if the user's plan allows it
+    const gated = (stepNum: number, stepName: string, content: React.ReactNode) => {
+      const ent = checkStep(stepNum);
+      if (!ent.canAccess) {
+        return (
+          <LockedStep
+            stepName={stepName}
+            requiredPlan={ent.requiredPlan}
+            reason={ent.reason as any}
+            onUpgrade={() => { setActiveSection("ready"); }}
+          />
+        );
+      }
+      return content;
+    };
+
     switch (activeStep) {
-      case 1: return <ConnectStep onComplete={() => markComplete(1)} />;
-      case 2: return <ProfileStep onComplete={() => { refreshBusinessData(); markComplete(2); }} />;
-      case 3: return <CompeteStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(3)} />;
-      case 4: return <ScoutStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(4)} />;
-      case 5: return <AuditStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(5)} />;
-      case 6: return <PlatformStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(6)} />;
-      case 7: return <ScriptStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(7)} />;
-      case 8: return <VideoStudioStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(8)} />;
-      case 9: return <StoryboardStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(9)} />;
-      case 10: return <ExportStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(10)} />;
-      case 11: return <LeadScoutStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(11)} />;
-      case 12: return <GrantSearchStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(12)} />;
-      case 13: return <SearchVisibilityStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(13)} />;
-      case 14: return <CampaignBlueprintStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(14)} />;
-      case 15: return <OmniOptimizeStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(15)} />;
+      case 1: return gated(1, "Connect", <ConnectStep onComplete={() => markComplete(1)} />);
+      case 2: return gated(2, "Profile", <ProfileStep onComplete={() => { refreshBusinessData(); markComplete(2); }} />);
+      case 3: return gated(3, "Compete", <CompeteStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(3)} />);
+      case 4: return gated(4, "Scout", <ScoutStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(4)} />);
+      case 5: return gated(5, "Audit", <AuditStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(5)} />);
+      case 6: return gated(6, "Platform", <PlatformStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(6)} />);
+      case 7: return gated(7, "Script", <ScriptStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(7)} />);
+      case 8: return gated(8, "Video Studio", <VideoStudioStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(8)} />);
+      case 9: return gated(9, "Storyboard", <StoryboardStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(9)} />);
+      case 10: return gated(10, "Export", <ExportStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(10)} />);
+      case 11: return gated(11, "Lead Scout", <LeadScoutStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(11)} />);
+      case 12: return gated(12, "Grant Search", <GrantSearchStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(12)} />);
+      case 13: return gated(13, "Search Visibility", <SearchVisibilityStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(13)} />);
+      case 14: return gated(14, "Campaign Blueprint", <CampaignBlueprintStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(14)} />);
+      case 15: return gated(15, "Omni Optimize", <OmniOptimizeStep businessId={selectedBusiness} locationId={selectedLocation} onComplete={() => markComplete(15)} />);
       default: return null;
     }
   };

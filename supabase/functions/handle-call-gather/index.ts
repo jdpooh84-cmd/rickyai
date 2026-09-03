@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
   try {
     const valid = await validateTwilioSignature(req, body);
     if (!valid) {
-      // Log warning but continue — signature may be missing in dev/test environments
-      console.warn("[handle-call-gather] Twilio signature validation failed — proceeding (dev mode)");
+      console.error("[handle-call-gather] Twilio signature validation failed — rejecting request");
+      return twimlResponse(`<?xml version="1.0" encoding="UTF-8"?><Response><Reject/></Response>`);
     }
 
     const params = new URLSearchParams(body);
