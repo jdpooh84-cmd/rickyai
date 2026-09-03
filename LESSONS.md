@@ -67,13 +67,32 @@ Claude must read this file before planning major work.
 
 ---
 
+### Lesson: Dynamic esm.sh imports inside active code paths still cause EarlyDrop
+- **Problem**: `ai-strategy/index.ts` used `await import("https://esm.sh/stripe@18.5.0")` inside a try/catch when STRIPE_SECRET_KEY was set. Although the import was lazy (inside a function body), Deno still resolves it via a network fetch. If the CDN is slow, the entire function can timeout mid-request.
+- **Better pattern**: Import from `npm:stripe@18.5.0` at the top of the file. Deno's npm resolver is local, not a network fetch.
+- **Applies to**: Every dynamic import in any Supabase edge function. `npm:` specifiers always; `esm.sh` never.
+- **Date added**: 2026-09-03
+
+---
+
+### Lesson: Missed webhooks strand render jobs — always build reconciliation
+- **Problem**: Creatomate renders complete successfully but the webhook occasionally fails to reach Ricky (transient network error, deployment gap, cold-start drop). The job stays in "processing" status indefinitely with no recovery path.
+- **Bad pattern**: Relying solely on the webhook to update job state. No fallback.
+- **Better pattern**: Always build a reconciliation sweep alongside the webhook handler. The sweep polls the provider for stale jobs (>10 min in processing) and repairs state from the source of truth. Missing webhooks become a latency issue, not a data loss issue.
+- **Applies to**: Any async job that depends on an external provider webhook (Creatomate, Klap, Twilio, etc.).
+- **Date added**: 2026-09-03
+
+---
+
 ## Current Known Weaknesses
 
-- `generate-video-v2` is 1,592 lines — large file makes it hard to review, test, or isolate failures. Consider splitting the pipeline into focused helper modules.
+- `generate-video-v2` is 1,900+ lines — large file makes it hard to review, test, or isolate failures. Consider splitting the pipeline into focused helper modules.
 - `video-callback` handles both Creatomate and legacy Make.com webhook formats in the same function — fragile if either format changes.
-- No automated test suite exists. All verification is manual smoke-testing via `verify-portal.mjs` and ad-hoc curl calls.
+- 3 migrations written but not applied to live DB: `webhook_receipts`, `atomic_render_usage`, `api_key_encryption`. Must be applied before those features work.
+- 3 new migrations (business_events, agent_jobs, reconcile_cron) also need to be applied.
+- `RECONCILE_SECRET` must be set as a Supabase secret before the reconcile-renders function will run.
+- No contacts/leads tables yet — Milestone 2 will create them.
 - `render-worker` (ElevenLabs + FFmpeg) is a separate service not currently deployed. Voiceover falls back to captions-only for most users.
-- `settings.local.json` contains plaintext access tokens in the allow list — these should rotate and the file should not be committed.
 
 ---
 

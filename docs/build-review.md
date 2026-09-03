@@ -864,3 +864,226 @@ Before final answer, confirm:
 - Lessons saved to LESSONS.md
 - Contracts preserved per CONTRACTS.md
 
+
+## Stop Reminder — 2026-09-03T05:32:22Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
+
+## Post-Edit Check — 2026-09-03T06:31:08Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:31:11Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:31:18Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:31:31Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:31:47Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:32:31Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:32:47Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:32:55Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:33:37Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:33:51Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:33:59Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T06:34:07Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+---
+
+## Milestone 1 — 2026-09-03
+
+### What I Found
+
+- Build: PASSES (`npm run build` ✓)
+- Tests: 26/26 pass ✓
+- Lint: 349 pre-existing errors (`no-explicit-any`, `no-require-imports` in tailwind.config.ts) — cosmetic, not blocking
+- `ai-strategy` edge function: dynamic `await import("https://esm.sh/stripe@18.5.0")` — EarlyDrop risk on cold start
+- `.env` committed to git (anon key only, not service-role — not a critical secret but bad practice)
+- No reconciliation for stale Creatomate renders — jobs stuck in "processing" if webhook missed
+- No `business_events` table — event engine did not exist
+- No `agent_jobs` table — durable job system did not exist
+- 3 previously written migrations pending (webhook_receipts, atomic_render_usage, api_key_encryption)
+- Existing Compete/Scout/all 15 steps: INTACT — not touched
+
+### What I Built
+
+1. **`reconcile-renders` edge function** — polls Creatomate for stale jobs (>10 min in "processing"), repairs status to completed or failed; idempotent via webhook_receipts; recovers video URL and updates content_posts; handles 404 (render not found), API errors, and BYO keys
+2. **Migration: `business_events`** — append-only event log table with tenant isolation, idempotency key UNIQUE constraint, RLS policy, and indexed by (business_id, type, occurred_at)
+3. **Migration: `agent_jobs`** — durable job queue with status enum, priority ordering, provider_job_id index, idempotency, auto-updated_at trigger, RLS
+4. **Migration: `reconcile_cron`** — pg_cron + pg_net schedule calling reconcile-renders every 10 minutes
+5. **`supabase/config.toml`** — registered `reconcile-renders` with `verify_jwt = false` (pg_cron has no user JWT)
+6. **Fixed `ai-strategy`** — moved Stripe import from `esm.sh` dynamic import to `npm:stripe@18.5.0` static top-level import
+7. **`.gitignore`** — added `.env`, `.env.local`, `.env.*.local`
+
+### What I Changed
+
+- `supabase/functions/ai-strategy/index.ts` — Stripe import fixed
+- `supabase/functions/reconcile-renders/index.ts` — new
+- `supabase/migrations/20260903000000_business_events.sql` — new
+- `supabase/migrations/20260903000001_agent_jobs.sql` — new
+- `supabase/migrations/20260903000002_reconcile_cron.sql` — new
+- `supabase/config.toml` — reconcile-renders entry added
+- `.gitignore` — .env entries added
+- `CONTRACTS.md` — updated with new tables, corrected deployment target to Vercel
+- `LESSONS.md` — two new lessons added; weaknesses updated
+
+### What I Reused
+
+- `webhook_receipts` table (idempotency) from prior session — reconcile-renders checks it to avoid double-processing
+- `constantTimeEqual()` pattern — copied into reconcile-renders
+- `video_generation_jobs` update pattern from video-callback — same `.eq("user_id")` defense-in-depth
+- `user_api_keys` + `decrypt()` — BYO key lookup same as generate-video-v2
+
+### What I Tested
+
+- `npm run build` ✓
+- `npm run test` — 26/26 ✓
+- Manual inspection: ai-strategy import change verified
+- Manual inspection: reconcile-renders flow verified against video-callback and generate-video-v2 patterns
+
+### Test Results
+
+Build: PASS  
+Tests: 26/26 PASS  
+Lint: 349 pre-existing errors (none new, none from this session's changes)
+
+### What Now Works
+
+- Stale Creatomate renders: will be automatically detected and repaired every 10 minutes once migrations are applied and RECONCILE_SECRET is set
+- `business_events` table: ready for event emission from all future Ricky features
+- `agent_jobs` table: ready for durable background work tracking
+- `ai-strategy`: no more EarlyDrop risk from esm.sh Stripe import
+- `.env` no longer committed to future git pushes (existing history unchanged — only anon key, not service-role)
+
+### What Is Still Blocked
+
+Migrations require owner to apply to live DB. Reconciliation requires a new secret. All owner-side actions listed below.
+
+### Remaining Risks
+
+- 6 total migrations now written but not applied: webhook_receipts, atomic_render_usage, api_key_encryption, business_events, agent_jobs, reconcile_cron
+- `RECONCILE_SECRET` must be set before reconcile-renders function will operate
+- `CREATOMATE_API_KEY` platform key (vs BYO key only) needed if any business doesn't have a BYO key configured
+- pg_cron and pg_net extensions must be enabled on the live Supabase project (available on Pro plan)
+

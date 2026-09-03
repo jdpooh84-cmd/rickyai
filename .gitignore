@@ -27,3 +27,9 @@ dist-ssr
 .netlify
 
 .vercel
+
+# Environment — anon key is public but .env should not be committed
+# The values are already baked into the deployed app via Vercel env vars
+.env
+.env.local
+.env.*.local

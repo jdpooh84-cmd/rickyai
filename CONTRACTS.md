@@ -4,10 +4,11 @@ Claude must read this file before major edits.
 
 ## Project Identity
 
-- **App**: RickyAI — AI-powered video and content generation for local businesses
+- **App**: RickyAI — AI Growth & Profit Operating System for Small and Local Businesses
 - **Supabase project ref**: `psmxeckstfeyxlqzzkgw`
 - **Supabase URL**: `https://psmxeckstfeyxlqzzkgw.supabase.co`
-- **Frontend (Netlify)**: `https://lighthearted-crostata-834a8e.netlify.app`
+- **Frontend (Vercel — canonical)**: `https://rickyai.vercel.app`
+- **Frontend (Netlify — blocked)**: `https://lighthearted-crostata-834a8e.netlify.app` (build credits exhausted — do not deploy here)
 - **GitHub**: `https://github.com/jdpooh84-cmd/rickyai`
 - **Stripe account**: `acct_1TEumfRUytwslneZ`
 
@@ -21,6 +22,7 @@ These functions are live in production. Do not rename, remove, or change their H
 |---|---|
 | `generate-video-v2` | Main video pipeline — AI script + Creatomate render |
 | `video-callback` | Webhook receiver for Creatomate render completion |
+| `reconcile-renders` | Cron-driven sweep that repairs stale Creatomate jobs |
 | `create-checkout` | Creates Stripe checkout session + Stripe customer |
 | `customer-portal` | Creates Stripe billing portal session |
 | `check-subscription` | Returns current subscription + trial state |
@@ -75,6 +77,9 @@ These tables exist in the live Supabase project. Do not rename columns, drop tab
 | `strategy_outputs` | `id`, `business_id`, `user_id`, `step_number`, `output_data` | Strategy step results |
 | `user_api_keys` | `id`, `user_id`, `provider`, `api_key_encrypted`, `is_valid` | BYOLLM keys |
 | `user_tool_defaults` | `id`, `user_id`, `tool_type`, `default_provider` | User preferences |
+| `business_events` | `id`, `business_id`, `type`, `source`, `payload`, `occurred_at` | Immutable event log — never update/delete |
+| `agent_jobs` | `id`, `business_id`, `job_type`, `status`, `provider_job_id` | Durable background job queue |
+| `webhook_receipts` | `provider`, `event_fingerprint` | Idempotency store for webhook callbacks |
 
 **Contract**: `users.id` (from Supabase auth) is the primary user identifier throughout the app.
 

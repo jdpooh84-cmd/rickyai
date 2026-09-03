@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import Stripe from "npm:stripe@18.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,6 @@ Deno.serve(async (req) => {
     
     if (stripeKey && user.email) {
       try {
-        const { default: Stripe } = await import("https://esm.sh/stripe@18.5.0");
         const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
         const customers = await stripe.customers.list({ email: user.email, limit: 1 });
         

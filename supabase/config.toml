@@ -14,6 +14,11 @@ verify_jwt = false
 [functions.clip-callback]
 verify_jwt = false
 
+# reconcile-renders is called by pg_cron/pg_net from inside Postgres —
+# no user JWT available.  It authenticates via RECONCILE_SECRET query param.
+[functions.reconcile-renders]
+verify_jwt = false
+
 # save-api-key requires a valid user JWT — browser must be signed in.
 # verify_jwt = true is the default and does not need to be listed, but it is
 # included here for explicit documentation of the write path for B-01.
