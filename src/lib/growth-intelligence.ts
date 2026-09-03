@@ -67,7 +67,7 @@ function extractString(
   return null;
 }
 
-function normalizeCompete(
+export function normalizeCompete(
   raw: Record<string, unknown> | null,
 ): CompeteIntelligence {
   if (!raw) {
@@ -120,7 +120,7 @@ function normalizeCompete(
   };
 }
 
-function normalizeScout(
+export function normalizeScout(
   raw: Record<string, unknown> | null,
 ): ScoutIntelligence {
   if (!raw) {

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { requireUuid, requireString, validate } from "../_shared/validate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,9 +21,18 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
     if (authErr || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
-    const { businessId, contactId, channel, body, subject, automationStepId } = await req.json();
-    if (!businessId || !contactId || !channel || !body) {
-      return new Response(JSON.stringify({ error: "businessId, contactId, channel, and body are required" }), { status: 400, headers: corsHeaders });
+    const rawBody = await req.json();
+    const { businessId, contactId, channel, body, subject, automationStepId } = rawBody;
+
+    const validated = validate(() => ({
+      businessId: requireUuid(businessId, "businessId"),
+      contactId: requireUuid(contactId, "contactId"),
+      body: requireString(body, "body", 1600),
+    }));
+    if (validated instanceof Response) return new Response(validated.body, { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    if (!channel) {
+      return new Response(JSON.stringify({ error: "channel is required" }), { status: 400, headers: corsHeaders });
     }
 
     // Verify ownership

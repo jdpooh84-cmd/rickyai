@@ -145,3 +145,31 @@ Do not change storage paths without updating all references in `generate-video-v
 - Never weaken validation to make a test pass.
 - Never disable auth, RLS, CORS protections, or webhook verification without approval.
 - `settings.local.json` contains allowed shell commands — do not add secrets to it.
+
+---
+
+## Protected Data Integrity Contracts
+
+- `audit_logs` table is **append-only** — no UPDATE or DELETE is permitted at the application level. Only service_role may INSERT. RLS enforces SELECT for business owner only.
+- `business_events` table is **append-only** — no UPDATE or DELETE is permitted at the application level. Edge functions use service_role to insert. The table comment explicitly states immutability.
+
+---
+
+## Protected Shared Validation API
+
+`supabase/functions/_shared/validate.ts` exports the following stable interface. Do not change these signatures without updating every edge function that imports them.
+
+```typescript
+requireUuid(value: unknown, field: string): string
+requireString(value: unknown, field: string, maxLen?: number): string
+requireOneOf<T extends string>(value: unknown, field: string, allowed: readonly T[]): T
+validate<T>(fn: () => T): T | Response
+```
+
+Additional helpers (`optionalString`, `optionalInt`, `requirePositiveInt`, `badRequest`) are also exported and must not change signatures without auditing all callers.
+
+---
+
+## Protected Growth Intelligence Return Type
+
+`getGrowthIntelligence(businessId: string): Promise<GrowthIntelligence>` in `src/lib/growth-intelligence.ts` must return a stable `GrowthIntelligence` type. Adding new optional fields is acceptable. Removing or renaming existing fields (`available`, `compete`, `scout`, `lastUpdatedAt`) is a breaking change requiring a codebase-wide audit of all callers.

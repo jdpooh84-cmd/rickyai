@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { requireUuid, requireOneOf, optionalString, validate } from "../_shared/validate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,6 +40,19 @@ Deno.serve(async (req) => {
     if (authErr || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
     const body = await req.json();
+
+    const validated = validate(() => ({
+      action: requireOneOf(body.action, "action", [
+        "create_experiment",
+        "assign_variant",
+        "record_outcome",
+        "get_results",
+      ] as const),
+      businessId: body.businessId !== undefined ? requireUuid(body.businessId, "businessId") : undefined,
+      experimentId: body.experimentId !== undefined ? requireUuid(body.experimentId, "experimentId") : undefined,
+    }));
+    if (validated instanceof Response) return new Response(validated.body, { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     const { action } = body;
 
     if (action === "create_experiment") {

@@ -96,6 +96,24 @@ Claude must read this file before planning major work.
 
 ---
 
+### Lesson: Always pin exact model IDs in edge functions
+- **Problem**: Model aliases like `claude-haiku-20240307` can resolve to different underlying versions over time as Anthropic updates the alias target. This causes silent behavior changes in production.
+- **Bad pattern**: Using date-stamped IDs that were current at time of writing but may be obsolete (e.g., `claude-haiku-20240307`).
+- **Better pattern**: Always use fully-qualified model IDs that include the generation version (e.g., `claude-haiku-4-5-20251001`). When updating models, check the Anthropic documentation for the correct current ID and update all call sites at once.
+- **Applies to**: Every Anthropic API call in any edge function. Verify model IDs against the claude-api skill before hardcoding.
+- **Date added**: 2026-09-03
+
+---
+
+### Lesson: HeartHandshake exists in installed lucide-react — verify icon existence before assuming missing
+- **Problem**: A developer assumed `HeartHandshake` was not available in the installed version of lucide-react and either skipped the icon or used a workaround. The icon was in fact available.
+- **Bad pattern**: Assuming an icon is absent based on memory or an old icon list. Lucide-react ships hundreds of icons and the installed version may include recently-added ones.
+- **Better pattern**: `grep -r "HeartHandshake" node_modules/lucide-react/dist` before concluding an icon is missing. Also check the lucide.dev website with the installed version number. Only substitute a different icon when grep confirms absence.
+- **Applies to**: Any lucide-react icon usage. Verify existence before adding workarounds.
+- **Date added**: 2026-09-03
+
+---
+
 ## Repeated Mistakes To Avoid
 
 - Do not make large rewrites when a small patch is safer.

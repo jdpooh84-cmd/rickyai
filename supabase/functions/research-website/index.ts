@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { requireUuid, requireString, validate } from "../_shared/validate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,8 +27,14 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authErr } = await userClient.auth.getUser();
     if (authErr || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
 
-    const { businessId, url } = await req.json();
-    if (!businessId || !url) return new Response(JSON.stringify({ error: "businessId and url required" }), { status: 400, headers: corsHeaders });
+    const rawBody = await req.json();
+    const { businessId, url } = rawBody;
+
+    const validated = validate(() => ({
+      businessId: requireUuid(businessId, "businessId"),
+      url: requireString(url, "url", 500),
+    }));
+    if (validated instanceof Response) return new Response(validated.body, { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     // Verify business ownership
     const { data: biz } = await supabase.from("businesses").select("id").eq("id", businessId).eq("user_id", user.id).maybeSingle();
