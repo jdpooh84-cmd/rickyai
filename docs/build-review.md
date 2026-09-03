@@ -1087,3 +1087,15 @@ Migrations require owner to apply to live DB. Reconciliation requires a new secr
 - `CREATOMATE_API_KEY` platform key (vs BYO key only) needed if any business doesn't have a BYO key configured
 - pg_cron and pg_net extensions must be enabled on the live Supabase project (available on Pro plan)
 
+
+## Stop Reminder — 2026-09-03T06:35:17Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
