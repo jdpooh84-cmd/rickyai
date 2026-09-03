@@ -24,3 +24,8 @@ verify_jwt = false
 # included here for explicit documentation of the write path for B-01.
 [functions.save-api-key]
 verify_jwt = true
+
+# handle-call is a Twilio webhook — Twilio cannot present a Supabase JWT.
+# Signature validation is performed inside the function using TWILIO_AUTH_TOKEN.
+[functions.handle-call]
+verify_jwt = false
