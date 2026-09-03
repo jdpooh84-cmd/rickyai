@@ -44,6 +44,7 @@ import OffersManager from "@/components/dashboard/OffersManager";
 import OpportunitiesPipeline from "@/components/dashboard/OpportunitiesPipeline";
 import RetentionCenter from "@/components/dashboard/RetentionCenter";
 import ApprovalCenter from "@/components/dashboard/ApprovalCenter";
+import OrchestratorDashboard from "@/components/dashboard/OrchestratorDashboard";
 import CampaignExecution from "@/components/dashboard/CampaignExecution";
 import GrowthLab from "@/components/dashboard/GrowthLab";
 import GrowthGenome from "@/components/dashboard/GrowthGenome";
@@ -206,6 +207,7 @@ const Dashboard = () => {
     if (activeSection === "pipeline") return <OpportunitiesPipeline businessId={selectedBusiness} />;
     if (activeSection === "retention") return <RetentionCenter businessId={selectedBusiness} />;
     if (activeSection === "approvals") return <ApprovalCenter businessId={selectedBusiness} />;
+    if (activeSection === "ai-command") return <OrchestratorDashboard businessId={selectedBusiness} />;
     if (activeSection === "campaigns") return <CampaignExecution businessId={selectedBusiness} />;
     if (activeSection === "growth-lab") return <GrowthLab businessId={selectedBusiness} />;
     if (activeSection === "growth-genome") return <GrowthGenome businessId={selectedBusiness} />;
