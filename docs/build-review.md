@@ -144,6 +144,37 @@
 
 ---
 
+## Session: 2026-09-03 — Production Hardening Sprint
+
+### What was built
+- **4 security vulnerabilities patched** across edge functions (see Security section)
+- **Plan entitlement system** — `src/lib/entitlements.ts`, `src/hooks/useEntitlement.ts`, `src/components/dashboard/LockedStep.tsx`; Dashboard.tsx wired with `gated()` wrapper that enforces plan before rendering any step
+- **Stripe webhook handler** — `supabase/functions/stripe-webhook/index.ts` with HMAC-SHA256 signature verification, idempotency via `webhook_receipts`, subscription lifecycle sync (created/updated/deleted/payment_failed/payment_succeeded)
+- **Privacy Policy page** — `/privacy` route added to App.tsx, `src/pages/PrivacyPolicy.tsx` created
+- **ErrorBoundary** — `src/components/ErrorBoundary.tsx` wrapping entire app to prevent full-page crashes on uncaught component errors
+- **DB security hardening** — migration 19: `feature_flags` RLS enabled, `increment_lp_submissions` search_path fixed, `admin_activity_log` INSERT restricted to admin role, `issue_reports` table created
+- **Stripe webhook DB columns** — migration 20: `stripe_subscription_id/status/price_id/payment_failed` on profiles
+- **Docs** — `docs/entitlement-matrix.md`, `docs/ops-runbook.md`
+
+### Security fixes
+1. **create-checkout** (HIGH): Server-side `VALID_PRICE_IDS` Set added — any price ID not in the allowlist returns HTTP 400 before reaching Stripe. Previously any valid Stripe price could be substituted.
+2. **handle-call-gather** (CRITICAL): Twilio HMAC-SHA1 failure now hard-rejects (`<Reject/>`) instead of warning and continuing — authentication bypass closed.
+3. **video-callback** (CRITICAL): Missing `CREATOMATE_WEBHOOK_SECRET` now returns HTTP 503 instead of allowing all requests through — open webhook endpoint closed.
+4. **send-message** (HIGH): Contact query now scoped by `business_id` — cross-tenant SMS/email sending prevented.
+5. **feature_flags** (CRITICAL, DB): RLS enabled — table was fully exposed to all authenticated users including sensitive `overrides` JSONB containing beta participant business IDs.
+6. **increment_lp_submissions** (HIGH, DB): `SET search_path = public` added to SECURITY DEFINER function — search_path injection risk eliminated.
+7. **admin_activity_log** (MEDIUM, DB): INSERT restricted to `has_role(admin)` — log poisoning by any authenticated user prevented.
+
+### Checks run
+- `npm run build` ✅ clean (6.23s, no TypeScript errors)
+
+### Remaining risks
+- **Stripe webhook** requires: (1) deploy `stripe-webhook` edge function, (2) register URL in Stripe Dashboard, (3) set `STRIPE_WEBHOOK_SECRET` in Supabase secrets. Until done, subscription lifecycle events are not pushed server-side (60s polling still works as fallback).
+- **Migrations 19 and 20** require `supabase db push --linked` to take effect in production. The Supabase CLI is Windows-only and must be run by the owner.
+- **AppSidebar** does not yet show lock icons on inaccessible step items — only the step content area is gated. Visual gating in the sidebar is a follow-up.
+- **stripe-webhook** writes to `profiles.stripe_subscription_status` but `check-subscription` does not yet read these columns — it still queries Stripe live. A future optimization would read cached status when the last sync is recent.
+- No Stripe-specific `stripe_events` idempotency table — reuses generic `webhook_receipts`. Sufficient for now.
+
 ## Stop Reminder — 2026-07-26T13:08:19Z
 
 Before final answer, confirm:
@@ -3048,6 +3079,39 @@ Before claiming completion, verify:
 
 
 ## Post-Edit Check — 2026-09-03T15:30:26Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T15:31:39Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T15:32:08Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-03T15:32:43Z
 
 Before claiming completion, verify:
 - Did this touch protected contracts in CONTRACTS.md?
