@@ -3379,3 +3379,27 @@ Before final answer, confirm:
 - Lessons saved to LESSONS.md
 - Contracts preserved per CONTRACTS.md
 
+
+## Stop Reminder — 2026-09-04T15:49:09Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
+
+## Stop Reminder — 2026-09-04T16:33:30Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
