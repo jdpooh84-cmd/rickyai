@@ -60,3 +60,8 @@ verify_jwt = false
 # Authentication: Stripe-Signature HMAC-SHA256 validated via STRIPE_WEBHOOK_SECRET.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# workforce-performance /rollup is called by pg_cron — no user JWT.
+# /summary requires user JWT (handled internally).
+[functions.workforce-performance]
+verify_jwt = false

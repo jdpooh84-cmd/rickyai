@@ -4,7 +4,7 @@ import {
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
   Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp,
   Phone, Inbox, Bot, RefreshCw, Gift, Target, HeartHandshake, CheckSquare, Megaphone,
-  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar, Globe, Brain
+  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar, Globe, Brain, Cpu
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -74,6 +74,7 @@ const extras = [
 
 const rickyOsItems = [
   { id: "ai-command", icon: Brain, title: "AI Command" },
+  { id: "workforce", icon: Cpu, title: "Agent Workforce" },
   { id: "brief", icon: BarChart2, title: "Executive Brief" },
   { id: "contacts", icon: Users, title: "Contacts" },
   { id: "knowledge", icon: BookOpen, title: "Knowledge" },
