@@ -3562,3 +3562,15 @@ Before claiming completion, verify:
 - Did this create a durable lesson for LESSONS.md?
 - Are edge function imports using npm: specifiers (not esm.sh)?
 
+
+## Stop Reminder — 2026-09-06T20:57:41Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
