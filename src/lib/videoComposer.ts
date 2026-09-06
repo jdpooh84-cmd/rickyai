@@ -165,11 +165,12 @@ async function stitchVideoClips(
   const chunks: Blob[] = [];
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-  return new Promise<Blob>(async (resolve, reject) => {
+  return new Promise<Blob>((resolve, reject) => {
     recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
     recorder.onerror = e => reject(e);
     recorder.start();
 
+    (async () => {
     for (let i = 0; i < clipUrls.length; i++) {
       onProgress?.(Math.round((i / clipUrls.length) * 100));
 
@@ -254,6 +255,7 @@ async function stitchVideoClips(
 
     onProgress?.(100);
     recorder.stop();
+    })().catch(reject);
   });
 }
 

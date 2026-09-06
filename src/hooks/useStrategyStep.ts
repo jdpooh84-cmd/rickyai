@@ -53,7 +53,7 @@ export const useStrategyStep = (step: number) => {
       if (existing) {
         setData(existing.output_data);
       }
-    } catch {}
+    } catch { /* best-effort load — ignore missing data */ }
   };
 
   return { data, loading, error, generate, loadExisting, setData };

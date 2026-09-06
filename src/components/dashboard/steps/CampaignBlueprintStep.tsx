@@ -40,7 +40,7 @@ const CampaignBlueprintStep = ({ businessId, locationId, onComplete }: Props) =>
         .limit(1)
         .maybeSingle();
       if (existing) setData(existing.output_data);
-    } catch {}
+    } catch { /* best-effort load — ignore missing data */ }
   };
 
   const handleGenerate = async () => {
