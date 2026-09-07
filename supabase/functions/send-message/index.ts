@@ -69,14 +69,18 @@ type EmailResult =
   | { success: true; messageId: string | null }
   | { success: false; error: { code: string; message: string } };
 
+const PHYSICAL_ADDRESS = "Ricky AI, LLC — 1309 Coffeen Avenue STE 1200, Sheridan, WY 82801";
+
 async function sendEmail(
   to: string,
   subject: string,
   body: string,
   fromName: string,
+  unsubscribeToken: string | null,
 ): Promise<EmailResult> {
   const apiKey = Deno.env.get("SENDGRID_API_KEY")!;
   const fromEmail = Deno.env.get("SENDGRID_FROM_EMAIL");
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
 
   if (!fromEmail) {
     return {
@@ -85,11 +89,33 @@ async function sendEmail(
     };
   }
 
+  // CAN-SPAM requires physical postal address and unsubscribe mechanism in every commercial email
+  const unsubscribeUrl = unsubscribeToken && supabaseUrl
+    ? `${supabaseUrl}/functions/v1/email-unsubscribe?token=${unsubscribeToken}`
+    : null;
+
+  const complianceFooter = [
+    "",
+    "---",
+    PHYSICAL_ADDRESS,
+    unsubscribeUrl
+      ? `To unsubscribe from future emails, visit: ${unsubscribeUrl}`
+      : "To unsubscribe, reply to this email with the word UNSUBSCRIBE.",
+  ].join("\n");
+
+  const fullBody = body + complianceFooter;
+
   const payload = {
     personalizations: [{ to: [{ email: to }] }],
     from: { email: fromEmail, name: fromName },
     subject,
-    content: [{ type: "text/plain", value: body }],
+    content: [{ type: "text/plain", value: fullBody }],
+    ...(unsubscribeUrl && {
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    }),
   };
 
   let resp: Response;
@@ -199,7 +225,7 @@ Deno.serve(async (req) => {
     // Load contact with required fields — must belong to the verified business (tenant isolation)
     const { data: contact } = await supabase
       .from("contacts")
-      .select("id, phone, email, do_not_contact, sms_consent_status, email_consent_status")
+      .select("id, phone, email, do_not_contact, sms_consent_status, email_consent_status, unsubscribe_token")
       .eq("id", contactId)
       .eq("business_id", businessId)
       .maybeSingle();
@@ -305,7 +331,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      const result = await sendEmail(contact.email, subject, body, biz.business_name);
+      // Fetch contact's unsubscribe token for one-click unsubscribe link
+      const unsubscribeToken: string | null = (contact as { unsubscribe_token?: string }).unsubscribe_token ?? null;
+
+      const result = await sendEmail(contact.email, subject, body, biz.business_name, unsubscribeToken);
 
       if (result.success) {
         await supabase

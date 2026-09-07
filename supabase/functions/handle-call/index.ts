@@ -36,7 +36,8 @@ Deno.serve(async (req) => {
   try {
     const valid = await validateTwilioSignature(req, body);
     if (!valid) {
-      console.warn("Invalid Twilio signature — proceeding (dev mode)");
+      console.warn("[handle-call] Invalid Twilio signature — rejecting request");
+      return new Response("Unauthorized", { status: 401 });
     }
 
     const params = new URLSearchParams(body);

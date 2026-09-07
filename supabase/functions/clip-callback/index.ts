@@ -50,18 +50,21 @@ Deno.serve(async (req) => {
 
   // ── B-02: Token verification ──
   const webhookSecret = Deno.env.get("KLAP_WEBHOOK_SECRET");
-  if (webhookSecret) {
-    const url = new URL(req.url);
-    const provided = url.searchParams.get("secret") ?? "";
-    if (!constantTimeEqual(provided, webhookSecret)) {
-      console.warn("[clip-callback] Rejected: invalid secret token");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-  } else {
-    console.warn("[clip-callback] KLAP_WEBHOOK_SECRET not set — token check skipped (set it to enable protection)");
+  if (!webhookSecret) {
+    console.error("[clip-callback] KLAP_WEBHOOK_SECRET not configured — rejecting all requests");
+    return new Response(JSON.stringify({ error: "Webhook not configured" }), {
+      status: 503,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const url = new URL(req.url);
+  const provided = url.searchParams.get("secret") ?? "";
+  if (!constantTimeEqual(provided, webhookSecret)) {
+    console.warn("[clip-callback] Rejected: invalid secret token");
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {

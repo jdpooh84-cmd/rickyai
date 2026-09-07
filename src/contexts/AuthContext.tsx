@@ -104,12 +104,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => clearInterval(interval);
   }, [user, checkSubscription]);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (email: string, password: string, displayName: string, emailMarketingOptIn = false) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { display_name: displayName },
+        data: { display_name: displayName, email_marketing_opt_in: emailMarketingOptIn },
         emailRedirectTo: window.location.origin,
       },
     });

@@ -65,3 +65,9 @@ verify_jwt = false
 # /summary requires user JWT (handled internally).
 [functions.workforce-performance]
 verify_jwt = false
+
+# email-unsubscribe handles one-click unsubscribe links in outbound emails (CAN-SPAM/RFC 8058).
+# No JWT — recipients arrive from email links with no Supabase session.
+# Security: token is a cryptographically random UUID per contact row.
+[functions.email-unsubscribe]
+verify_jwt = false

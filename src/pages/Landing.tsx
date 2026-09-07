@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import HeroSection from "@/components/landing/HeroSection";
 import StepsOverview from "@/components/landing/StepsOverview";
@@ -39,10 +39,15 @@ const Landing = () => {
 
       {/* Footer */}
       <footer className="py-12 border-t border-border">
-        <div className="container mx-auto px-6 text-center">
+        <div className="container mx-auto px-6 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
-            © 2026 RickyAI. Informed Authentic Connection.
+            © 2026 Ricky AI, LLC. Informed Authentic Connection.
           </p>
+          <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <a href="mailto:support@rickyai.com" className="hover:text-foreground transition-colors">Contact</a>
+          </div>
         </div>
       </footer>
     </div>

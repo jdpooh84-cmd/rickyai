@@ -8,6 +8,16 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Admin-only: require RECONCILE_SECRET header (debug utility, not called by frontend)
+  const reconcileSecret = Deno.env.get("RECONCILE_SECRET");
+  const providedSecret = req.headers.get("x-reconcile-secret");
+  if (!reconcileSecret || !providedSecret || reconcileSecret !== providedSecret) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const apiKey = Deno.env.get("CREATOMATE_API_KEY");
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "CREATOMATE_API_KEY not set" }), {

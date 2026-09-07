@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-const LAST_UPDATED = "September 3, 2026";
+const LAST_UPDATED = "September 7, 2026";
 const COMPANY = "Ricky AI, LLC";
 const EMAIL = "privacy@rickyai.com";
 const SITE = "https://rickyai.com";
@@ -57,6 +57,7 @@ export default function PrivacyPolicy() {
               <li>OAuth data when you connect Google, Facebook, or other platforms</li>
               <li>Stripe: subscription status and billing events</li>
               <li>Twilio: call logs and SMS delivery receipts for numbers you configure</li>
+              <li>AI providers (Anthropic, OpenAI, Google): responses generated from prompts you or the Service submit</li>
             </ul>
           </Section>
 
@@ -79,10 +80,13 @@ export default function PrivacyPolicy() {
           <Section title="4. How we share your information">
             <h3 className="font-semibold mt-4 mb-2">4.1 Service providers</h3>
             <p>
-              We share data with vendors who help us deliver the Service, including Supabase (infrastructure),
-              Stripe (payments), Twilio (telephony and SMS), SendGrid (email), Creatomate (video rendering),
-              OpenAI and Anthropic (AI language models), and Vercel (hosting). Each provider processes data
-              only as directed by us and is bound by contractual data protection obligations.
+              We share data with vendors who help us deliver the Service, including Supabase (infrastructure
+              and database), Stripe (payments), Twilio (telephony and SMS), SendGrid (transactional email),
+              Creatomate (video rendering), Klap (AI video clip generation), OpenAI and Anthropic (AI language
+              models), Google (text-to-speech), Pexels (stock media), and Vercel (hosting). Each provider
+              processes data only as directed by us and is bound by contractual data protection obligations.
+              When you connect your own API keys (Bring Your Own AI), your data is sent directly to the
+              provider you choose under that provider's privacy policy.
             </p>
 
             <h3 className="font-semibold mt-4 mb-2">4.2 Legal requirements</h3>
@@ -133,7 +137,21 @@ export default function PrivacyPolicy() {
             </p>
           </Section>
 
-          <Section title="8. Cookies and tracking">
+          <Section title="8. Email communications">
+            <p>
+              When you sign up, you may opt in to receive product updates, growth tips, and strategy insights
+              from Ricky AI. You can unsubscribe at any time by clicking the unsubscribe link in any email or
+              emailing <a href={`mailto:${EMAIL}`}>{EMAIL}</a>. Transactional emails (account confirmations,
+              billing receipts, security alerts) are sent regardless of marketing preferences.
+            </p>
+            <p className="mt-2">
+              Business owners who send emails to their own contacts through the Service are responsible for
+              compliance with applicable email laws (CAN-SPAM, CASL, etc.). Ricky AI appends a physical
+              address and unsubscribe link to all outbound contact emails.
+            </p>
+          </Section>
+
+          <Section title="9. Cookies and tracking">
             <p>
               We use essential cookies required for authentication and session management. We do not use
               third-party advertising cookies. You may disable cookies in your browser settings, but the
@@ -141,7 +159,7 @@ export default function PrivacyPolicy() {
             </p>
           </Section>
 
-          <Section title="9. Children">
+          <Section title="10. Children">
             <p>
               The Service is not directed to children under 13. We do not knowingly collect personal
               information from children. If you believe a child has provided us personal information, contact
@@ -149,7 +167,7 @@ export default function PrivacyPolicy() {
             </p>
           </Section>
 
-          <Section title="10. Changes to this policy">
+          <Section title="11. Changes to this policy">
             <p>
               We may update this Privacy Policy from time to time. We will notify registered users by email
               and update the "Last updated" date at the top. Continued use of the Service after the effective
@@ -157,7 +175,7 @@ export default function PrivacyPolicy() {
             </p>
           </Section>
 
-          <Section title="11. Contact us">
+          <Section title="12. Contact us">
             <p>
               For privacy questions or requests, contact us at:{" "}
               <a href={`mailto:${EMAIL}`}>{EMAIL}</a>

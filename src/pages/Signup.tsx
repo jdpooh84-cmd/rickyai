@@ -25,7 +25,7 @@ const Signup = () => {
   const [trialUsed, setTrialUsed] = useState(false);
   const [checkingTrial, setCheckingTrial] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>("creator");
-  const [emailMarketingOptIn, setEmailMarketingOptIn] = useState(true);
+  const [emailMarketingOptIn, setEmailMarketingOptIn] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -57,7 +57,7 @@ const Signup = () => {
     }
 
     setLoading(true);
-    const { error } = await signUp(email, password, displayName);
+    const { error } = await signUp(email, password, displayName, emailMarketingOptIn);
     if (error) {
       setError(error.message);
       setLoading(false);

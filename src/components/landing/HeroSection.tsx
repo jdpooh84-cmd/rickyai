@@ -36,9 +36,9 @@ const HeroSection = () => {
 
           {/* Value Statement */}
           <p className="text-base md:text-lg text-secondary-foreground/70 max-w-2xl mx-auto mb-12 leading-relaxed">
-            Stop guessing and start leading. RickyAI takes the $2,000-a-month work of a marketing agency 
-            and puts it into a 10-minute path. Know your community, dominate your competition, and find 
-            the funding to grow—all while keeping your voice authentic.
+            Stop guessing and start leading. RickyAI gives small business owners a guided marketing
+            system—from visibility audit to funding discovery—without needing an agency. Know your
+            community, outmaneuver your competition, and find the funding to grow.
           </p>
 
           {/* CTAs */}
@@ -74,7 +74,7 @@ const HeroSection = () => {
         <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
           {[
             { icon: TrendingUp, title: "12-Step Growth System", desc: "A guided path from visibility audit to funding discovery" },
-            { icon: Shield, title: "Bring Your Own AI", desc: "Your API keys, your costs, your data—100% private" },
+            { icon: Shield, title: "Bring Your Own AI", desc: "Connect your own AI API keys so you control costs and which providers handle your data" },
             { icon: Zap, title: "Ricky AI Guide", desc: "Live floating strategist on every screen, powered by your AI" },
           ].map((feature) => (
             <div key={feature.title} className="group p-6 rounded-xl bg-card border border-border hover:border-primary/30 transition-all duration-300 shadow-card">
