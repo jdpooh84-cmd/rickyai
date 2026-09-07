@@ -4089,3 +4089,15 @@ Full legal, privacy, security, accessibility, consumer-protection, data-governan
 - OpenAI used in handle-call-gather — verify this is disclosed in Terms of Service (currently only in Privacy Policy)
 - Stripe `subscription_status` columns written by stripe-webhook not yet read by check-subscription (caching gap)
 
+
+## Stop Reminder — 2026-09-07T19:39:24Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
