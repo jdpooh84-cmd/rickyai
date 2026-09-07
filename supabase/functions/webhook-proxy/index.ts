@@ -1,5 +1,4 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-import { decrypt } from "../_shared/credential-service.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,25 +52,6 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // Get user's external API keys (HeyGen, ElevenLabs etc.) — includes iv and version for decryption
-    const { data: userKeys } = await supabase
-      .from("user_api_keys")
-      .select("provider, api_key_encrypted, key_iv, key_version")
-      .eq("user_id", user.id);
-
-    const keyMap: Record<string, string> = {};
-    for (const k of (userKeys ?? [])) {
-      if (k.key_version === "v1-aes256gcm" && k.key_iv) {
-        try {
-          keyMap[k.provider] = await decrypt(k.api_key_encrypted, k.key_iv);
-        } catch {
-          // Decryption failure — skip key; Make.com payload falls through to placeholder
-        }
-      } else if (!k.key_version || k.key_version === "v0-plaintext") {
-        keyMap[k.provider] = k.api_key_encrypted;
-      }
-    }
-
     // Fetch business data
     const { data: business } = await supabase
       .from("businesses")
@@ -103,10 +83,9 @@ Deno.serve(async (req) => {
         keyword: keyword || "",
         video_type: videoType || "promotional",
         production_mode: productionMode || "standard",
-        // Pass user's own API keys for external services
-        heygen_api_key: keyMap["heygen"] || "(place API key here)",
-        elevenlabs_api_key: keyMap["elevenlabs"] || "(place API key here)",
-        invideo_api_key: keyMap["invideo"] || "(place API key here)",
+        // NOTE: External API keys (HeyGen, ElevenLabs, InVideo) are NOT sent here.
+        // Configure those credentials directly as Make.com connection credentials
+        // or HTTP module headers within your Make.com scenario.
       };
 
       const webhookResponse = await fetch(webhookConfig.webhook_url, {

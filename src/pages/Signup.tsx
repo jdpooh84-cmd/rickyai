@@ -247,6 +247,13 @@ const Signup = () => {
               Sign in
             </Link>
           </p>
+
+          <p className="text-xs text-muted-foreground text-center mt-3 leading-relaxed">
+            By creating an account, you agree to our{" "}
+            <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link>
+            {" "}and{" "}
+            <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+          </p>
         </div>
       </div>
     </div>

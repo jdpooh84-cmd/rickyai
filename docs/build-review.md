@@ -3850,3 +3850,242 @@ Before claiming completion, verify:
 - Did this create a durable lesson for LESSONS.md?
 - Are edge function imports using npm: specifiers (not esm.sh)?
 
+
+## Post-Edit Check — 2026-09-07T19:31:40Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:31:57Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:32:09Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:32:26Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:33:14Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:33:22Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:33:29Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:35:57Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:36:06Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:36:13Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:36:31Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:36:37Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T19:36:41Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+
+---
+
+## Session: 2026-09-07 — Production Compliance Audit
+
+### What Was Audited
+Full legal, privacy, security, accessibility, consumer-protection, data-governance, and platform compliance audit of the actual application behavior.
+
+### Critical Security Fixes
+
+1. **handle-call Twilio signature bypass (CRITICAL)**: Was warning and continuing on invalid signatures. Fixed with hard HTTP 401 rejection.
+2. **clip-callback KLAP_WEBHOOK_SECRET optional gap (HIGH)**: Was skipping auth when secret not set. Fixed to require the secret (503 if absent).
+3. **debug-template/create-template admin gate missing (MEDIUM)**: Any authenticated user could invoke. Fixed with RECONCILE_SECRET header check.
+4. **grant-intel/federal-contracting/grant-consultant auth missing (HIGH)**: AI endpoints consumed ANTHROPIC_API_KEY with no user verification. Fixed with JWT auth block.
+5. **webhook-proxy decrypted API key transmission (HIGH)**: Decrypted HeyGen, ElevenLabs, InVideo keys sent in plaintext to Make.com webhook. Fixed by removing API keys from webhook payload entirely.
+
+### Privacy/Legal Fixes
+
+6. **Pre-checked marketing opt-in dark pattern (FTC/GDPR)**: signup default changed from `true` to `false`; metadata wired through auth flow.
+7. **Missing CAN-SPAM compliance**: Added physical address and unsubscribe mechanism to all outbound contact emails.
+8. **email-unsubscribe edge function (NEW)**: RFC 8058 one-click unsubscribe handler with UUID token validation, verify_jwt=false.
+9. **Missing unsubscribe_token on contacts table**: Migration adds column with unique index.
+10. **Missing legal links on Landing and Signup**: Added Privacy Policy, Terms, Contact to footer; added Terms/Privacy links to Signup page.
+11. **Inaccurate marketing claims**: Removed "$2,000-a-month" comparison and "100% private" absolute claim from HeroSection.
+12. **Undisclosed AI providers**: Updated Privacy Policy to list Klap, Google TTS, OpenAI (handle-call-gather), Pexels, BYO key third parties.
+13. **Account deletion**: Created delete-account edge function (GDPR Art. 17 compliant, cancels Stripe subscription) and AccountSettings UI component.
+
+### New Files
+
+- `supabase/functions/delete-account/index.ts` — GDPR Art. 17 account deletion with Stripe cancel
+- `supabase/functions/email-unsubscribe/index.ts` — RFC 8058 one-click unsubscribe
+- `supabase/migrations/20260907000001_compliance_fixes.sql` — marketing opt-in trigger, unsubscribe_token column
+- `src/components/dashboard/AccountSettings.tsx` — account management UI (billing portal, privacy, account deletion)
+
+### Modified Files
+
+- `supabase/functions/handle-call/index.ts` — hard reject on invalid Twilio signature
+- `supabase/functions/clip-callback/index.ts` — require KLAP_WEBHOOK_SECRET
+- `supabase/functions/debug-template/index.ts` — admin gate
+- `supabase/functions/create-template/index.ts` — admin gate
+- `supabase/functions/federal-contracting/index.ts` — JWT auth added
+- `supabase/functions/grant-intel/index.ts` — JWT auth added
+- `supabase/functions/grant-consultant/index.ts` — JWT auth added
+- `supabase/functions/webhook-proxy/index.ts` — removed plaintext API key transmission
+- `supabase/functions/send-message/index.ts` — CAN-SPAM compliance (physical address, unsubscribe link, List-Unsubscribe headers)
+- `supabase/config.toml` — email-unsubscribe added with verify_jwt=false
+- `src/pages/PrivacyPolicy.tsx` — updated subprocessors, added Email Communications section
+- `src/pages/Landing.tsx` — added Privacy Policy, Terms, Contact footer links
+- `src/pages/Signup.tsx` — fixed dark pattern (marketing opt-in), added Terms/Privacy links
+- `src/components/landing/HeroSection.tsx` — removed unsubstantiated claims
+- `src/contexts/AuthContext.tsx` — signUp accepts emailMarketingOptIn
+- `src/components/dashboard/AppSidebar.tsx` — Account Settings navigation item added
+- `src/pages/Dashboard.tsx` — AccountSettings section wired
+
+### Checks Run
+
+- `npm run build` ✅ (7.61s, clean, no TypeScript errors)
+- `npm run lint` ✅ (0 errors, warnings only — pre-existing)
+
+### Owner Actions Required (Cannot Be Code-Implemented)
+
+**Deploy edge functions** (via Supabase CLI):
+- email-unsubscribe (NEW)
+- delete-account (NEW)
+- handle-call (updated — critical security fix)
+- clip-callback (updated — security fix)
+- webhook-proxy (updated — security fix)
+- send-message (updated — CAN-SPAM)
+- debug-template (updated)
+- create-template (updated)
+- federal-contracting (updated)
+- grant-intel (updated)
+- grant-consultant (updated)
+
+**Apply DB migration**:
+- `supabase/migrations/20260907000001_compliance_fixes.sql`
+
+**Physical address**: Confirm the Wyoming registered-agent address (`1309 Coffeen Avenue STE 1200, Sheridan, WY 82801`) in send-message is accurate, or update `PHYSICAL_ADDRESS` constant to actual business address.
+
+**Set Supabase secrets** (if not already set):
+- `KLAP_WEBHOOK_SECRET` — if Klap integration is active
+- `STRIPE_WEBHOOK_SECRET` — for stripe-webhook edge function
+
+**Legal counsel**:
+- Terms of Service arbitration clause and class action waiver review
+- Federal contracting / grant intelligence tool disclaimer review
+
+### Remaining Risks
+
+- No data export endpoint (Privacy Policy section 7 claims portability "where technically feasible")
+- Accessibility (WCAG 2.1 AA) not formally audited
+- No cookie consent banner — likely not needed (no third-party tracking SDKs found) but confirm
+- OpenAI used in handle-call-gather — verify this is disclosed in Terms of Service (currently only in Privacy Policy)
+- Stripe `subscription_status` columns written by stripe-webhook not yet read by check-subscription (caching gap)
+

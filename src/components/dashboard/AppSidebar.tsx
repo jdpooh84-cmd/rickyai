@@ -3,8 +3,8 @@ import {
   Link, UserCircle, BarChart3, Search, ClipboardCheck, Monitor,
   FileText, Video, LayoutGrid, Upload, Users, DollarSign, Check,
   Trophy, MessageSquare, ShoppingBag, Eye, ShieldCheck, Zap, Play, Key, Building2, Compass, TrendingUp,
-  Phone, Inbox, Bot, RefreshCw, Gift, Target, HeartHandshake, CheckSquare, Megaphone,
-  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar, Globe, Brain, Cpu
+  Phone, Inbox, Bot, Gift, Target, HeartHandshake, CheckSquare, Megaphone,
+  FlaskConical, Network, BarChart2, AlertCircle, BookOpen, Calendar, Globe, Brain, Cpu, Settings
 } from "lucide-react";
 import { getLayersForStep, LAYER_META } from "@/lib/optimizationLayers";
 import {
@@ -245,6 +245,25 @@ const AppSidebar = ({ activeStep, completedSteps, onStepClick, activeSection, on
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* Account Settings */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onSectionClick?.("account-settings")}
+                  className={`cursor-pointer transition-all ${activeSection === "account-settings" ? "bg-primary/10 text-primary border-l-2 border-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"}`}
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <Settings className={`w-5 h-5 flex-shrink-0 ${activeSection === "account-settings" ? "text-primary" : ""}`} />
+                    {!collapsed && <span className="text-sm font-medium">Account Settings</span>}
+                  </div>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         {isAdmin && (
           <SidebarGroup>

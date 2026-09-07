@@ -53,6 +53,7 @@ import ProfitYield from "@/components/dashboard/ProfitYield";
 import LandingPages from "@/components/dashboard/LandingPages";
 import HealthMonitor from "@/components/dashboard/HealthMonitor";
 import ExecutiveBrief from "@/components/dashboard/ExecutiveBrief";
+import AccountSettings from "@/components/dashboard/AccountSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBusinessData } from "@/hooks/useBusinessData";
 import { useEntitlement } from "@/hooks/useEntitlement";
@@ -219,6 +220,7 @@ const Dashboard = () => {
     if (activeSection === "profit-yield") return <ProfitYield businessId={selectedBusiness} />;
     if (activeSection === "health") return <HealthMonitor businessId={selectedBusiness} />;
     if (activeSection === "landing-pages") return <LandingPages businessId={selectedBusiness} />;
+    if (activeSection === "account-settings") return <AccountSettings />;
 
     // Helper: render step content only if the user's plan allows it
     const gated = (stepNum: number, stepName: string, content: React.ReactNode) => {
