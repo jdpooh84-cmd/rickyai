@@ -4101,3 +4101,93 @@ Before final answer, confirm:
 - Lessons saved to LESSONS.md
 - Contracts preserved per CONTRACTS.md
 
+
+## Stop Reminder — 2026-09-07T19:39:41Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
+
+## Post-Edit Check — 2026-09-07T20:57:53Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T20:58:04Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-07T20:58:13Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+
+---
+
+## Session: 2026-09-07 — Security Bug Fixes (constant-time HMAC, Stripe customer deletion)
+
+### What was fixed
+
+**Bug 1 — handle-call timing oracle (SECURITY)**
+- File: `supabase/functions/handle-call/index.ts`
+- Root cause: `computed === twilioSig` compared two Base64 strings with JavaScript `===`, which is not constant-time. A timing oracle allows an attacker to forge Twilio request signatures by measuring response latency across many requests.
+- Fix: Added `constantTimeEqual(Uint8Array, Uint8Array)` that XORs every byte pair without early exit. The incoming Base64 signature is decoded to raw bytes first via `atob()`. Invalid Base64 input returns `false` (reject). HMAC raw bytes (not Base64) are compared.
+- Status: IMPLEMENTED. NOT TESTED in production (requires live Twilio delivery to verify timing behavior).
+
+**Bug 2 — delete-account Stripe customer not deleted (PRIVACY / GDPR)**
+- File: `supabase/functions/delete-account/index.ts`
+- Root cause: `stripe_customer_id` was selected from `profiles` but never passed to any Stripe deletion call. The Stripe customer object (email, name, payment methods, invoice history) persisted indefinitely after "account deletion."
+- Fix: After cancelling the subscription, call `stripe.customers.del(profile.stripe_customer_id)` in a separate try/catch block. Non-blocking: a Stripe failure logs a warning but does not prevent the Supabase user deletion.
+- PROFESSIONAL REVIEW FLAG: If accounting/tax policy requires retaining the Stripe customer object, replace `.del()` with customer anonymization. Stripe internally retains financial records for legal compliance even after customer deletion.
+- Status: IMPLEMENTED. NOT TESTED in production.
+
+**Comment fix — delete-account header**
+- Removed the unverified claim "Complies with GDPR Art. 17, CCPA" from the function header comment.
+- Replaced with factual description of what the code actually does.
+
+### What was not changed
+- Cascade behavior for `auth.users` → `businesses` → FK-linked rows: unchanged, already in place.
+- `audit_logs` orphaning after deletion: known gap, owner/legal decision required before changing.
+- External system logs (Twilio call logs, SendGrid email logs): NOT deleted on account deletion — external systems, no API calls exist.
+
+### Checks run
+- `npm run build` ✅ clean, no TypeScript errors
+
+### Remaining risks (as of this session end)
+1. Existing users `email_marketing_opt_in = true`: ALL existing users remain opted-in from the DEFAULT TRUE column definition in migration 20260325165402. The compliance migration (20260907000001) only fixes new signups. OWNER DECISION REQUIRED: backfill to false or add a re-consent UI.
+2. Unsubscribe-by-reply fallback in `send-message`: The text "To unsubscribe, reply UNSUBSCRIBE" appears when no token is available, but no monitored inbox or inbound parse webhook exists. This fallback is CAN-SPAM non-compliant if the mechanism is not functional. OWNER INPUT REQUIRED.
+3. WCAG 2.1 AA accessibility: not audited this session.
+4. Data portability/export endpoint: not implemented.
+5. TCPA documentation: no TCPA consent records exist in the codebase or schema for SMS recipients. PROFESSIONAL REVIEW REQUIRED.
+6. Twilio URL reconstruction in `validateTwilioSignature`: uses `req.url` which may differ from the URL Twilio signed if behind a proxy. VERIFICATION REQUIRED in production.
+
+### Lessons added
+- See LESSONS.md: "constant-time comparison" rule — never use `===` for HMAC or token comparison; always compare raw bytes via XOR loop.
+- See LESSONS.md: "Stripe customer deletion" — fetching `stripe_customer_id` is not the same as using it.
+

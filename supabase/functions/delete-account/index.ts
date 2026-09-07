@@ -1,5 +1,7 @@
 // delete-account — hard-deletes the authenticated user's account and associated data.
-// Complies with GDPR Art. 17, CCPA, and Privacy Policy retention commitment.
+// Cancels Stripe subscription, deletes Stripe customer, then deletes auth.users row
+// (which CASCADE-deletes businesses, contacts, jobs, and all FK-linked rows).
+// External systems (Twilio, SendGrid) retain their own logs — see LESSONS.md.
 // verify_jwt = true (default) — requires a valid authenticated session.
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import Stripe from "npm:stripe@18.5.0";
@@ -59,14 +61,29 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (stripeKey && profile?.stripe_subscription_id) {
+    const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" }) : null;
+
+    if (stripe && profile?.stripe_subscription_id) {
       try {
-        const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
         await stripe.subscriptions.cancel(profile.stripe_subscription_id);
         console.log(`[delete-account] Cancelled Stripe subscription ${profile.stripe_subscription_id}`);
       } catch (stripeErr) {
         // Log but don't block account deletion if Stripe cancel fails
         console.warn(`[delete-account] Stripe cancel warning:`, String(stripeErr));
+      }
+    }
+
+    // Delete the Stripe customer object (removes email, name, payment methods).
+    // Stripe retains its own financial records internally for legal/tax purposes
+    // even after customer deletion — this is Stripe's compliance, not ours.
+    // PROFESSIONAL REVIEW: if accounting retention policy requires keeping the
+    // customer object, replace this with customer anonymization instead.
+    if (stripe && profile?.stripe_customer_id) {
+      try {
+        await stripe.customers.del(profile.stripe_customer_id);
+        console.log(`[delete-account] Deleted Stripe customer ${profile.stripe_customer_id}`);
+      } catch (stripeErr) {
+        console.warn(`[delete-account] Stripe customer delete warning:`, String(stripeErr));
       }
     }
 

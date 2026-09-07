@@ -123,3 +123,22 @@ Claude must read this file before planning major work.
 - Do not leave final implementation only in chat — save it to the repo.
 - Do not assume a Supabase project ref, Stripe account, or price ID is correct — verify it.
 - Do not use `esm.sh` URLs in edge function imports — use `npm:` specifiers.
+
+---
+
+### Lesson: HMAC comparisons must use constant-time byte comparison, not string ===
+- **Problem**: `handle-call/index.ts` compared Base64-encoded HMAC output with `computed === twilioSig` using JavaScript's built-in string equality, which short-circuits on the first differing character. This is a timing oracle: an attacker can forge signatures by measuring response latency across many crafted requests.
+- **Bad pattern**: `return computed === twilioSig;` (comparing Base64 strings)
+- **Better pattern**: Decode both values to `Uint8Array`, then XOR every byte pair without early exit: `let diff = 0; for (...) diff |= a[i] ^ b[i]; return diff === 0;`
+- **Applies to**: Every HMAC, token, or secret comparison in any edge function or backend code. The same applies to webhook secrets (Stripe, Twilio, Klap, Creatomate, etc.).
+- **Date added**: 2026-09-07
+
+---
+
+### Lesson: Fetching a field in a SELECT is not the same as using it
+- **Problem**: `delete-account/index.ts` selected `stripe_customer_id` from `profiles` but the variable was never used. The Stripe customer record (email, name, payment methods) persisted permanently after "account deletion," creating a GDPR Art. 17 gap.
+- **Bad pattern**: `SELECT stripe_subscription_id, stripe_customer_id ... ` then only using `stripe_subscription_id`. Code review will not catch this without actually tracing every selected column through to its use site.
+- **Better pattern**: After writing any Stripe/external-system deletion flow, enumerate every piece of PII the user has on that platform and verify each has a deletion or anonymization call. Add a comment documenting what is and is not deleted.
+- **Applies to**: Any account deletion, data export, or right-to-erasure flow that interacts with external services (Stripe, Twilio, SendGrid, etc.).
+- **Date added**: 2026-09-07
+
