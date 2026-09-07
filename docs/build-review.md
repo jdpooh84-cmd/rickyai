@@ -4191,3 +4191,15 @@ Before claiming completion, verify:
 - See LESSONS.md: "constant-time comparison" rule — never use `===` for HMAC or token comparison; always compare raw bytes via XOR loop.
 - See LESSONS.md: "Stripe customer deletion" — fetching `stripe_customer_id` is not the same as using it.
 
+
+## Stop Reminder — 2026-09-07T21:01:37Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
