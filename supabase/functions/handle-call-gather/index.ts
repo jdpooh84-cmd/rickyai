@@ -12,6 +12,14 @@ function twimlResponse(twiml: string): Response {
   return new Response(twiml, { headers: { "Content-Type": "text/xml" } });
 }
 
+// XOR every byte pair with no early exit — prevents timing oracle on HMAC comparison.
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
 async function validateTwilioSignature(req: Request, body: string): Promise<boolean> {
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
   if (!authToken) return false;
@@ -33,8 +41,18 @@ async function validateTwilioSignature(req: Request, body: string): Promise<bool
     ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(str));
-  const computed = btoa(String.fromCharCode(...new Uint8Array(sig)));
-  return computed === twilioSig;
+  const computedBytes = new Uint8Array(sig);
+
+  // Decode incoming signature from Base64 to bytes for constant-time comparison.
+  // Comparing Base64 strings with === is not constant-time and leaks via timing.
+  let twilioSigBytes: Uint8Array;
+  try {
+    twilioSigBytes = Uint8Array.from(atob(twilioSig), (c) => c.charCodeAt(0));
+  } catch {
+    return false;
+  }
+
+  return constantTimeEqual(computedBytes, twilioSigBytes);
 }
 
 const BOOKING_KEYWORDS = ["book", "appointment", "schedule", "reserve", "available", "availability", "slot", "meeting"];
