@@ -70,7 +70,7 @@ const AdBanner = ({ placementType, userIndustry, userNiche, userLocation }: AdBa
   if (placementType === "sidebar") {
     return (
       <div className="p-4 rounded-xl bg-card border border-border/60 relative group">
-        <button onClick={() => setDismissed(true)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button aria-label="Dismiss ad" onClick={() => setDismissed(true)} className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <X className="w-3 h-3 text-muted-foreground" />
         </button>
         <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider mb-2">Sponsored</p>
@@ -86,7 +86,7 @@ const AdBanner = ({ placementType, userIndustry, userNiche, userLocation }: AdBa
 
   return (
     <div className="p-3 rounded-lg bg-card/50 border border-border/40 flex items-center gap-3 relative group">
-      <button onClick={() => setDismissed(true)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button aria-label="Dismiss ad" onClick={() => setDismissed(true)} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <X className="w-3 h-3 text-muted-foreground" />
       </button>
       <p className="text-[10px] text-muted-foreground/50 uppercase">Sponsored</p>

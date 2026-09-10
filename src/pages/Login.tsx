@@ -46,8 +46,9 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
+              <label htmlFor="login-email" className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
               <input
+                id="login-email"
                 type="email"
                 name="email"
                 autoComplete="email"
@@ -59,9 +60,10 @@ const Login = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
+              <label htmlFor="login-password" className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
               <div className="relative">
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   name="password"
                   autoComplete="current-password"
@@ -73,6 +75,7 @@ const Login = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >

@@ -135,8 +135,9 @@ const Signup = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Your Name</label>
+              <label htmlFor="signup-name" className="text-sm font-medium text-foreground mb-1.5 block">Your Name</label>
               <input
+                id="signup-name"
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -146,8 +147,9 @@ const Signup = () => {
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
+              <label htmlFor="signup-email" className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
               <input
+                id="signup-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -161,9 +163,10 @@ const Signup = () => {
               )}
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
+              <label htmlFor="signup-password" className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
               <div className="relative">
                 <input
+                  id="signup-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -173,6 +176,7 @@ const Signup = () => {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
