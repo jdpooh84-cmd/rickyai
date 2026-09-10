@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-const LAST_UPDATED = "September 7, 2026";
+const LAST_UPDATED = "September 10, 2026";
 const COMPANY = "Ricky AI, LLC";
 const EMAIL = "privacy@rickyai.com";
 const SITE = "https://rickyai.com";
@@ -42,6 +42,7 @@ export default function PrivacyPolicy() {
               <li>Content you create: scripts, videos, campaign copy, business knowledge</li>
               <li>Contacts and customers you import or enter into the CRM</li>
               <li>Communications you send through the messaging features</li>
+              <li>Third-party API keys you provide to use your own AI or service accounts (stored encrypted at rest)</li>
             </ul>
 
             <h3 className="font-semibold mt-4 mb-2">2.2 Information collected automatically</h3>
@@ -68,7 +69,7 @@ export default function PrivacyPolicy() {
               <li>To send transactional emails (account, billing, security alerts)</li>
               <li>To provide customer support</li>
               <li>To enforce our Terms of Service and prevent abuse</li>
-              <li>To generate aggregate, anonymized analytics that improve the AI models powering the Service</li>
+              <li>To generate aggregate, anonymized analytics that improve the Service</li>
               <li>To comply with legal obligations</li>
             </ul>
             <p className="mt-3">
@@ -83,7 +84,7 @@ export default function PrivacyPolicy() {
               We share data with vendors who help us deliver the Service, including Supabase (infrastructure
               and database), Stripe (payments), Twilio (telephony and SMS), SendGrid (transactional email),
               Creatomate (video rendering), Klap (AI video clip generation), OpenAI and Anthropic (AI language
-              models), Google (text-to-speech), Pexels (stock media), and Vercel (hosting). Each provider
+              models), Google (text-to-speech), ElevenLabs (AI voice synthesis), Pexels (stock media), and Vercel (hosting). Each provider
               processes data only as directed by us and is bound by contractual data protection obligations.
               When you connect your own API keys (Bring Your Own AI), your data is sent directly to the
               provider you choose under that provider's privacy policy.
@@ -115,7 +116,7 @@ export default function PrivacyPolicy() {
           <Section title="6. Security">
             <p>
               We implement technical and organizational safeguards appropriate to the sensitivity of the data
-              we process, including encryption in transit (TLS) and at rest (AES-256), role-based access
+              we process, including encryption in transit (TLS) and at rest (AES-256-GCM), role-based access
               controls, row-level security in the database, and API key encryption. No system is perfectly
               secure. If you suspect unauthorized access to your account, contact us immediately at{" "}
               <a href={`mailto:${EMAIL}`}>{EMAIL}</a>.
