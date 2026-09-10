@@ -4616,3 +4616,15 @@ Before claiming completion, verify:
 - MIGRATE_KEYS_SECRET not set — migrate-plaintext-keys cannot run
 - OG social image is suboptimal (512×512 vs recommended 1200×630)
 - Legacy dead functions still deployed (generate-video, etc.) — no risk but added surface area
+
+## Stop Reminder — 2026-09-10T13:01:26Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
