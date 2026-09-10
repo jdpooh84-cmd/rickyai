@@ -4249,3 +4249,211 @@ Before final answer, confirm:
 - Lessons saved to LESSONS.md
 - Contracts preserved per CONTRACTS.md
 
+
+## Stop Reminder — 2026-09-07T21:51:46Z
+
+Before final answer, confirm:
+- Files changed
+- Checks run (npm run build, typecheck, lint)
+- Bugs found
+- Bugs fixed
+- Remaining risks
+- Lessons saved to LESSONS.md
+- Contracts preserved per CONTRACTS.md
+
+
+## Post-Edit Check — 2026-09-10T12:47:40Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:47:41Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:47:52Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:47:57Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:47:59Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:48:19Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:48:32Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:48:50Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:49:03Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:49:51Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:50:30Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:51:18Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:51:21Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:51:22Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+---
+
+## Session: 2026-09-10 — Phase 0–4 Production Readiness (Security Headers, Encryption, Performance)
+
+### What worked
+- Security headers added to vercel.json (CSP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options)
+- Viewport accessibility fix: removed `user-scalable=no` and `maximum-scale=1.0` (WCAG 1.4.4)
+- OG/Twitter metadata fixed: "13-step" corrected to "15-step" across index.html and vite.config.ts (PWA manifest)
+- Added og:url, og:site_name, twitter:title, twitter:description
+- robots.txt rewritten with Disallow for /app, /admin, /reset-password, /forgot-password, /demo/
+- public/sitemap.xml created with canonical public routes (/, /terms, /privacy)
+- Route-level code splitting via lazy() in App.tsx: main initial bundle 1,327 KB → 189 KB
+- Dashboard lazy-loaded (465 KB separate chunk — only loaded after auth)
+- Vendor chunks split: react, query, ui, supabase
+- Created `supabase/functions/migrate-plaintext-keys/index.ts` — admin-only endpoint to re-encrypt v0-plaintext API keys
+- Fixed stale `src/integrations/supabase/types.ts` — added api_key_masked, key_iv, key_version columns missing after encryption migration
+- Disabled broken 9-byte PDF download in VideoStudioStep (handleDownloadGuide set to undefined)
+- Added 9 credential-service unit tests proving: encrypt differs from plaintext, round-trip, random IV, tamper detection, wrong key rejection, masking, v0-plaintext detection
+- All 82 tests pass
+
+### What failed / risks remain
+- CSP `unsafe-inline` and `unsafe-eval` in script-src — needed for Vite/React production build; can be tightened with nonce-based approach in future
+- migrate-plaintext-keys requires MIGRATE_KEYS_SECRET to be set as a Supabase secret before it will run
+- Dashboard chunk (465 KB) still large; further splitting requires refactoring into per-step chunks
+- RickyAI-Video-Studio-Guide.pdf is 9 bytes — a real PDF needs to be created and placed at public/RickyAI-Video-Studio-Guide.pdf
+
+### Checks run
+- `npm run lint` — 0 errors, 170 warnings (all pre-existing)
+- `npm run test` — 82 tests pass (6 test files)
+- `npm run build` — successful; initial chunk 189 KB (down from 1,327 KB)
+
+### Owner actions required
+- Set MIGRATE_KEYS_SECRET as a Supabase secret: `supabase secrets set MIGRATE_KEYS_SECRET=<random-secret>`
+- Call migrate-plaintext-keys POST endpoint with header `x-migrate-secret: <secret>` to re-encrypt legacy plaintext API keys
+- Provide real PDF content for public/RickyAI-Video-Studio-Guide.pdf
+- Apply 3 unapplied migrations to production: 20260904000001, 20260904000002, 20260907000001
+- Verify USER_API_KEY_ENCRYPTION_SECRET is set as a Supabase secret
+- Verify RECONCILE_SECRET is set as a Supabase secret
+- Deploy updated edge functions: migrate-plaintext-keys
+- Confirm Vercel is deploying from this branch after PR merge
+

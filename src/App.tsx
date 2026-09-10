@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,18 +9,20 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import TermsAcceptanceGate from "@/components/auth/TermsAcceptanceGate";
 import BanCheck from "@/components/auth/BanCheck";
+// Eagerly loaded — small and needed on first paint
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
 import Signup from "./pages/Signup.tsx";
-import ForgotPassword from "./pages/ForgotPassword.tsx";
-import ResetPassword from "./pages/ResetPassword.tsx";
-import Dashboard from "./pages/Dashboard.tsx";
-import AdminDashboard from "./pages/AdminDashboard.tsx";
-import TermsOfService from "./pages/TermsOfService.tsx";
-import PrivacyPolicy from "./pages/PrivacyPolicy.tsx";
-import InstallApp from "./pages/InstallApp.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import DemoVideoShowcase from "./pages/DemoVideoShowcase.tsx";
+// Lazy loaded — heavy routes that only a fraction of page-loads need
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard.tsx"));
+const TermsOfService = lazy(() => import("./pages/TermsOfService.tsx"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy.tsx"));
+const InstallApp = lazy(() => import("./pages/InstallApp.tsx"));
+const DemoVideoShowcase = lazy(() => import("./pages/DemoVideoShowcase.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,7 @@ const App = () => {
         <Sonner />
         <AuthProvider>
           <BrowserRouter>
+            <Suspense fallback={null}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/index" element={<Index />} />
@@ -69,6 +73,7 @@ const App = () => {
               <Route path="/demo/donatos" element={<DemoVideoShowcase />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </AuthProvider>
       </TooltipProvider>

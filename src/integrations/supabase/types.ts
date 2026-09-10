@@ -1277,27 +1277,36 @@ export type Database = {
       user_api_keys: {
         Row: {
           api_key_encrypted: string
+          api_key_masked: string | null
           created_at: string
           id: string
           is_valid: boolean | null
+          key_iv: string | null
+          key_version: string | null
           provider: string
           updated_at: string
           user_id: string
         }
         Insert: {
           api_key_encrypted: string
+          api_key_masked?: string | null
           created_at?: string
           id?: string
           is_valid?: boolean | null
+          key_iv?: string | null
+          key_version?: string | null
           provider: string
           updated_at?: string
           user_id: string
         }
         Update: {
           api_key_encrypted?: string
+          api_key_masked?: string | null
           created_at?: string
           id?: string
           is_valid?: boolean | null
+          key_iv?: string | null
+          key_version?: string | null
           provider?: string
           updated_at?: string
           user_id?: string

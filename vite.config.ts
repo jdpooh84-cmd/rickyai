@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
       manifest: {
         name: "RickyAI — Your AI Marketing Department",
         short_name: "RickyAI",
-        description: "AI-powered 13-step growth system for local business owners",
+        description: "AI-powered 15-step growth system for local business owners",
         theme_color: "#0f172a",
         background_color: "#0f172a",
         display: "standalone",
@@ -57,5 +57,18 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
     dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query"],
+          "vendor-forms": ["react-hook-form", "zod"],
+          "vendor-ui": ["recharts", "react-markdown", "lucide-react"],
+          "vendor-supabase": ["@supabase/supabase-js"],
+        },
+      },
+    },
   },
 }));

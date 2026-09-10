@@ -71,3 +71,9 @@ verify_jwt = false
 # Security: token is a cryptographically random UUID per contact row.
 [functions.email-unsubscribe]
 verify_jwt = false
+
+# migrate-plaintext-keys is an admin-only one-time migration function.
+# No JWT — uses MIGRATE_KEYS_SECRET header for authentication instead.
+# Must never be exposed to browsers.
+[functions.migrate-plaintext-keys]
+verify_jwt = false

@@ -351,12 +351,9 @@ const VideoStudioStep = ({ businessId, locationId, onComplete }: Props) => {
     }
   };
 
-  const handleDownloadGuide = () => {
-    const link = document.createElement('a');
-    link.href = '/RickyAI-Video-Studio-Guide.pdf';
-    link.download = 'RickyAI-Video-Studio-Guide.pdf';
-    link.click();
-  };
+  // Video Studio Guide PDF is not yet available — button is intentionally disabled.
+  // Replace public/RickyAI-Video-Studio-Guide.pdf with a real PDF to re-enable.
+  const handleDownloadGuide = undefined;
 
   return (
     <StepLayout title="Video Studio" description="Produce a professional video for your business"
