@@ -4512,3 +4512,107 @@ Before claiming completion, verify:
 - Did this create a durable lesson for LESSONS.md?
 - Are edge function imports using npm: specifiers (not esm.sh)?
 
+
+## Post-Edit Check — 2026-09-10T12:58:56Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:59:09Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:59:17Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:59:28Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T12:59:32Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+## Post-Edit Check — 2026-09-10T13:00:14Z
+
+Before claiming completion, verify:
+- Did this touch protected contracts in CONTRACTS.md?
+- Did this introduce duplication?
+- Did this weaken auth, billing, validation, or error handling?
+- Did this require tests, lint, typecheck, or build?
+- Did this create a durable lesson for LESSONS.md?
+- Are edge function imports using npm: specifiers (not esm.sh)?
+
+
+---
+
+## Session: 2026-09-10 — Production-readiness audit (Phases 1–15)
+
+### What was done
+- **Phase 1 (Security)**: AES-256-GCM encryption verified working; `migrate-plaintext-keys` edge function created for v0-plaintext re-encryption; `user_api_keys` TypeScript types updated to include `api_key_masked`, `key_iv`, `key_version`
+- **Phase 2 (Privacy Policy)**: Fixed four material data-accuracy issues — ElevenLabs added to processor list (§4.1), BYO API keys added to collected data (§2.1), "AES-256" corrected to "AES-256-GCM" (§6), ambiguous AI model training language clarified (§3)
+- **Phase 3 (Terms)**: Verified correct — version-row based acceptance via tos_acceptances table; no changes needed
+- **Phase 4 (Security headers)**: Full CSP, HSTS, X-Frame-Options, Referrer-Policy, Permissions-Policy applied in vercel.json
+- **Phase 5 (Cookie consent)**: Inventory complete — all storage is strictly necessary (auth, UI state); no consent banner required
+- **Phase 6 (SEO metadata)**: sitemap.xml, robots.txt, og:url, og:site_name, twitter:title added; OG description corrected from "13-step" to "15-step"
+- **Phase 7 (Social preview)**: OG/Twitter image is 512×512 PWA icon — mismatched for summary_large_image; a 1200×630 marketing image is needed (owner action required)
+- **Phase 8 (PWA)**: PWA manifest description corrected "13-step" → "15-step"; route-based code splitting added; initial bundle 1327KB → 189KB
+- **Phase 10 (Accessibility)**: Fixed WCAG 2.2 AA failures — Login/Signup htmlFor+id label associations; password toggle aria-labels; AdBanner dismiss button aria-labels; NotFound Link/title fixes; viewport user-scalable=no removed
+- **Phase 15 (404)**: Fixed `<a href>` → `<Link to>` in NotFound to avoid full page reload; added document.title management
+- **Phase 25 (Legacy)**: generate-video, webhook-proxy, create-template, debug-template confirmed not called by any frontend code — flagged for owner decision on deletion
+
+### Auth fix
+- `get-signed-video-url`: Replaced deprecated service-role + getUser(token) pattern with correct anon client + Authorization header pattern
+
+### What was not done (out of scope or requires owner action)
+- Phase 7: Real 1200×630 OG social preview image (requires graphic design)
+- Phase 18: Rate limiting (requires Supabase or upstream proxy config)
+- Phase 19: Production error observability (Sentry/Datadog config)
+- Phase 21: E2E Playwright tests
+- Phase 23: Full RLS audit (requires DB access)
+- Legacy edge function deletion (requires owner approval)
+
+### Checks run
+- `npm run build` — ✅ clean
+- `npm run test` — ✅ 82/82 tests pass
+
+### Risks remaining
+- 3 DB migrations not applied to production: 20260904000001, 20260904000002, 20260907000001
+- MIGRATE_KEYS_SECRET not set — migrate-plaintext-keys cannot run
+- OG social image is suboptimal (512×512 vs recommended 1200×630)
+- Legacy dead functions still deployed (generate-video, etc.) — no risk but added surface area
